@@ -1,0 +1,8 @@
+node_modules/
+.env
+temp/
+database/downloader.json
+database/playlists.json
+*.log
+cookies.txt
+.DS_Store

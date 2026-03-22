@@ -1,0 +1,7 @@
+# Netscape HTTP Cookie File
+# This is a sample cookies file for yt-dlp. 
+# Export your cookies from your browser (e.g. Chrome, Firefox) using an extension 
+# like "Get cookies.txt LOCALLY" and save it as cookies.txt in this directory.
+
+# Example format:
+# .youtube.com	TRUE	/	TRUE	1234567890	CONSENT	YES+cb.20210328-17-p0.en+FX+999
