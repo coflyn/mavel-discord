@@ -82,11 +82,20 @@ function getCookiesArgs() {
 
 function getVpsArgs() {
   const isMac = process.platform === "darwin";
-  const userAgent = isMac
-    ? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
-    : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36";
+  const userAgent =
+    isMac
+      ? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
+      : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 
-  const clients = ["tv", "mweb", "ios"];
+  const clients = process.env.YT_PLAYER_CLIENTS || "tv,mweb,ios";
+  const extractorArgs = [`player_client=${clients}`];
+
+  if (process.env.YT_PO_TOKEN) {
+    extractorArgs.push(`po_token=${process.env.YT_PO_TOKEN}`);
+  }
+  if (process.env.YT_VISITOR_DATA) {
+    extractorArgs.push(`visitor_data=${process.env.YT_VISITOR_DATA}`);
+  }
 
   const args = [
     "--no-mtime",
@@ -95,26 +104,12 @@ function getVpsArgs() {
     process.env.YT_USER_AGENT || userAgent,
     "--no-check-certificate",
     "--extractor-args",
-    `youtube:player_client=${clients.join(",")}`,
+    `youtube:${extractorArgs.join(";")}`,
     "--add-header",
     "Accept-Language:id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
     "--referer",
     "https://www.youtube.com/",
   ];
-
-  if (process.env.YT_PO_TOKEN) {
-    args.push(
-      "--extractor-args",
-      `youtube:po_token=${process.env.YT_PO_TOKEN}`,
-    );
-  }
-
-  if (process.env.YT_PLAYER_CLIENTS) {
-    const idx = args.indexOf("--extractor-args");
-    if (idx !== -1 && args[idx + 1].startsWith("youtube:player_client=")) {
-      args[idx + 1] = `youtube:player_client=${process.env.YT_PLAYER_CLIENTS}`;
-    }
-  }
 
   return args;
 }

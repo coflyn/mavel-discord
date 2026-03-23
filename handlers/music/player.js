@@ -7,7 +7,10 @@ const {
   VoiceConnectionStatus,
   getVoiceConnection,
 } = require("@discordjs/voice");
+const { EmbedBuilder, ActivityType } = require("discord.js");
 const { spawn } = require("child_process");
+const path = require("path");
+const fs = require("fs");
 const {
   getYtDlp,
   getDlpEnv,
@@ -15,7 +18,8 @@ const {
   getVpsArgs,
   getJsRuntimeArgs,
 } = require("../../utils/dlp-helpers");
-const ffmpegStatic = require("ffmpeg-static");
+const CACHE_DIR = path.join(__dirname, "../../temp/cache");
+if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 
 class MusicPlayer {
   constructor() {
@@ -34,6 +38,7 @@ class MusicPlayer {
         aloneTimer: null,
         repeatMode: "off",
         shuffle: false,
+        isStarting: false,
       });
     }
     return this.queues.get(guildId);
@@ -99,8 +104,16 @@ class MusicPlayer {
       });
     }
 
-    if (state.player.state.status === AudioPlayerStatus.Idle) {
-      this.playNext(guildId);
+    if (
+      state.player.state.status === AudioPlayerStatus.Idle &&
+      !state.isStarting
+    ) {
+      state.isStarting = true;
+      try {
+        await this.playNext(guildId);
+      } finally {
+        state.isStarting = false;
+      }
       if (isInteraction) {
         setTimeout(() => target.deleteReply().catch(() => {}), 2000);
       }
@@ -113,6 +126,51 @@ class MusicPlayer {
         setTimeout(() => target.deleteReply().catch(() => {}), 3000);
       } else {
         target.reply(msg);
+      }
+    }
+  }
+
+  async playBatch(target, tracks) {
+    const isInteraction = !!target.isChatInputCommand;
+    const guildId = target.guild.id;
+    const voiceChannel = target.member.voice.channel;
+    const author = isInteraction ? target.user : target.author;
+
+    if (!voiceChannel) throw new Error("No voice channel");
+
+    const state = this.getQueue(guildId);
+    state.channel = target.channel;
+
+    for (const t of tracks) {
+      state.queue.push({
+        url: t.url,
+        title: t.title || "Track",
+        requestedBy: author.id,
+      });
+    }
+
+    if (!state.connection) {
+      state.connection = joinVoiceChannel({
+        channelId: voiceChannel.id,
+        guildId: target.guild.id,
+        adapterCreator: target.guild.voiceAdapterCreator,
+      });
+      state.connection.subscribe(state.player);
+      state.connection.on(VoiceConnectionStatus.Disconnected, () =>
+        this.stop(guildId),
+      );
+      state.player.on(AudioPlayerStatus.Idle, () => this.playNext(guildId));
+    }
+
+    if (
+      state.player.state.status === AudioPlayerStatus.Idle &&
+      !state.isStarting
+    ) {
+      state.isStarting = true;
+      try {
+        await this.playNext(guildId);
+      } finally {
+        state.isStarting = false;
       }
     }
   }
@@ -144,6 +202,11 @@ class MusicPlayer {
           recheckState.player.state.status === AudioPlayerStatus.Idle
         ) {
           this.stop(guildId);
+          if (recheckState.channel) {
+            recheckState.channel.client.user.setActivity("/help | MaveL", {
+              type: ActivityType.Playing,
+            });
+          }
         }
       }, 30000);
       return;
@@ -164,8 +227,7 @@ class MusicPlayer {
       const ytArgs = [
         "--buffer-size",
         "16K",
-        "-e",
-        "-g",
+        "-j",
         "-f",
         "140/bestaudio[ext=m4a]/bestaudio/best",
         "--no-playlist",
@@ -182,51 +244,165 @@ class MusicPlayer {
       ytProcess.stderr.on("data", (d) => (err += d));
       await new Promise((r) => ytProcess.on("close", r));
 
-      const lines = out
-        .trim()
-        .split("\n")
-        .filter((l) => l.trim());
-      const realTitle = lines[0] || track.title;
-      const streamUrl = lines[1] || lines[0];
+      const lines = out.trim().split("\n");
+      const jsonLine = lines.find((l) => l.trim().startsWith("{"));
+      if (!jsonLine) {
+        console.error(`[MUSIC-DLP] Stderr Output on failure: ${err.trim()}`);
+        console.error(`[MUSIC-DLP] Stdout Output on failure: ${out.trim()}`);
+        throw new Error("No metadata JSON found in yt-dlp output");
+      }
+      const info = JSON.parse(jsonLine);
+      const finalTitle =
+        track.title && track.title !== "videoplayback"
+          ? track.title
+          : info.title || "---";
+      state.current = { ...info, ...track, title: finalTitle };
+      const streamUrl = info.url;
 
       if (!streamUrl || !streamUrl.startsWith("http")) {
         console.error(`[MUSIC-DLP] Failed for: ${track.title}`);
-        console.error(`[MUSIC-DLP] Command Args: ${ytArgs.join(" ")}`);
-        console.error(`[MUSIC-DLP] Stderr Output: ${err.trim()}`);
         throw new Error("Could not fetch stream URL");
       }
 
-      const ffmpegProcess = spawn(ffmpegStatic, [
-        "-re",
-        "-i",
-        streamUrl,
-        "-f",
-        "s16le",
-        "-ar",
-        "48000",
-        "-ac",
-        "2",
-        "-af",
-        "volume=1.0",
-        "pipe:1",
-      ]);
+      const trackId =
+        track.id || Buffer.from(track.url).toString("base64").substring(0, 16);
+      const cachePath = path.join(CACHE_DIR, `${trackId}.s16le`);
+      let bufferingMsg = null;
 
-      const resource = createAudioResource(ffmpegProcess.stdout, {
+      if (state.channel) {
+        bufferingMsg = await state.channel
+          .send({
+            embeds: [
+              this.getNowPlayingEmbed(
+                guildId,
+                fs.existsSync(cachePath)
+                  ? "🚀 Instant Sync Active"
+                  : "Inbound Transmission (Buffering...)",
+              ),
+            ],
+          })
+          .catch(() => null);
+        state.lastNowPlayingMsg = bufferingMsg;
+        state.channel.client.user.setActivity(track.title, {
+          type: ActivityType.Listening,
+        });
+      }
+
+      let audioStream;
+      if (fs.existsSync(cachePath)) {
+        audioStream = fs.createReadStream(cachePath);
+      } else {
+        const ytStreamArgs = [
+          "-f",
+          "140/ba/best",
+          "--no-playlist",
+          "--no-cache-dir",
+          "-o",
+          "-",
+          ...getJsRuntimeArgs(),
+          ...getCookiesArgs(),
+          ...getVpsArgs(),
+          track.url,
+        ];
+        const ytStreamProcess = spawn(getYtDlp(), ytStreamArgs, {
+          env: getDlpEnv(),
+        });
+        const ffmpegProcess = spawn("ffmpeg", [
+          "-i",
+          "pipe:0",
+          "-f",
+          "s16le",
+          "-ar",
+          "48000",
+          "-ac",
+          "2",
+          "-af",
+          "volume=1.0",
+          "pipe:1",
+        ]);
+
+        ytStreamProcess.stdout.pipe(ffmpegProcess.stdin);
+        audioStream = ffmpegProcess.stdout;
+
+        if (track.duration && track.duration < 720) {
+          const tmpPath = `${cachePath}.tmp`;
+          const cacheWriter = fs.createWriteStream(tmpPath);
+          ffmpegProcess.stdout.pipe(cacheWriter);
+
+          ffmpegProcess.on("close", (code) => {
+            if (code === 0) {
+              fs.rename(tmpPath, cachePath, (err) => {
+                if (err) console.error(`[CACHE] Rename failed: ${err.message}`);
+              });
+            } else {
+              fs.unlink(tmpPath, () => {});
+            }
+          });
+        }
+      }
+
+      const resource = createAudioResource(audioStream, {
         inputType: StreamType.Raw,
       });
       state.player.play(resource);
 
-      if (state.channel) {
-        const msg = await state.channel
-          .send({
-            content: `*Now playing: ${track.title}*`,
-          })
-          .catch(() => {});
+      if (bufferingMsg) {
+        state.player.once(AudioPlayerStatus.Playing, () => {
+          bufferingMsg
+            .edit({
+              embeds: [
+                this.getNowPlayingEmbed(guildId, "Playback Synchronized"),
+              ],
+            })
+            .catch(() => {});
+        });
       }
     } catch (e) {
       console.error("[MUSIC-PLAY-NEXT] Error:", e.message);
       this.playNext(guildId);
     }
+  }
+
+  getNowPlayingEmbed(guildId, statusOverride = null) {
+    const state = this.queues.get(guildId);
+    if (!state || !state.current) return null;
+
+    const track = state.current;
+    const requester = state.channel.client.users.cache.get(track.requestedBy);
+    const guild = state.channel.guild;
+    const FIRE =
+      guild.emojis.cache.find((e) => e.name === "purple_fire")?.toString() ||
+      "🔥";
+    const LEA =
+      guild.emojis.cache.find((e) => e.name === "lea")?.toString() || "✅";
+    const ARROW =
+      guild.emojis.cache.find((e) => e.name === "arrow")?.toString() || ">";
+
+    const currentStatus = statusOverride || "Playback Synchronized";
+
+    const repeatMode = (state.repeatMode || "OFF").toUpperCase();
+
+    return new EmbedBuilder()
+      .setColor("#1e4d2b")
+      .setAuthor({
+        name: "Audio Stream Active",
+        iconURL: requester?.displayAvatarURL() || undefined,
+      })
+      .setDescription(
+        `### ${FIRE} **Now Streaming**\n` +
+          `${ARROW} **Track:** [${track.title.substring(0, 100)}](<${track.webpage_url || track.url}>)\n` +
+          `${ARROW} **Artist:** *${track.uploader || track.artist || "---"}*\n` +
+          `${ARROW} **Requested by:** <@${track.requestedBy}>\n` +
+          `${ARROW} **Length:** *${track.duration_string || "---"}*\n` +
+          `${ARROW} **Repeat:** *${repeatMode}*\n\n` +
+          `${LEA} **Status:** *${currentStatus}*`,
+      )
+      .setThumbnail(track.thumbnail)
+      .setFooter({
+        text: "MaveL Music Hub",
+        iconURL: state.channel.client.user.displayAvatarURL(),
+      })
+      .setTimestamp();
   }
 
   skip(guildId) {
@@ -241,6 +417,11 @@ class MusicPlayer {
     if (state) {
       if (state.idleTimer) clearTimeout(state.idleTimer);
       if (state.aloneTimer) clearTimeout(state.aloneTimer);
+      if (state.channel) {
+        state.channel.client.user.setActivity("/help | MaveL", {
+          type: ActivityType.Playing,
+        });
+      }
       if (state.connection) state.connection.destroy();
       state.player.stop();
       this.queues.delete(guildId);

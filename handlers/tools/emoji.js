@@ -1,0 +1,285 @@
+const { MessageFlags, EmbedBuilder } = require("discord.js");
+
+module.exports = async function emojiHandler(interaction) {
+  const subcommand = interaction.options.getSubcommand();
+
+  if (subcommand === "add") {
+    return handleAdd(interaction);
+  } else if (subcommand === "delete") {
+    return handleDelete(interaction);
+  } else if (subcommand === "rename") {
+    return handleRename(interaction);
+  } else if (subcommand === "info") {
+    return handleInfo(interaction);
+  } else if (subcommand === "list") {
+    return handleList(interaction);
+  }
+};
+
+async function handleAdd(interaction) {
+  const input = interaction.options.getString("input");
+  const rawName = interaction.options.getString("name");
+
+  const name = rawName.replace(/\s+/g, "_").replace(/[^\w]/g, "");
+
+  if (!name || name.length < 2) {
+    return interaction.reply({
+      content:
+        "*Invalid emoji name. Please use at least 2 alphanumeric characters.*",
+      flags: [MessageFlags.Ephemeral],
+    });
+  }
+
+  if (!interaction.member.permissions.has("ManageGuildExpressions")) {
+    return interaction.reply({
+      content: "*You do not have permission to manage emojis.*",
+      flags: [MessageFlags.Ephemeral],
+    });
+  }
+
+  await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+  let emojiId = input;
+  if (input.includes("/")) {
+    emojiId = input.split("/").pop().split(".")[0];
+  }
+  if (input.includes(":")) {
+    emojiId = input.split(":").pop().replace(">", "");
+  }
+
+  const animatedUrl = `https://cdn.discordapp.com/emojis/${emojiId}.gif?quality=lossless`;
+  const staticUrl = `https://cdn.discordapp.com/emojis/${emojiId}.png?quality=lossless`;
+
+  try {
+    const fetchOptions = {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+      },
+    };
+
+    let response = await fetch(animatedUrl, fetchOptions);
+    if (!response.ok) {
+      response = await fetch(staticUrl, fetchOptions);
+    }
+
+    if (!response.ok) {
+      return interaction.editReply(
+        "*Could not find a valid emoji with that ID or Link.*",
+      );
+    }
+
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
+    const emoji = await interaction.guild.emojis.create({
+      attachment: buffer,
+      name: name,
+    });
+
+    await interaction.editReply(
+      `*Successfully added emoji:* ${emoji.toString()} *as* \`${name}\``,
+    );
+  } catch (err) {
+    console.error("[EMOJI-ADD] Error:", err.message);
+    await interaction.editReply(`*Failed to add emoji: ${err.message}*`);
+  }
+}
+
+async function handleDelete(interaction) {
+  if (!interaction.member.permissions.has("ManageGuildExpressions")) {
+    return interaction.reply({
+      content: "*You do not have permission to manage emojis.*",
+      flags: [MessageFlags.Ephemeral],
+    });
+  }
+
+  const query = interaction.options.getString("query");
+  const emojis = await interaction.guild.emojis.fetch();
+  const target = emojis.find((e) => e.name === query || e.id === query);
+
+  if (!target) {
+    return interaction.reply({
+      content: "*Emoji not found in this server.*",
+      flags: [MessageFlags.Ephemeral],
+    });
+  }
+
+  try {
+    const emojiName = target.name;
+    await target.delete();
+    await interaction.reply({
+      content: `*Successfully deleted emoji:* \`${emojiName}\``,
+      flags: [MessageFlags.Ephemeral],
+    });
+  } catch (err) {
+    await interaction.reply({
+      content: `*Failed to delete emoji: ${err.message}*`,
+      flags: [MessageFlags.Ephemeral],
+    });
+  }
+}
+
+async function handleRename(interaction) {
+  if (!interaction.member.permissions.has("ManageGuildExpressions")) {
+    return interaction.reply({
+      content: "*You do not have permission to manage emojis.*",
+      flags: [MessageFlags.Ephemeral],
+    });
+  }
+
+  const current = interaction.options.getString("current");
+  const newNameRaw = interaction.options.getString("new");
+  const newName = newNameRaw.replace(/\s+/g, "_").replace(/[^\w]/g, "");
+
+  const emojis = await interaction.guild.emojis.fetch();
+  const target = emojis.find((e) => e.name === current || e.id === current);
+
+  if (!target) {
+    return interaction.reply({
+      content: "*Emoji not found in this server.*",
+      flags: [MessageFlags.Ephemeral],
+    });
+  }
+
+  try {
+    const oldName = target.name;
+    await target.setName(newName);
+    await interaction.reply({
+      content: `*Successfully renamed emoji from* \`${oldName}\` *to* \`${newName}\` ${target.toString()}`,
+      flags: [MessageFlags.Ephemeral],
+    });
+  } catch (err) {
+    await interaction.reply({
+      content: `*Failed to rename emoji: ${err.message}*`,
+      flags: [MessageFlags.Ephemeral],
+    });
+  }
+}
+
+async function handleInfo(interaction) {
+  const rawEmoji = interaction.options.getString("emoji");
+  let emojiId = rawEmoji;
+
+  if (rawEmoji.includes(":")) {
+    emojiId = rawEmoji.split(":").pop().replace(">", "");
+  }
+
+  const animatedUrl = `https://cdn.discordapp.com/emojis/${emojiId}.gif?quality=lossless`;
+  const staticUrl = `https://cdn.discordapp.com/emojis/${emojiId}.png?quality=lossless`;
+
+  const fetchOptions = {
+    headers: {
+      "User-Agent": "Mozilla/5.0",
+    },
+  };
+
+  let response = await fetch(animatedUrl, fetchOptions);
+  const isAnimated = response.ok;
+  const finalUrl = isAnimated ? animatedUrl : staticUrl;
+
+  const AMOGUS =
+    (await interaction.guild.emojis.fetch())
+      .find((e) => e.name === "amogus")
+      ?.toString() || "🔎";
+  const ARROW =
+    (await interaction.guild.emojis.fetch())
+      .find((e) => e.name === "arrow")
+      ?.toString() || ">";
+
+  const embed = new EmbedBuilder()
+    .setColor("#1e4d2b")
+    .setTitle("*Emoji Intelligence Report*")
+    .setDescription(
+      `${ARROW} *Target ID: \`${emojiId}\`*\n${ARROW} *Type: ${isAnimated ? "Animated" : "Static"}*\n\n[Download High-Res Asset](${finalUrl})`,
+    )
+    .setThumbnail(finalUrl)
+    .setFooter({ text: "MaveL Asset Identifier" });
+
+  const sent = await interaction.reply({
+    embeds: [embed],
+    flags: [MessageFlags.Ephemeral],
+    withResponse: true,
+  });
+
+  const reply = sent?.resource || sent;
+  if (reply && reply.delete) {
+    setTimeout(() => {
+      if (interaction.isChatInputCommand?.()) {
+        interaction.deleteReply().catch(() => {});
+      } else {
+        reply.delete().catch(() => {});
+      }
+    }, 60000);
+  }
+}
+
+async function handleList(interaction) {
+  const emojis = await interaction.guild.emojis.fetch();
+
+  if (emojis.size === 0) {
+    return interaction.reply({
+      content: "*No custom emojis found in this server.*",
+      flags: [MessageFlags.Ephemeral],
+    });
+  }
+
+  const ARROW =
+    (await interaction.guild.emojis.fetch())
+      .find((e) => e.name === "arrow")
+      ?.toString() || ">";
+  const list = emojis
+    .map((e) => `${ARROW} ${e.toString()} \`${e.name}\` (ID: \`${e.id}\`)`)
+    .join("\n");
+
+  if (list.length > 3900) {
+    const chunks = list.match(/[\s\S]{1,3900}/g);
+    await interaction.reply({
+      content:
+        "*Synchronizing asset list (Excessive data detected, splitting logs)...*",
+      flags: [MessageFlags.Ephemeral],
+    });
+
+    for (const chunk of chunks) {
+      const embed = new EmbedBuilder()
+        .setColor("#1e4d2b")
+        .setTitle("*Server Asset Registry*")
+        .setDescription(chunk);
+      const res = await interaction.followUp({
+        embeds: [embed],
+        flags: [MessageFlags.Ephemeral],
+        withResponse: true,
+      });
+
+      const reply = res?.resource || res;
+      if (reply && reply.delete) {
+        setTimeout(() => {
+          reply.delete().catch(() => {});
+        }, 120000);
+      }
+    }
+  } else {
+    const embed = new EmbedBuilder()
+      .setColor("#1e4d2b")
+      .setTitle("*Server Asset Registry*")
+      .setDescription(list)
+      .setFooter({ text: `Total Assets: ${emojis.size}` });
+
+    const sent = await interaction.reply({
+      embeds: [embed],
+      flags: [MessageFlags.Ephemeral],
+      withResponse: true,
+    });
+
+    const response = sent?.resource || sent;
+    if (response && response.delete) {
+      setTimeout(() => {
+        if (interaction.isChatInputCommand?.()) {
+          interaction.deleteReply().catch(() => {});
+        } else {
+          response.delete().catch(() => {});
+        }
+      }, 120000); // 2 minutes
+    }
+  }
+}

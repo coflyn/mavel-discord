@@ -14,26 +14,31 @@ function cleanupTemp() {
   const tempDir = path.join(__dirname, "../../temp");
   if (!fs.existsSync(tempDir)) return;
 
+  const now = Date.now();
+  const expiry = 10 * 60 * 1000;
+
   try {
     const files = fs.readdirSync(tempDir);
-    const now = Date.now();
-    const expiry = 3 * 60 * 60 * 1000;
-
     files.forEach((file) => {
       const filePath = path.join(tempDir, file);
       const stats = fs.statSync(filePath);
-      if (now - stats.mtimeMs > expiry) {
-        fs.unlinkSync(filePath);
+
+      if (stats.isFile()) {
+        const age = now - stats.mtimeMs;
+        if (age > expiry) {
+          console.log(`[CLEANUP] Deleting expired file: ${file} (Age: ${Math.round(age/1000)}s)`);
+          fs.unlinkSync(filePath);
+        }
       }
     });
   } catch (e) {
-    console.error("[TEMP-CLEANUP] Error:", e.message);
+    console.error(`[CLEANUP] Error during sweep:`, e.message);
   }
 }
 
 function saveDB(db) {
   const now = Date.now();
-  const expiry = 3 * 60 * 60 * 1000;
+  const expiry = 10 * 60 * 1000;
 
   if (db.jobs) {
     for (const jobId in db.jobs) {
@@ -47,35 +52,57 @@ function saveDB(db) {
   fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
 }
 
-async function safeUpdateStatus(message, content) {
+async function safeUpdateStatus(target, data) {
   try {
-    if (message.editReply) {
-      await message.editReply({ content });
+    const payload = typeof data === "string" ? { content: data } : data;
+    if (target.editReply) {
+      await target.editReply(payload);
     } else {
-      await message.edit(content);
+      await target.edit(payload);
     }
   } catch (e) {
     // Silent
   }
 }
 
-function createProgressUpdater(message, title) {
+function createProgressUpdater(target, title) {
   let lastUpdate = 0;
-  const updateInterval = 1500;
+  const updateInterval = 2000;
+  let cachedEmojis = null;
 
   return async (percent, speed = "", eta = "") => {
     const now = Date.now();
     if (percent < 100 && now - lastUpdate < updateInterval) return;
     lastUpdate = now;
 
-    const size = 20;
+    const guild = target.guild || target.client?.guilds?.cache.first();
+    if (guild && !cachedEmojis) {
+      cachedEmojis = await guild.emojis.fetch().catch(() => null);
+    }
+
+    const getEmoji = (name, fallback) => {
+      const emoji = cachedEmojis?.find((e) => e.name === name);
+      return emoji ? emoji.toString() : fallback;
+    };
+
+    const ARROW = getEmoji("arrow", ">");
+    const FIRE = getEmoji("purple_fire", "🔥");
+    const AMOGUS = getEmoji("amogus", "🛰️");
+
+    const size = 15;
     const progress = Math.min(size, Math.floor(size * (percent / 100)));
     const bar = "█".repeat(progress) + "░".repeat(size - progress);
 
-    const metrics = speed && eta ? `  *${speed}*  •  *${eta}*` : "";
-    const text = `*Downloading: ${title}*\n*${bar}*  *${percent.toFixed(1)}%*${metrics}`;
+    const embed = new EmbedBuilder()
+      .setColor("#00008b")
+      .setDescription(
+        `### ${FIRE} **Processing active...**\n` +
+          `${ARROW} **Resource:** *${title}*\n` +
+          `${ARROW} **Metrics:** *${speed || "---"}*  •  *${eta || "---"}*\n\n` +
+          `**${bar}**  *${percent.toFixed(1)}%*`,
+      );
 
-    await safeUpdateStatus(message, text);
+    await safeUpdateStatus(target, { content: "", embeds: [embed] });
   };
 }
 
@@ -124,28 +151,70 @@ async function sendAdminLog(client, data) {
     const channel = await client.channels.fetch(config.logsChannelId);
     if (!channel) return;
 
+    const guild = client.guilds.cache.first();
+    const guildEmojis = guild ? await guild.emojis.fetch() : null;
+    const getEmoji = (name, fallback) => {
+      const emoji = guildEmojis?.find((e) => e.name === name);
+      return emoji ? emoji.toString() : fallback;
+    };
+
+    const ARROW = getEmoji("arrow", ">");
+    const FIRE = getEmoji("purple_fire", "✨");
+    const ROCKET = getEmoji("rocket", "🚀");
+    const LEA = getEmoji("lea", "👤");
+    const ONLINE = getEmoji("online", "⚙️");
+    const NOTIF = getEmoji("notif", "🔔");
+    const CHEST = getEmoji("chest", "📦");
+
+    const botUser = await client.user.fetch();
+    const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
+
     const logEmbed = new EmbedBuilder()
-      .setTitle(data.title || "Log Entry")
-      .setColor(0x000000)
-      .setDescription(`*${data.message || "No description provided."}*`)
+      .setColor("#5d3fd3")
+      .setAuthor({
+        name: "MaveL System Logger",
+        iconURL: client.user.displayAvatarURL(),
+      })
+      .setTitle(`${FIRE} **System Operation Log**`)
+      .setImage(botBanner)
+      .setDescription(
+        `### ${ROCKET} **Operation Overview**\n` +
+          `> ${ARROW} **Status:** \`${data.title || "Log Entry"}\`\n` +
+          `> ${ARROW} **Details:** *${data.message || "No activity reported."}*`,
+      )
       .addFields(
-        { name: "User", value: data.user || "Unknown", inline: true },
         {
-          name: "Platform",
-          value: (data.platform || "General").toUpperCase(),
+          name: `${LEA} **User Context**`,
+          value: `> ${ARROW} ${data.user || "System/Auto"}`,
+          inline: true,
+        },
+        {
+          name: `${ONLINE} **Data Engine**`,
+          value: `> ${ARROW} ${(data.platform || "Generic").toUpperCase()}`,
           inline: true,
         },
       )
+      .setFooter({
+        text: "MaveL Diagnostics",
+        iconURL: client.user.displayAvatarURL(),
+      })
       .setTimestamp();
 
-    if (data.url)
-      logEmbed.addFields({ name: "Source", value: `[Link](${data.url})` });
-    if (data.size)
+    if (data.url) {
       logEmbed.addFields({
-        name: "Size",
-        value: `*${data.size} MB*`,
+        name: `${NOTIF} **Resource Link**`,
+        value: `> [Click to View](${data.url})`,
+        inline: false,
+      });
+    }
+
+    if (data.size) {
+      logEmbed.addFields({
+        name: `${CHEST} **Metadata Size**`,
+        value: `> \`${data.size} MB\``,
         inline: true,
       });
+    }
 
     await channel.send({ embeds: [logEmbed] });
   } catch (e) {

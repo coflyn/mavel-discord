@@ -3,6 +3,7 @@ const {
   ActionRowBuilder,
   StringSelectMenuBuilder,
   MessageFlags,
+  EmbedBuilder,
 } = require("discord.js");
 const {
   getYtDlp,
@@ -17,16 +18,54 @@ module.exports = async function searchHandler(interaction) {
   const typeSelection = interaction.options.getString("type") || "yt";
 
   if (!query) {
-    const searchList = [
-      "*MaveL Integrated Search:*",
-      "> *YouTube (Video Download)*",
-      "> *YouTube Music (Audio Download)*",
-      "> *Spotify (Audio Sync Search)*",
-      "> *SoundCloud (Direct Audio Search)*",
-    ].join("\n");
+    const guildEmojis = await interaction.guild.emojis.fetch();
+    const getEmoji = (name, fallback) => {
+      const emoji = guildEmojis.find((e) => e.name === name);
+      return emoji ? emoji.toString() : fallback;
+    };
+
+    const ARROW = getEmoji("arrow", ">");
+    const FIRE = getEmoji("purple_fire", "🔥");
+    const SEARCH = getEmoji("amogus", "🔎");
+    const DOTS = getEmoji("three_dots", "🎵");
+
+    const botUser = await interaction.client.user.fetch();
+    const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
+
+    const embed = new EmbedBuilder()
+      .setColor("#1e4d2b")
+      .setAuthor({
+        name: "MaveL Search Engine",
+        iconURL: interaction.client.user.displayAvatarURL(),
+      })
+      .setTitle(`${SEARCH} **Integrated Pulse Search**`)
+      .setImage(botBanner)
+      .setDescription(
+        `*Multi-platform indexing system for direct media retrieval.*`,
+      )
+      .addFields(
+        {
+          name: `${FIRE} **Visuals**`,
+          value: `${ARROW} *YouTube (Video Download)*`,
+          inline: false,
+        },
+        {
+          name: `${DOTS} **Acoustics**`,
+          value:
+            `${ARROW} *YouTube Music (Audio Download)*\n` +
+            `${ARROW} *Spotify (Audio Sync Search)*\n` +
+            `${ARROW} *SoundCloud (Direct Audio Search)*`,
+          inline: false,
+        },
+      )
+      .setFooter({
+        text: "MaveL | Select Option Above",
+        iconURL: interaction.client.user.displayAvatarURL(),
+      })
+      .setTimestamp();
 
     await interaction.reply({
-      content: searchList,
+      embeds: [embed],
       flags: [MessageFlags.Ephemeral],
     });
 
@@ -52,8 +91,6 @@ module.exports = async function searchHandler(interaction) {
     searchSpec = `scsearch10:${query}`;
     typeLabel = "SoundCloud track";
   }
-
-  const isMusic = typeSelection !== "yt";
 
   const args = [
     "--flat-playlist",
@@ -82,7 +119,13 @@ module.exports = async function searchHandler(interaction) {
     if (code !== 0 || !output.trim()) {
       console.error("[SEARCH-YTDLP] Error Code:", code, errorLog);
       return interaction.editReply({
-        content: "*No results found or search failed.*",
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#1e4d2b")
+            .setDescription(
+              `### ❌ **No results found**\n> *Search failed for: ${query}*`,
+            ),
+        ],
       });
     }
 
@@ -99,7 +142,13 @@ module.exports = async function searchHandler(interaction) {
 
     if (results.length === 0) {
       return interaction.editReply({
-        content: "*No results found after parsing.*",
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#1e4d2b")
+            .setDescription(
+              `### ❌ **No results found**\n> *Result parsing yielded 0 entries.*`,
+            ),
+        ],
       });
     }
 
@@ -130,9 +179,27 @@ module.exports = async function searchHandler(interaction) {
 
     const row = new ActionRowBuilder().addComponents(selectMenu);
 
+    const AMOGUS =
+      (await interaction.guild.emojis.fetch())
+        .find((e) => e.name === "amogus")
+        ?.toString() || "🔎";
+
+    const resultEmbed = new EmbedBuilder()
+      .setColor("#1e4d2b")
+      .setDescription(
+        `### ${AMOGUS} **Search Synchronized**\n` +
+          `*Found **${results.length}** results for:* \`${query}\`\n` +
+          `*Target Engine:* \`${typeSelection.toUpperCase()}\``,
+      )
+      .setFooter({ text: "Select a resource from the menu below to proceed" });
+
     await interaction.editReply({
-      content: `*Found ${results.length} results for: ${query} (${typeSelection.toUpperCase()})*`,
+      embeds: [resultEmbed],
       components: [row],
     });
+
+    setTimeout(() => {
+      interaction.deleteReply().catch(() => {});
+    }, 300000);
   });
 };

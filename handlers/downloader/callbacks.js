@@ -2,7 +2,6 @@ const fs = require("fs");
 const path = require("path");
 const { spawn } = require("child_process");
 const { AttachmentBuilder, EmbedBuilder } = require("discord.js");
-const ffmpegStatic = require("ffmpeg-static");
 const {
   getYtDlp,
   getDlpEnv,
@@ -20,32 +19,8 @@ const {
   sendAdminLog,
 } = require("./core-helpers");
 const config = require("../../config");
-
-async function compressVideo(inputPath, outputPath) {
-  return new Promise((resolve, reject) => {
-    const compressionProcess = spawn(ffmpegStatic, [
-      "-i",
-      inputPath,
-      "-vcodec",
-      "libx264",
-      "-crf",
-      "32",
-      "-preset",
-      "veryfast",
-      "-acodec",
-      "aac",
-      "-b:a",
-      "128k",
-      "-y",
-      outputPath,
-    ]);
-
-    compressionProcess.on("close", (code) => {
-      if (code === 0) resolve(true);
-      else reject(new Error(`Compression failed with code ${code}`));
-    });
-  });
-}
+const { getAssetUrl } = require("../../utils/tunnel-server");
+const axios = require("axios");
 
 async function startDownload(
   interaction,
@@ -89,7 +64,34 @@ async function startDownload(
     }
   };
 
-  await editLocal({ content: statusContent, embeds: [], components: [] });
+  const guild = interaction.guild || interaction.client?.guilds?.cache.first();
+  const guildEmojis = guild
+    ? await guild.emojis.fetch().catch(() => null)
+    : null;
+  const ARROW = guildEmojis?.find((e) => e.name === "arrow")?.toString() || ">";
+  const AMOGUS =
+    guildEmojis?.find((e) => e.name === "amogus")?.toString() || "🛰️";
+  const FIRE =
+    guildEmojis?.find((e) => e.name === "purple_fire")?.toString() || "🔥";
+
+  const getStatusEmbed = (status, details) => {
+    return new EmbedBuilder()
+      .setColor("#1e4d2b")
+      .setDescription(
+        `### ${FIRE} **${status}**\n${ARROW} **Resource:** *${title || "Scanning..."}*\n${ARROW} **Details:** *${details}*`,
+      );
+  };
+
+  await editLocal({
+    content: "",
+    embeds: [
+      getStatusEmbed(
+        "Queued",
+        `Waiting for ${format.toUpperCase()} ${resolution}p...`,
+      ),
+    ],
+    components: [],
+  });
 
   downloadQueue.add(async () => {
     let currentTry = 0;
@@ -98,11 +100,20 @@ async function startDownload(
     while (currentTry < maxTries) {
       try {
         currentTry++;
-        if (currentTry > 1)
+        if (currentTry > 1) {
           await editLocal({
-            content: `*Retry attempt ${currentTry - 1}/${maxTries - 1}...*`,
+            embeds: [
+              getStatusEmbed(
+                "Retrying",
+                `Attempt ${currentTry - 1}/${maxTries - 1}...`,
+              ),
+            ],
           });
-        else await editLocal({ content: "*Downloading...*" });
+        } else {
+          await editLocal({
+            embeds: [getStatusEmbed("Downloading", "Initializing stream...")],
+          });
+        }
 
         const tempDir = path.join(__dirname, "../../temp");
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
@@ -116,10 +127,7 @@ async function startDownload(
           tempDir,
           `${sanitizedTitle}_${Date.now()}`,
         );
-        const updateProgress = createProgressUpdater(
-          { editReply: editLocal },
-          title,
-        );
+        const updateProgress = createProgressUpdater(interaction, title);
 
         if (format === "gallery") {
           await editLocal({ content: "*Fetching photos...*" });
@@ -182,16 +190,23 @@ async function startDownload(
           );
           await new Promise((r) => dlAudio.on("close", r));
 
-          await editLocal({ content: "*Sending gallery...*" });
+          const guild = interaction.guild;
+          const ARROW =
+            guild.emojis.cache.find((e) => e.name === "arrow")?.toString() ||
+            ">";
+          const NOTIF =
+            guild.emojis.cache.find((e) => e.name === "notif")?.toString() ||
+            "🔔";
+          const LEA =
+            guild.emojis.cache.find((e) => e.name === "lea")?.toString() ||
+            "✅";
+          const botUser = await interaction.client.user.fetch();
+          const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
+
           const attachments = photoPaths.map((p) => new AttachmentBuilder(p));
           if (fs.existsSync(audioPath))
             attachments.push(new AttachmentBuilder(audioPath));
 
-          const dateStr = new Date().toLocaleDateString("en-US", {
-            day: "numeric",
-            month: "long",
-            year: "numeric",
-          });
           const { likes, comments, shares, views, duration, uploader } =
             job.stats || {
               likes: "0",
@@ -201,16 +216,43 @@ async function startDownload(
               duration: "",
               uploader: "",
             };
-          const metaLine = `*${uploader ? `${uploader}  •  ` : ""}${duration ? `${duration}  •  ` : ""}${formatNumber(views)} Views*`;
-          const statsLine = `*${formatNumber(likes)} Likes  •  ${formatNumber(comments)} Comments  •  ${formatNumber(shares)} Shares*`;
+
+          const userMention = job.userId ? `<@${job.userId}>` : "";
+          const checkEmoji =
+            guild.emojis.cache.find((e) => e.name === "check")?.toString() ||
+            "✅";
+
+          const doneEmbed = new EmbedBuilder()
+            .setColor("#5d3fd3")
+            .setAuthor({
+              name: "MaveL Operation Hub",
+              iconURL: interaction.client.user.displayAvatarURL(),
+            })
+            .setTitle(`${NOTIF} **Media Transfer Success**`)
+            .setImage(botBanner)
+            .setDescription(
+              (userMention ? `${userMention}\n\n` : "") +
+                `### ${LEA} **Content Delivered**\n` +
+                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Channel:** *${uploader || "System"}*\n` +
+                `${ARROW} **Length:** *${duration || "---"}*\n` +
+                `${ARROW} **Link:** [Source Hub](<${url}>)\n\n` +
+                `**${formatNumber(likes)}** *Likes*  •  **${formatNumber(comments)}** *Comments*  •  **${formatNumber(views)}** *Views*`,
+            )
+            .setFooter({
+              text: "MaveL Downloader",
+              iconURL: interaction.client.user.displayAvatarURL(),
+            })
+            .setTimestamp();
 
           const finalMsg = await interaction.channel.send({
-            content: job.userId
-              ? `*Done, <@${job.userId}> (Gallery).*\n*Link: [Source](<${url}>)*\n${metaLine}\n${statsLine}\n*Date: ${dateStr}*`
-              : `*Done (Gallery).*\n*Link: [Source](<${url}>)*\n${metaLine}\n${statsLine}\n*Date: ${dateStr}*`,
+            embeds: [doneEmbed],
             files: attachments,
           });
-          await finalMsg.react(config.finishReaction || "✅").catch(() => {});
+
+          const msg = interaction.message || interaction;
+          if (msg.reactions) await msg.reactions.removeAll().catch(() => {});
+          await finalMsg.react(checkEmoji).catch(() => {});
 
           photoPaths.forEach((p) => fs.unlinkSync(p));
           if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
@@ -228,17 +270,15 @@ async function startDownload(
           format === "mp4"
             ? [
                 "-f",
-                `best[height<=${resolution}]/best`,
+                job.directUrl ? "best" : `best[height<=${resolution}]/best`,
                 "--no-playlist",
                 "--newline",
                 ...getJsRuntimeArgs(),
                 ...getCookiesArgs(),
                 ...getVpsArgs(),
-                "--ffmpeg-location",
-                ffmpegStatic,
                 "-o",
                 outputFile,
-                url,
+                job.directUrl || url,
               ]
             : [
                 "-f",
@@ -251,88 +291,144 @@ async function startDownload(
                 ...getJsRuntimeArgs(),
                 ...getCookiesArgs(),
                 ...getVpsArgs(),
-                "--ffmpeg-location",
-                ffmpegStatic,
                 "-o",
                 outputFile,
-                url,
+                job.directUrl || url,
               ];
 
-        const downloadProcess = spawn(getYtDlp(), dlArgs, { env: getDlpEnv() });
-        let stderrOutput = "";
+        if (job.directUrl && format === "mp4") {
+          try {
+            const response = await axios({
+              method: "get",
+              url: job.directUrl,
+              responseType: "stream",
+              headers: {
+                "User-Agent":
+                  process.env.YT_USER_AGENT ||
+                  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+                Referer: "https://x.com/",
+              },
+              timeout: 300000,
+            });
 
-        downloadProcess.stdout.on("data", (data) => {
-          const lines = data.toString().split("\n");
-          for (const line of lines) {
-            const match = line.match(
-              /\[download\]\s+(\d+\.\d+)%\s+of\s+\S+\s+at\s+(\S+)\s+ETA\s+(\S+)/,
-            );
-            if (match) {
-              const percent = parseFloat(match[1]);
-              const speed = match[2];
-              const eta = match[3];
-              updateProgress(percent, speed, eta);
-            } else {
-              const simpleMatch = line.match(/\[download\]\s+(\d+\.\d+)%/);
-              if (simpleMatch) updateProgress(parseFloat(simpleMatch[1]));
-            }
+            const totalSize = parseInt(response.headers["content-length"], 10);
+            let downloadedSize = 0;
+            const writer = fs.createWriteStream(outputFile);
+
+            response.data.on("data", (chunk) => {
+              downloadedSize += chunk.length;
+            });
+
+            response.data.pipe(writer);
+
+            await new Promise((resolve, reject) => {
+              writer.on("finish", resolve);
+              writer.on("error", reject);
+            });
+          } catch (e) {
+            console.error("[AXIOS-DL] Error:", e.message);
+            throw new Error(`Download failed: ${e.message}`);
           }
-        });
+        } else {
+          const downloadProcess = spawn(getYtDlp(), dlArgs, {
+            env: getDlpEnv(),
+          });
 
-        downloadProcess.stderr.on("data", (data) => {
-          stderrOutput += data.toString();
-        });
+          let stderrOutput = "";
 
-        const code = await new Promise((resolve) =>
-          downloadProcess.on("close", resolve),
-        );
+          downloadProcess.stdout.on("data", (data) => {});
 
-        if (code !== 0) {
-          let smartError = "Download process failed.";
-          if (stderrOutput.includes("Private video"))
-            smartError = "This video is private.";
-          else if (stderrOutput.includes("Inappropriate content"))
-            smartError = "Video restricted due to content.";
-          else if (stderrOutput.includes("Sign in to confirm your age"))
-            smartError = "Age restricted video (requires new cookies).";
-          else if (stderrOutput.includes("Video unavailable"))
-            smartError = "Video is no longer available.";
-          else if (stderrOutput.includes("403: Forbidden"))
-            smartError = "Access forbidden (IP blocking or expired cookies).";
+          downloadProcess.stderr.on("data", (data) => {
+            stderrOutput += data.toString();
+          });
 
-          throw new Error(smartError);
+          const code = await new Promise((resolve) =>
+            downloadProcess.on("close", resolve),
+          );
+
+          if (code !== 0) {
+            let smartError = "Download process failed.";
+            if (stderrOutput.includes("Private video"))
+              smartError = "This video is private.";
+            else if (stderrOutput.includes("Inappropriate content"))
+              smartError = "Video restricted due to content.";
+            else if (stderrOutput.includes("Sign in to confirm your age"))
+              smartError = "Age restricted video (requires new cookies).";
+            else if (stderrOutput.includes("Video unavailable"))
+              smartError = "Video is no longer available.";
+            else if (stderrOutput.includes("403: Forbidden"))
+              smartError = "Access forbidden (IP blocking or expired cookies).";
+
+            throw new Error(smartError);
+          }
         }
-
-        await updateProgress(100);
 
         let finalFile = outputFile;
         let statsSnapshot = fs.statSync(finalFile);
-        const limitMB = 10;
-
-        if (format === "mp4" && statsSnapshot.size > limitMB * 1024 * 1024) {
-          await editLocal({ content: "*Compressing...*" });
-          const compressedPath = `${outputBase}_compressed.mp4`;
-          await compressVideo(outputFile, compressedPath);
-          if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
-          finalFile = compressedPath;
-          statsSnapshot = fs.statSync(finalFile);
-        }
+        const limitMB = 24;
 
         const sizeMB = (statsSnapshot.size / (1024 * 1024)).toFixed(2);
+        const publicUrl = getAssetUrl(path.basename(finalFile));
+
         if (statsSnapshot.size > limitMB * 1024 * 1024) {
-          throw new Error(`Exceeds 10MB (${sizeMB} MB).`);
+          if (publicUrl) {
+            const guild = interaction.guild;
+            const ARROW =
+              guild.emojis.cache.find((e) => e.name === "arrow")?.toString() ||
+              ">";
+            const NOTIF =
+              guild.emojis.cache.find((e) => e.name === "notif")?.toString() ||
+              "🔔";
+            const botUser = await interaction.client.user.fetch();
+            const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
+
+            const DIAMOND =
+              guild.emojis.cache
+                .find((e) => e.name === "diamond")
+                ?.toString() || "💎";
+
+            const linkEmbed = new EmbedBuilder()
+              .setColor("#00008b")
+              .setTitle(`${NOTIF} **Media Link Ready**`)
+              .setImage(botBanner)
+              .setDescription(
+                `### ${DIAMOND} **File Too Large for Discord**\n` +
+                  `${ARROW} **Topic:** *${title}*\n` +
+                  `${ARROW} **Size:** *${sizeMB} MB*\n` +
+                  `${ARROW} **Source:** [Original Link](<${url}>)\n\n` +
+                  `${ARROW} **[DOWNLOAD HD VIDEO](${publicUrl})**\n\n` +
+                  `*Click the link above to download directly from local host. Link expires in **10 minutes**.*`,
+              );
+
+            await interaction.channel.send({
+              embeds: [linkEmbed],
+            });
+
+            try {
+              if (interaction.deleteReply) await interaction.deleteReply();
+              if (statusMsg && statusMsg.delete) await statusMsg.delete();
+            } catch (e) {}
+
+            return;
+          }
+          throw new Error(`Exceeds ${limitMB}MB (${sizeMB} MB).`);
         }
 
-        await editLocal({ content: "*Sending...*" });
-        const cleanFileName = `${sanitizedTitle}.${format === "mp3" ? "mp3" : "mp4"}`;
+        const guild = interaction.guild;
+        const ARROW =
+          guild.emojis.cache.find((e) => e.name === "arrow")?.toString() || ">";
+        const NOTIF =
+          guild.emojis.cache.find((e) => e.name === "notif")?.toString() ||
+          "🔔";
+        const LEA =
+          guild.emojis.cache.find((e) => e.name === "lea")?.toString() || "✅";
+        const botUser = await interaction.client.user.fetch();
+        const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
+
         const attachment = new AttachmentBuilder(finalFile, {
-          name: cleanFileName,
+          name: sanitizedTitle + (format === "mp3" ? ".mp3" : ".mp4"),
         });
-        const dateStr = new Date().toLocaleDateString("en-US", {
-          day: "numeric",
-          month: "long",
-          year: "numeric",
-        });
+
         const { likes, comments, shares, views, duration, uploader } =
           job.stats || {
             likes: "0",
@@ -342,17 +438,43 @@ async function startDownload(
             duration: "",
             uploader: "",
           };
-        const metaLine = `*${uploader ? `${uploader}  •  ` : ""}${duration ? `${duration}  •  ` : ""}${formatNumber(views)} Views*`;
-        const statsLine = `*${formatNumber(likes)} Likes  •  ${formatNumber(comments)} Comments  •  ${formatNumber(shares)} Shares*`;
+
+        const userMention = job.userId ? `<@${job.userId}>` : "";
+        const checkEmoji =
+          guild.emojis.cache.find((e) => e.name === "check")?.toString() ||
+          "✅";
+
+        const doneEmbed = new EmbedBuilder()
+          .setColor("#5d3fd3")
+          .setAuthor({
+            name: "MaveL Operation Hub",
+            iconURL: interaction.client.user.displayAvatarURL(),
+          })
+          .setTitle(`${NOTIF} **Media Transfer Success**`)
+          .setImage(botBanner)
+          .setDescription(
+            (userMention ? `${userMention}\n\n` : "") +
+              `### ${LEA} **Content Delivered**\n` +
+              `${ARROW} **Resource:** *${title}*\n` +
+              `${ARROW} **Platform:** *${uploader || job.platform || "System"}*\n` +
+              `${ARROW} **Length:** *${duration || "---"}*\n` +
+              `${ARROW} **Link:** [Source Hub](<${url}>)\n\n` +
+              `**${formatNumber(likes)}** *Likes*  •  **${formatNumber(comments)}** *Comments*  •  **${formatNumber(views)}** *Views*`,
+          )
+          .setFooter({
+            text: `MaveL Downloader (${sizeMB} MB)`,
+            iconURL: interaction.client.user.displayAvatarURL(),
+          })
+          .setTimestamp();
 
         const finalMsg = await interaction.channel.send({
-          content: job.userId
-            ? `*Done, <@${job.userId}>.*\n*Link: [Source](<${url}>)*\n${metaLine}\n${statsLine}\n*Date: ${dateStr}*`
-            : `*Done.*\n*Link: [Source](<${url}>)*\n${metaLine}\n${statsLine}\n*Date: ${dateStr}*`,
+          embeds: [doneEmbed],
           files: [attachment],
         });
 
-        await finalMsg.react(config.finishReaction || "✅").catch(() => {});
+        const msg = interaction.message || interaction;
+        if (msg.reactions) await msg.reactions.removeAll().catch(() => {});
+        await finalMsg.react(checkEmoji).catch(() => {});
 
         const userTag =
           (interaction.user || interaction.author || {}).tag || "Unknown User";

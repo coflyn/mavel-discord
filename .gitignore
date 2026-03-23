@@ -3,6 +3,7 @@ node_modules/
 temp/
 database/downloader.json
 database/playlists.json
+database/settings.json
 *.log
 cookies.txt
 .DS_Store
