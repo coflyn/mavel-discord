@@ -14,6 +14,7 @@ const {
 } = require("../../utils/dlp-helpers");
 const axios = require("axios");
 const cheerio = require("cheerio");
+const searchCache = new Map();
 
 module.exports = async function searchHandler(interaction) {
   const query = interaction.options.getString("query");
@@ -26,10 +27,11 @@ module.exports = async function searchHandler(interaction) {
       return emoji ? emoji.toString() : fallback;
     };
 
-    const ARROW = getEmoji("arrow", ">");
+    const ARROW = getEmoji("arrow", "•");
     const FIRE = getEmoji("purple_fire", "🔥");
     const SEARCH = getEmoji("amogus", "🔎");
     const DOTS = getEmoji("three_dots", "🎵");
+    const PING_RED = getEmoji("ping_red", "🔴");
 
     const botUser = await interaction.client.user.fetch();
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
@@ -52,12 +54,13 @@ module.exports = async function searchHandler(interaction) {
           inline: false,
         },
         {
-          name: `${DOTS} **Acoustics**`,
-          value:
-            `${ARROW} *YouTube Music (Audio Download)*\n` +
-            `${ARROW} *Bandcamp (Original Metadata)*`,
-          inline: false,
-        },
+        name: `${DOTS} **Acoustics**`,
+        value:
+          `${ARROW} *YouTube Music (Audio Download)*\n` +
+          `${ARROW} *Spotify (Metadata Extraction)*\n` +
+          `${ARROW} *Bandcamp (Original Metadata)*`,
+        inline: false,
+      },
       )
       .setFooter({
         text: "MaveL | Select Option Above",
@@ -175,8 +178,48 @@ module.exports = async function searchHandler(interaction) {
       } catch (e) {}
       return res;
     };
-
     finalResults = await tryBcSearch(refinedQuery);
+  } else if (typeSelection === "spot") {
+    const trySpotSearch = async (q) => {
+      const res = [];
+      const searchUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(q + " site:open.spotify.com/track")}`;
+      try {
+        const { data } = await axios.get(searchUrl, {
+          headers: { "User-Agent": "Mozilla/5.0" },
+        });
+        const $ = cheerio.load(data);
+        $(".result__a").each((i, el) => {
+          let href = $(el).attr("href");
+          
+          if (href && href.includes("uddg=")) {
+            try {
+              const urlParams = new URL(href, "https://duckduckgo.com").searchParams;
+              const uddg = urlParams.get("uddg");
+              if (uddg) href = decodeURIComponent(uddg);
+            } catch (e) {}
+          } else if (href && href.startsWith("//duckduckgo.com/l/")) {
+             try {
+               const parts = href.split("uddg=");
+               if (parts.length > 1) {
+                 href = decodeURIComponent(parts[1].split("&")[0]);
+               }
+             } catch (e) {}
+          }
+
+          if (href && href.includes("open.spotify.com/track/")) {
+            const title = $(el).text().split(" - ")[0].trim();
+            const artist =
+              $(el).text().split(" - ")[1]?.split("|")[0].trim() ||
+              "Spotify Artist";
+            if (!res.some((r) => r.webpage_url === href)) {
+              res.push({ title, webpage_url: href, uploader: artist });
+            }
+          }
+        });
+      } catch (e) {}
+      return res.slice(0, 10);
+    };
+    finalResults = await trySpotSearch(refinedQuery);
   } else if (typeSelection === "ytm") {
     finalResults = await tryYtSearch("ytmsearch10", refinedQuery);
     if (finalResults.length === 0) {
@@ -204,7 +247,7 @@ module.exports = async function searchHandler(interaction) {
         new EmbedBuilder()
           .setColor("#1e4d2b")
           .setDescription(
-            `### ❌ **No results found**\n> *No matches found on ${typeSelection.toUpperCase()}*`,
+            `### ${PING_RED} **No results found**\n*No matches found on ${typeSelection.toUpperCase()}*`,
           ),
       ],
     });
@@ -214,11 +257,20 @@ module.exports = async function searchHandler(interaction) {
     .setCustomId(`search_select_${typeSelection}`)
     .setPlaceholder(`Choose a result...`)
     .addOptions(
-      finalResults.slice(0, 10).map((res, index) => ({
-        label: `${index + 1}. ${res.title.substring(0, 90)}`,
-        description: `By: ${(res.uploader || "Unknown").substring(0, 50)}`,
-        value: res.webpage_url || res.url,
-      })),
+      finalResults.slice(0, 10).map((res, index) => {
+        const url = res.webpage_url || res.url;
+        const resultId = `res_${Math.random().toString(36).substring(7)}_${index}`;
+        searchCache.set(resultId, url);
+        if (searchCache.size > 100) {
+          const firstKey = searchCache.keys().next().value;
+          searchCache.delete(firstKey);
+        }
+        return {
+          label: `${index + 1}. ${res.title.substring(0, 90)}`,
+          description: `By: ${(res.uploader || "Unknown").substring(0, 50)}`,
+          value: resultId,
+        };
+      }),
     );
 
   const row = new ActionRowBuilder().addComponents(selectMenu);
@@ -246,3 +298,4 @@ module.exports = async function searchHandler(interaction) {
     interaction.deleteReply().catch(() => {});
   }, 300000);
 };
+module.exports.searchCache = searchCache;

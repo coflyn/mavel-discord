@@ -37,7 +37,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
       return emoji ? emoji.toString() : fallback;
     };
 
-    const ARROW = getEmoji("arrow", ">");
+    const ARROW = getEmoji("arrow", "•");
     const ANNO = getEmoji("anno", "🚀");
     const PC = getEmoji("pc", "📱");
     const CAMERA = getEmoji("camera", "🎨");
@@ -67,7 +67,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
         },
         {
           name: `${CAMERA} **Artistic & Creative**`,
-          value: `${ARROW} *Pinterest, Pixiv, Wallhaven*`,
+          value: `${ARROW} *Pinterest, Pixiv*`,
           inline: false,
         },
         {

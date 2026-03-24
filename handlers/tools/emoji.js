@@ -194,7 +194,7 @@ async function handleInfo(interaction) {
   const ARROW =
     (await interaction.guild.emojis.fetch())
       .find((e) => e.name === "arrow")
-      ?.toString() || ">";
+      ?.toString() || "•";
 
   const embed = new EmbedBuilder()
     .setColor("#1e4d2b")
@@ -236,7 +236,7 @@ async function handleList(interaction) {
   const ARROW =
     (await interaction.guild.emojis.fetch())
       .find((e) => e.name === "arrow")
-      ?.toString() || ">";
+      ?.toString() || "•";
   const list = emojis
     .map((e) => `${ARROW} ${e.toString()} \`${e.name}\` (ID: \`${e.id}\`)`)
     .join("\n");
@@ -299,9 +299,17 @@ async function handleNeeds(interaction) {
     (req) => !guildEmojis.some((e) => e.name === req.name),
   );
 
-  const ARROW = guildEmojis.find((e) => e.name === "arrow")?.toString() || ">";
-  const CHECK = guildEmojis.find((e) => e.name === "check")?.toString() || "✅";
-  const CROSS = "❌";
+  const getEmoji = (name, fallback) =>
+    guildEmojis.find((e) => e.name === name)?.toString() || fallback;
+
+  const ARROW = getEmoji("arrow", "•");
+  const AMOGUS = getEmoji("amogus", "🛰️");
+  const PC = getEmoji("pc", "💻");
+  const CAMERA = getEmoji("camera", "🛰️");
+  const DIAMOND = getEmoji("diamond", "✨");
+  const ROCKET = getEmoji("rocket", "🚀");
+  const CHECK = getEmoji("check", "✅");
+  const CROSS = getEmoji("ping_red", "🔴");
 
   const embed = new EmbedBuilder()
     .setColor("#1e4d2b")
@@ -360,7 +368,7 @@ module.exports.syncMissingEmojis = async function (interaction) {
       new EmbedBuilder()
         .setColor("#5d3fd3")
         .setDescription(
-          `### ⏳ **Synthesizing Assets...**\n> *Please wait while MaveL retrieves **${missing.length}** sector data units.*`,
+          `### ⏳ **Synthesizing Assets...**\n*Please wait while MaveL retrieves **${missing.length}** sector data units.*`,
         ),
     ],
     components: [],
@@ -399,7 +407,7 @@ module.exports.syncMissingEmojis = async function (interaction) {
     .setColor("#1e4d2b")
     .setTitle("*Asset Synchronization Report*")
     .setDescription(
-      `### ${successCount > 0 ? PING_GREEN : PING_RED} **Sync Complete**\n> *Successfully synthesized **${successCount}** assets.*\n> *Failed to retrieve **${failCount}** assets.*`,
+      `### ${successCount > 0 ? PING_GREEN : PING_RED} **Sync Complete**\n*Successfully synthesized **${successCount}** assets.*\n*Failed to retrieve **${failCount}** assets.*`,
     );
 
   await interaction.editReply({

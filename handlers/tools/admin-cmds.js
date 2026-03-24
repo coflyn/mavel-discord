@@ -34,55 +34,48 @@ module.exports = async function adminCmdsHandler(interaction) {
 };
 
 async function toggleHibernate(interaction, status) {
-  const settings = fs.existsSync(settingsPath)
-    ? JSON.parse(fs.readFileSync(settingsPath, "utf-8"))
-    : {};
+  if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+    return await interaction.reply({
+      content: "*Error: Administrative decryption required.*",
+      flags: [MessageFlags.Ephemeral],
+    });
+  }
 
-  settings.isHibernating = status;
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  const db = fs.existsSync(settingsPath)
+    ? JSON.parse(fs.readFileSync(settingsPath))
+    : { hibernate: false };
+  db.hibernate = status;
+  fs.writeFileSync(settingsPath, JSON.stringify(db, null, 2));
 
   const LOCK =
-    interaction.guild.emojis.cache.find((e) => e.name === "cash")?.toString() ||
-    "💵";
-  const statusMsg = status
-    ? "Operational Standby Initialized."
-    : "Operational Matrix Restored.";
+    interaction.guild.emojis.cache.find((e) => e.name === "lock")?.toString() ||
+    "🔒";
+  const POWER =
+    interaction.guild.emojis.cache.find((e) => e.name === "ping_red")?.toString() ||
+    "🔴";
 
-  const embed = new EmbedBuilder()
-    .setColor(status ? "#000000" : "#1e4d2b")
-    .setTitle(`*System Status Update*`)
-    .setDescription(
-      `### ${LOCK} **${statusMsg}**\n> *The MaveL Hub has ${status ? "entered deep hibernation" : "fully awakened from standby"}.*`,
-    )
-    .setFooter({ text: "Emergency Authorization Protocol" });
-
-  await interaction.reply({ embeds: [embed], flags: [MessageFlags.Ephemeral] });
-  setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
+  await interaction.reply({
+    content: `### ${status ? LOCK : POWER} **System State Updated**\n*Core hibernation protocol: **${status ? "ACTIVATED" : "DEACTIVATED"}***`,
+    flags: [MessageFlags.Ephemeral],
+  });
 }
 
 async function handlePurge(interaction) {
-  const target = interaction.options.getString("target");
+  const tempDir = path.join(__dirname, "../../temp");
+  if (!fs.existsSync(tempDir)) {
+    return await interaction.reply({
+      content: "*No temporary artifacts detected in the sector.*",
+      flags: [MessageFlags.Ephemeral],
+    });
+  }
+
+  const files = fs.readdirSync(tempDir);
+  let count = 0;
+
   const FIRE =
     interaction.guild.emojis.cache
       .find((e) => e.name === "purple_fire")
       ?.toString() || "🔥";
-
-  if (target === "logs") {
-    const logPath = path.join(__dirname, "../../bot.log");
-    if (fs.existsSync(logPath)) {
-      fs.writeFileSync(logPath, "");
-      await interaction.reply({
-        content: `### ${FIRE} **Log Purge Complete**\n> *The MaveL Operational Transcript has been wiped clean.*`,
-        flags: [MessageFlags.Ephemeral],
-      });
-      setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
-      return;
-    }
-  }
-
-  const tempDir = path.join(__dirname, "../../temp");
-  const files = fs.readdirSync(tempDir);
-  let count = 0;
 
   files.forEach((file) => {
     try {
@@ -94,7 +87,7 @@ async function handlePurge(interaction) {
   });
 
   await interaction.reply({
-    content: `### ${FIRE} **Purge Protocol Complete**\n> *Decommissioned and deleted **${count}** temporary assets from the sector.*`,
+    content: `### ${FIRE} **Purge Protocol Complete**\n*Decommissioned and deleted **${count}** temporary assets from the sector.*`,
     flags: [MessageFlags.Ephemeral],
   });
   setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
@@ -123,7 +116,7 @@ async function handleBackup(interaction) {
     "✅";
 
   await interaction.reply({
-    content: `### ${LEA} **Registry Backup Successful**\n> *The MaveL Operational Registry has been synchronized and dispatched to this sector. Archive Trace: \`backup-${timestamp}\`*`,
+    content: `### ${LEA} **Registry Backup Successful**\n*The MaveL Operational Registry has been synchronized and dispatched to this sector. Archive Trace: \`backup-${timestamp}\`*`,
     files: attachments,
     flags: [MessageFlags.Ephemeral],
   });
@@ -133,10 +126,16 @@ async function handleBackup(interaction) {
 async function handleScan(interaction) {
   await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-  const FIRE =
-    interaction.guild.emojis.cache
-      .find((e) => e.name === "purple_fire")
-      ?.toString() || "🔥";
+  const getEmoji = (name, fallback) => {
+    const emoji = interaction.guild.emojis.cache.find((e) => e.name === name);
+    return emoji ? emoji.toString() : fallback;
+  };
+
+  const EMOJIS = {
+    FIRE: getEmoji("purple_fire", "🔥"),
+    CROSS: getEmoji("ping_red", "🔴"),
+  };
+
   const results = [];
   const platforms = [
     { name: "YOUTUBE", url: "https://www.youtube.com" },
@@ -151,22 +150,26 @@ async function handleScan(interaction) {
     const start = Date.now();
     try {
       await exec(`curl -s -L -m 5 ${p.url}`);
-      results.push(`${FIRE} **${p.name}:** \`${Date.now() - start}ms\``);
+      results.push(`${EMOJIS.FIRE} **${p.name}:** \`${Date.now() - start}ms\``);
     } catch (e) {
-      results.push(`❌ **${p.name}:** \`Timed Out / Blocked\``);
+      results.push(`${EMOJIS.CROSS} **${p.name}:** \`Timed Out / Blocked\``);
     }
   }
 
-  const SCANE =
+  const NOTIF =
     interaction.guild.emojis.cache
       .find((e) => e.name === "notif")
-      ?.toString() || "🛰️";
+      ?.toString() || "🔔";
+  const ARROW =
+    interaction.guild.emojis.cache
+      .find((e) => e.name === "arrow")
+      ?.toString() || "•";
   const embed = new EmbedBuilder()
     .setColor("#1e4d2b")
-    .setTitle(`${SCANE} **Network Integrity Scan**`)
+    .setTitle(`${NOTIF} **Network Integrity Scan**`)
     .setDescription(
       results.join("\n") +
-        "\n\n> *No critical firewall anomalies detected in the current sector.*",
+        "\n\n*No critical firewall anomalies detected in the current sector.*",
     );
 
   await interaction.editReply({ embeds: [embed] });

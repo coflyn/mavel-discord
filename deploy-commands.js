@@ -39,6 +39,7 @@ const commands = [
         .addChoices(
           { name: "YouTube Music", value: "ytm" },
           { name: "YouTube", value: "yt" },
+          { name: "Spotify", value: "spot" },
           { name: "Bandcamp", value: "bc" },
         ),
     )

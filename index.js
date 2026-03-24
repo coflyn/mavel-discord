@@ -128,9 +128,8 @@ client.on("clientReady", async () => {
   setInterval(
     () => {
       cleanupTemp();
-      console.log("[SYSTEM] Periodic temp cleanup completed.");
     },
-    10 * 60 * 1000,
+    1 * 60 * 1000,
   );
 });
 
@@ -141,7 +140,7 @@ client.on("guildCreate", async (guild) => {
 
     const guildEmojis = await guild.emojis.fetch();
     const ARROW =
-      guildEmojis.find((e) => e.name === "arrow")?.toString() || ">";
+      guildEmojis.find((e) => e.name === "arrow")?.toString() || "•";
     const LINK =
       guildEmojis.find((e) => e.name === "blue_arrow_right")?.toString() || "➡";
     const ANNO = guildEmojis.find((e) => e.name === "anno")?.toString() || "🚀";
@@ -152,7 +151,7 @@ client.on("guildCreate", async (guild) => {
       .setImage(botBanner)
       .setDescription(
         `### ${LINK} **MaveL Hub Induction Successful**\n` +
-          `> *Connection link with sector **${guild.name}** has been established. To complete the operational integration, please execute the required protocols below:*\n\n` +
+          `*Connection link with sector **${guild.name}** has been established. To complete the operational integration, please execute the required protocols below:*\n\n` +
           `${ARROW} **Step 1:** Run **\`/emoji needs\`** to synchronize visual assets.\n` +
           `${ARROW} **Step 2:** Run **\`/setup\`** to activate the operational core.\n\n` +
           `*Status: Waiting for administrative authorization...*`,
@@ -582,7 +581,7 @@ client.on("interactionCreate", async (interaction) => {
         const emptyEmbed = new EmbedBuilder()
           .setColor("#00008b")
           .setDescription(
-            `### ${FIRE} **Queue is empty**\n> *Add some tracks to get started.*`,
+            `### ${FIRE} **Queue is empty**\n*Add some tracks to get started.*`,
           );
 
         await interaction.reply({
@@ -747,7 +746,7 @@ client.on("interactionCreate", async (interaction) => {
         const ARROW =
           interaction.guild.emojis.cache
             .find((e) => e.name === "arrow")
-            ?.toString() || ">";
+            ?.toString() || "•";
 
         const listEmbed = new EmbedBuilder()
           .setColor("#00008b")
@@ -866,11 +865,11 @@ client.on("interactionCreate", async (interaction) => {
         try {
           const newUrl = await resetTunnel();
           await interaction.editReply({
-            content: `### ${PING_GREEN} **Tunnel Reset Successful**\n> *New Link: ${newUrl}*`,
+            content: `### ${PING_GREEN} **Tunnel Reset Successful**\n*New Link: ${newUrl}*`,
           });
         } catch (e) {
           await interaction.editReply({
-            content: `### ${PING_RED} **Tunnel Reset Failed**\n> *Error: ${e.message}*`,
+            content: `### ${PING_RED} **Tunnel Reset Failed**\n*Error: ${e.message}*`,
           });
         }
         setTimeout(() => interaction.deleteReply().catch(() => {}), 45000);
@@ -944,7 +943,7 @@ client.on("interactionCreate", async (interaction) => {
       const ARROW =
         interaction.guild.emojis.cache
           .find((e) => e.name === "arrow")
-          ?.toString() || ">";
+          ?.toString() || "•";
 
       const moveEmbed = new EmbedBuilder()
         .setColor("#1e4d2b")
@@ -952,7 +951,7 @@ client.on("interactionCreate", async (interaction) => {
         .setImage(botBanner)
         .setDescription(
           `### ${LINK} **Bot Induction Protocol Initialized**\n` +
-            `> *To synchronize the MaveL Hub with a new server endpoint, utilize the induction link below. This will deploy the operational matrix across a different server environment.*\n\n` +
+            `*To synchronize the MaveL Hub with a new server endpoint, utilize the induction link below. This will deploy the operational matrix across a different server environment.*\n\n` +
             `${PC} [Induct MaveL Hub to another server](${inviteUrl})\n\n` +
             `**Post-Arrival Checklist:**\n` +
             `${ARROW} *Run **\`/emoji needs\`** to sync visual assets.*\n` +
@@ -1034,7 +1033,9 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     if (interaction.customId.startsWith("search_select")) {
-      const url = interaction.values[0];
+      const { searchCache } = require("./handlers/search/index");
+      const url =
+        searchCache.get(interaction.values[0]) || interaction.values[0];
       const subcommand = interaction.customId.split("_").pop();
       const type = ["ytm", "bc"].includes(subcommand) ? "mp3" : "mp4";
 

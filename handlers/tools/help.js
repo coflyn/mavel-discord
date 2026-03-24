@@ -7,14 +7,14 @@ module.exports = async function helpHandler(interaction) {
     return emoji ? emoji.toString() : fallback;
   };
 
-  const ARROW = getEmoji("arrow", ">");
-  const DIAMOND = getEmoji("purple_fire", "💎");
+  const ARROW = getEmoji("arrow", "•");
+  const DIAMOND = getEmoji("purple_fire", "✨");
   const NOTIF = getEmoji("notif", "🔔");
   const PC = getEmoji("crowncyan", "💻");
   const DOTS = getEmoji("three_dots", "🎵");
   const HELP = getEmoji("anno", "📚");
   const ROCKET = getEmoji("rocket", "🚀");
-  const LOCK = getEmoji("cash", "💵");
+  const LOCK = getEmoji("cash", "🔐");
 
   const botUser = await interaction.client.user.fetch();
   const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });

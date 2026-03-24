@@ -13,11 +13,11 @@ module.exports = async function diagnosticsHandler(interaction) {
     return emoji ? emoji.toString() : fallback;
   };
 
-  const ARROW = getEmoji("arrow", ">");
+  const ARROW = getEmoji("arrow", "•");
   const AMOGUS = getEmoji("amogus", "🛰️");
   const PC = getEmoji("pc", "💻");
   const CAMERA = getEmoji("camera", "🛰️");
-  const DIAMOND = getEmoji("diamond", "💎");
+  const DIAMOND = getEmoji("diamond", "✨");
   const ROCKET = getEmoji("rocket", "🚀");
 
   const uptimeSeconds = Math.floor(process.uptime());

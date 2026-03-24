@@ -30,9 +30,6 @@ function cleanupTemp() {
         } else if (stats.isFile()) {
           const age = now - stats.mtimeMs;
           if (age > expiry) {
-            console.log(
-              `[CLEANUP] Deleting expired file: ${item} (Age: ${Math.round(age / 1000)}s)`,
-            );
             fs.unlinkSync(itemPath);
           }
         }
@@ -94,7 +91,7 @@ function createProgressUpdater(target, title) {
       return emoji ? emoji.toString() : fallback;
     };
 
-    const ARROW = getEmoji("arrow", ">");
+    const ARROW = getEmoji("arrow", "•");
     const FIRE = getEmoji("purple_fire", "🔥");
     const AMOGUS = getEmoji("amogus", "🛰️");
 
@@ -121,6 +118,13 @@ function formatNumber(num) {
   if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
   if (n >= 1000) return (n / 1000).toFixed(1) + "K";
   return n.toString();
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024 * 1024) {
+    return (bytes / 1024).toFixed(2) + " KB";
+  }
+  return (bytes / (1024 * 1024)).toFixed(2) + " MB";
 }
 
 class TaskQueue {
@@ -167,7 +171,7 @@ async function sendAdminLog(client, data) {
       return emoji ? emoji.toString() : fallback;
     };
 
-    const ARROW = getEmoji("arrow", ">");
+    const ARROW = getEmoji("arrow", "•");
     const FIRE = getEmoji("purple_fire", "✨");
     const ROCKET = getEmoji("rocket", "🚀");
     const LEA = getEmoji("lea", "👤");
@@ -238,6 +242,7 @@ module.exports = {
   createProgressUpdater,
   cleanupTemp,
   formatNumber,
+  formatSize,
   downloadQueue,
   sendAdminLog,
 };

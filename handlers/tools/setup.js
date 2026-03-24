@@ -36,7 +36,7 @@ module.exports = async function setupHandler(interaction) {
   const ARROW =
     interaction.guild.emojis.cache
       .find((e) => e.name === "arrow")
-      ?.toString() || ">";
+      ?.toString() || "•";
 
   const generateEmbed = () => {
     return new EmbedBuilder()

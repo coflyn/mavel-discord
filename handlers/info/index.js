@@ -10,10 +10,10 @@ module.exports = async function infoHandler(interaction) {
   };
 
   const EMOJIS = {
-    GENERAL: getEmoji("purple_fire", "📋"),
+    GENERAL: getEmoji("purple_fire", "✨"),
     TIME: getEmoji("notif", "⏳"),
     ROLES: getEmoji("crowncyan", "🎨"),
-    ARROW: getEmoji("arrow", ">"),
+    ARROW: getEmoji("arrow", "•"),
     SERVER: getEmoji("notif", "🏢"),
     BOOST: getEmoji("boost", "🚀"),
     PERSONNEL: getEmoji("diamond", "👥"),
