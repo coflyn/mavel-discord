@@ -4,6 +4,7 @@ temp/
 database/downloader.json
 database/playlists.json
 database/settings.json
+database/backups/backup
 *.log
 cookies.txt
 .DS_Store

@@ -37,10 +37,9 @@ const commands = [
         .setName("type")
         .setDescription("Search platform")
         .addChoices(
-          { name: "YouTube", value: "yt" },
           { name: "YouTube Music", value: "ytm" },
-          { name: "Spotify", value: "spot" },
-          { name: "SoundCloud", value: "sc" },
+          { name: "YouTube", value: "yt" },
+          { name: "Bandcamp", value: "bc" },
         ),
     )
     .addStringOption((option) =>
@@ -57,12 +56,21 @@ const commands = [
     .setDescription("Check connection status and latency"),
   new SlashCommandBuilder()
     .setName("play")
-    .setDescription("Play music from YouTube/Spotify")
+    .setDescription("Play music from YouTube/Bandcamp")
     .addStringOption((opt) =>
       opt
         .setName("query")
         .setDescription("Song title or link")
         .setRequired(true),
+    )
+    .addStringOption((opt) =>
+      opt
+        .setName("source")
+        .setDescription("Choose music source (default: YouTube)")
+        .addChoices(
+          { name: "YouTube", value: "yt" },
+          { name: "Bandcamp", value: "bc" },
+        ),
     ),
   new SlashCommandBuilder()
     .setName("skip")
@@ -141,7 +149,11 @@ const commands = [
         .setName("play")
         .setDescription("Play one of your playlists")
         .addStringOption((opt) =>
-          opt.setName("name").setDescription("Playlist name").setRequired(true),
+          opt
+            .setName("name")
+            .setDescription("Playlist name")
+            .setRequired(true)
+            .setAutocomplete(true),
         ),
     )
     .addSubcommand((sub) =>
@@ -149,10 +161,26 @@ const commands = [
     )
     .addSubcommand((sub) =>
       sub
+        .setName("view")
+        .setDescription("View tracks in a playlist")
+        .addStringOption((opt) =>
+          opt
+            .setName("name")
+            .setDescription("Playlist name")
+            .setRequired(true)
+            .setAutocomplete(true),
+        ),
+    )
+    .addSubcommand((sub) =>
+      sub
         .setName("delete")
         .setDescription("Delete a playlist")
         .addStringOption((opt) =>
-          opt.setName("name").setDescription("Playlist name").setRequired(true),
+          opt
+            .setName("name")
+            .setDescription("Playlist name")
+            .setRequired(true)
+            .setAutocomplete(true),
         ),
     ),
   new SlashCommandBuilder()
@@ -259,13 +287,55 @@ const commands = [
       sub
         .setName("list")
         .setDescription("List all custom emojis in high-res format with IDs"),
+    )
+    .addSubcommand((sub) =>
+      sub
+        .setName("needs")
+        .setDescription("Check and synchronize missing system emojis"),
     ),
+  new SlashCommandBuilder()
+    .setName("move")
+    .setDescription("Synchronize MaveL Hub to a different server endpoint"),
   new SlashCommandBuilder()
     .setName("setup")
     .setDescription("Configure system channel endpoints"),
   new SlashCommandBuilder()
+    .setName("reset")
+    .setDescription("Force reset system components")
+    .addSubcommand((sub) =>
+      sub.setName("tunnel").setDescription("Force regenerate Cloudflare tunnel"),
+    ),
+  new SlashCommandBuilder()
     .setName("diagnostics")
     .setDescription("Performance & Pulse Analysis Report"),
+  new SlashCommandBuilder()
+    .setName("hibernate")
+    .setDescription("Operational Standby Protocol (Admin Only)"),
+  new SlashCommandBuilder()
+    .setName("wakeup")
+    .setDescription("Restore Operational Matrix from Hibernation"),
+  new SlashCommandBuilder()
+    .setName("purge")
+    .setDescription("Decommission and delete system data")
+    .addStringOption((opt) =>
+      opt
+        .setName("target")
+        .setDescription("What do you want to purge?")
+        .setRequired(true)
+        .addChoices(
+          { name: "Temporary Assets", value: "temp" },
+          { name: "System Logs", value: "logs" },
+        ),
+    ),
+  new SlashCommandBuilder()
+    .setName("backup")
+    .setDescription("Synchronize and backup the system registry"),
+  new SlashCommandBuilder()
+    .setName("scan")
+    .setDescription("Analyze network integrity and blocklist signatures"),
+  new SlashCommandBuilder()
+    .setName("logs")
+    .setDescription("Extract and view the last 15 operational logs"),
 ].map((command) => command.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(config.botToken);
@@ -273,16 +343,16 @@ const rest = new REST({ version: "10" }).setToken(config.botToken);
 (async () => {
   try {
     console.log(
-      `Started refreshing ${commands.length} application (/) commands for guild ${config.guildId}.`,
+      `Started refreshing ${commands.length} application (/) commands globally.`,
     );
 
     const data = await rest.put(
-      Routes.applicationGuildCommands(config.clientId, config.guildId),
+      Routes.applicationCommands(config.clientId),
       { body: commands },
     );
 
     console.log(
-      `Successfully reloaded ${data.length} application (/) commands.`,
+      `Successfully reloaded ${data.length} global application (/) commands.`,
     );
   } catch (error) {
     console.error(error);

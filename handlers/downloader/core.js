@@ -187,9 +187,10 @@ async function runYtDlpFlow(target, url, options = {}) {
         const durationSec = json.duration || 0;
         duration =
           durationSec > 0
-            ? `${Math.floor(durationSec / 60)}:${String(durationSec % 60).padStart(2, "0")}`
+            ? `${Math.floor(durationSec / 60)}:${String(Math.floor(durationSec % 60)).padStart(2, "0")}`
             : "";
         uploader = json.uploader || "";
+        const thumbnail = json.thumbnail || "";
 
         isGallery =
           json._type === "playlist" ||
@@ -201,6 +202,7 @@ async function runYtDlpFlow(target, url, options = {}) {
           timestamp: Date.now(),
           title: "",
           stats: { likes, views, comments, shares, duration, uploader },
+          thumbnail,
           platform: finalPlatform,
           userId: target.user ? target.user.id : target.author.id,
           isGallery,

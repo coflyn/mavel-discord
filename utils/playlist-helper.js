@@ -18,6 +18,7 @@ function savePlaylist(userId, name, tracks) {
   data[userId][name.toLowerCase()] = tracks.map((t) => ({
     url: t.url,
     title: t.title,
+    uploader: t.uploader || t.artist || "Unknown Artist",
   }));
   fs.writeFileSync(PLAYLISTS_FILE, JSON.stringify(data, null, 2));
   return true;

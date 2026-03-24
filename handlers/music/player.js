@@ -269,19 +269,56 @@ class MusicPlayer {
       const cachePath = path.join(CACHE_DIR, `${trackId}.s16le`);
       let bufferingMsg = null;
 
+      if (state.touchTimer) clearInterval(state.touchTimer);
+      state.touchTimer = setInterval(() => {
+        if (fs.existsSync(cachePath)) {
+          const now = new Date();
+          fs.utimesSync(cachePath, now, now);
+        }
+      }, 120000);
+
       if (state.channel) {
-        bufferingMsg = await state.channel
-          .send({
-            embeds: [
-              this.getNowPlayingEmbed(
-                guildId,
-                fs.existsSync(cachePath)
-                  ? "🚀 Instant Sync Active"
-                  : "Inbound Transmission (Buffering...)",
-              ),
-            ],
-          })
-          .catch(() => null);
+        if (state.repeatMode === "one" && state.lastNowPlayingMsg) {
+          try {
+            await state.lastNowPlayingMsg.edit({
+              embeds: [
+                this.getNowPlayingEmbed(
+                  guildId,
+                  fs.existsSync(cachePath)
+                    ? "🚀 Instant Sync Active"
+                    : "Inbound Transmission (Buffering...)",
+                ),
+              ],
+            });
+            bufferingMsg = state.lastNowPlayingMsg;
+          } catch (e) {
+            bufferingMsg = await state.channel
+              .send({
+                embeds: [
+                  this.getNowPlayingEmbed(
+                    guildId,
+                    fs.existsSync(cachePath)
+                      ? "🚀 Instant Sync Active"
+                      : "Inbound Transmission (Buffering...)",
+                  ),
+                ],
+              })
+              .catch(() => null);
+          }
+        } else {
+          bufferingMsg = await state.channel
+            .send({
+              embeds: [
+                this.getNowPlayingEmbed(
+                  guildId,
+                  fs.existsSync(cachePath)
+                    ? "🚀 Instant Sync Active"
+                    : "Inbound Transmission (Buffering...)",
+                ),
+              ],
+            })
+            .catch(() => null);
+        }
         state.lastNowPlayingMsg = bufferingMsg;
         state.channel.client.user.setActivity(track.title, {
           type: ActivityType.Listening,
@@ -378,8 +415,13 @@ class MusicPlayer {
     const ARROW =
       guild.emojis.cache.find((e) => e.name === "arrow")?.toString() || ">";
 
-    const currentStatus = statusOverride || "Playback Synchronized";
+    const source =
+      track.webpage_url?.includes("bandcamp.com") ||
+      track.url?.includes("bandcamp.com")
+        ? "Bandcamp"
+        : "YouTube";
 
+    const currentStatus = statusOverride || "Playback Synchronized";
     const repeatMode = (state.repeatMode || "OFF").toUpperCase();
 
     return new EmbedBuilder()
@@ -392,6 +434,7 @@ class MusicPlayer {
         `### ${FIRE} **Now Streaming**\n` +
           `${ARROW} **Track:** [${track.title.substring(0, 100)}](<${track.webpage_url || track.url}>)\n` +
           `${ARROW} **Artist:** *${track.uploader || track.artist || "---"}*\n` +
+          `${ARROW} **Source:** *${source}*\n` +
           `${ARROW} **Requested by:** <@${track.requestedBy}>\n` +
           `${ARROW} **Length:** *${track.duration_string || "---"}*\n` +
           `${ARROW} **Repeat:** *${repeatMode}*\n\n` +
@@ -417,6 +460,7 @@ class MusicPlayer {
     if (state) {
       if (state.idleTimer) clearTimeout(state.idleTimer);
       if (state.aloneTimer) clearTimeout(state.aloneTimer);
+      if (state.touchTimer) clearInterval(state.touchTimer);
       if (state.channel) {
         state.channel.client.user.setActivity("/help | MaveL", {
           type: ActivityType.Playing,

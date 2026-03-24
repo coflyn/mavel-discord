@@ -1,4 +1,11 @@
-const { MessageFlags, EmbedBuilder } = require("discord.js");
+const {
+  MessageFlags,
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+} = require("discord.js");
+const { REQUIRED_EMOJIS } = require("../../utils/emoji-registry");
 
 module.exports = async function emojiHandler(interaction) {
   const subcommand = interaction.options.getSubcommand();
@@ -13,6 +20,8 @@ module.exports = async function emojiHandler(interaction) {
     return handleInfo(interaction);
   } else if (subcommand === "list") {
     return handleList(interaction);
+  } else if (subcommand === "needs") {
+    return handleNeeds(interaction);
   }
 };
 
@@ -279,7 +288,122 @@ async function handleList(interaction) {
         } else {
           response.delete().catch(() => {});
         }
-      }, 120000); // 2 minutes
+      }, 120000);
     }
   }
 }
+
+async function handleNeeds(interaction) {
+  const guildEmojis = await interaction.guild.emojis.fetch();
+  const missing = REQUIRED_EMOJIS.filter(
+    (req) => !guildEmojis.some((e) => e.name === req.name),
+  );
+
+  const ARROW = guildEmojis.find((e) => e.name === "arrow")?.toString() || ">";
+  const CHECK = guildEmojis.find((e) => e.name === "check")?.toString() || "✅";
+  const CROSS = "❌";
+
+  const embed = new EmbedBuilder()
+    .setColor("#1e4d2b")
+    .setTitle("*System Emoji Diagnostics*")
+    .setDescription(
+      REQUIRED_EMOJIS.map((req) => {
+        const exists = guildEmojis.some((e) => e.name === req.name);
+        return `${ARROW} \`${req.name}\`: ${exists ? CHECK : CROSS}`;
+      }).join("\n"),
+    );
+
+  if (missing.length > 0) {
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId("sync_emojis")
+        .setLabel(`Synchronize Assets (${missing.length} missing)`)
+        .setStyle(ButtonStyle.Primary),
+    );
+
+    return interaction.reply({
+      embeds: [embed],
+      components: [row],
+      flags: [MessageFlags.Ephemeral],
+    });
+  } else {
+    return interaction.reply({
+      embeds: [embed],
+      content: "*All required system assets are currently synchronized.*",
+      flags: [MessageFlags.Ephemeral],
+    });
+  }
+}
+
+module.exports.syncMissingEmojis = async function (interaction) {
+  if (!interaction.member.permissions.has("ManageGuildExpressions")) {
+    return interaction.reply({
+      content: "*You do not have permission to manage emojis.*",
+      flags: [MessageFlags.Ephemeral],
+    });
+  }
+
+  await interaction.deferUpdate();
+
+  const guildEmojis = await interaction.guild.emojis.fetch();
+  const missing = REQUIRED_EMOJIS.filter(
+    (req) => !guildEmojis.some((e) => e.name === req.name),
+  );
+
+  const PING_GREEN =
+    guildEmojis.find((e) => e.name === "ping_green")?.toString() || "🟢";
+  const PING_RED =
+    guildEmojis.find((e) => e.name === "ping_red")?.toString() || "🔴";
+
+  await interaction.editReply({
+    embeds: [
+      new EmbedBuilder()
+        .setColor("#5d3fd3")
+        .setDescription(
+          `### ⏳ **Synthesizing Assets...**\n> *Please wait while MaveL retrieves **${missing.length}** sector data units.*`,
+        ),
+    ],
+    components: [],
+  });
+
+  let successCount = 0;
+  let failCount = 0;
+
+  for (const req of missing) {
+    const emojiId = req.id;
+    const animatedUrl = `https://cdn.discordapp.com/emojis/${emojiId}.gif?quality=lossless`;
+    const staticUrl = `https://cdn.discordapp.com/emojis/${emojiId}.png?quality=lossless`;
+    const fetchOptions = { headers: { "User-Agent": "Mozilla/5.0" } };
+
+    try {
+      let response = await fetch(animatedUrl, fetchOptions);
+      if (!response.ok) response = await fetch(staticUrl, fetchOptions);
+
+      if (response.ok) {
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        await interaction.guild.emojis.create({
+          attachment: buffer,
+          name: req.name,
+        });
+        successCount++;
+      } else {
+        failCount++;
+      }
+    } catch (err) {
+      failCount++;
+    }
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor("#1e4d2b")
+    .setTitle("*Asset Synchronization Report*")
+    .setDescription(
+      `### ${successCount > 0 ? PING_GREEN : PING_RED} **Sync Complete**\n> *Successfully synthesized **${successCount}** assets.*\n> *Failed to retrieve **${failCount}** assets.*`,
+    );
+
+  await interaction.editReply({
+    embeds: [embed],
+    components: [],
+  });
+};

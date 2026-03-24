@@ -8,10 +8,13 @@ const {
   ButtonBuilder,
   ButtonStyle,
   MessageFlags,
+  PermissionFlagsBits,
+  ChannelType,
 } = require("discord.js");
 const config = require("./config");
 const fs = require("fs");
 const path = require("path");
+const settingsPath = path.join(__dirname, "database", "settings.json");
 
 const client = new Client({
   intents: [
@@ -48,10 +51,38 @@ const emojiHandler = require("./handlers/tools/emoji");
 const helpHandler = require("./handlers/tools/help");
 const setupHandler = require("./handlers/tools/setup");
 const diagnosticsHandler = require("./handlers/tools/diagnostics");
-const { startTunnel } = require("./utils/tunnel-server");
+const adminCmdsHandler = require("./handlers/tools/admin-cmds");
+const { startTunnel, resetTunnel } = require("./utils/tunnel-server");
+
+const logPath = path.join(__dirname, "bot.log");
+
+const cleanupLogs = () => {
+  if (fs.existsSync(logPath)) {
+    const stats = fs.statSync(logPath);
+    if (stats.size > 5 * 1024 * 1024) {
+      const data = fs
+        .readFileSync(logPath, "utf-8")
+        .split("\n")
+        .slice(-1000)
+        .join("\n");
+      fs.writeFileSync(logPath, data);
+      console.log(
+        "[SYSTEM] Log rotated: File size exceeded 5MB. Trimmed to 1000 lines.",
+      );
+    }
+  }
+};
+
+const logStream = fs.createWriteStream(logPath, { flags: "a" });
+const originalConsoleLog = console.log;
+console.log = function (d) {
+  logStream.write(`[${new Date().toISOString()}] ${d}\n`);
+  originalConsoleLog.apply(console, arguments);
+};
 
 client.on("clientReady", async () => {
   cleanupTemp();
+  cleanupLogs();
 
   console.log(`[BOT] Booting up...`);
   await startTunnel(config.tunnelPort);
@@ -94,10 +125,74 @@ client.on("clientReady", async () => {
     i++;
   }, 60000);
 
-  setInterval(() => {
-    cleanupTemp();
-    console.log("[SYSTEM] Periodic temp cleanup completed.");
-  }, 10 * 60 * 1000);
+  setInterval(
+    () => {
+      cleanupTemp();
+      console.log("[SYSTEM] Periodic temp cleanup completed.");
+    },
+    10 * 60 * 1000,
+  );
+});
+
+client.on("guildCreate", async (guild) => {
+  try {
+    const botUser = await client.user.fetch();
+    const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
+
+    const guildEmojis = await guild.emojis.fetch();
+    const ARROW =
+      guildEmojis.find((e) => e.name === "arrow")?.toString() || ">";
+    const LINK =
+      guildEmojis.find((e) => e.name === "blue_arrow_right")?.toString() || "➡";
+    const ANNO = guildEmojis.find((e) => e.name === "anno")?.toString() || "🚀";
+
+    const welcomeEmbed = new EmbedBuilder()
+      .setColor("#1e4d2b")
+      .setTitle(`${ANNO} **Operational Matrix Initialized**`)
+      .setImage(botBanner)
+      .setDescription(
+        `### ${LINK} **MaveL Hub Induction Successful**\n` +
+          `> *Connection link with sector **${guild.name}** has been established. To complete the operational integration, please execute the required protocols below:*\n\n` +
+          `${ARROW} **Step 1:** Run **\`/emoji needs\`** to synchronize visual assets.\n` +
+          `${ARROW} **Step 2:** Run **\`/setup\`** to activate the operational core.\n\n` +
+          `*Status: Waiting for administrative authorization...*`,
+      )
+      .setFooter({ text: "MaveL Deployment System" })
+      .setTimestamp();
+
+    const channel =
+      guild.systemChannel ||
+      guild.channels.cache.find(
+        (c) =>
+          c.type === ChannelType.GuildText &&
+          c.permissionsFor(guild.members.me).has("SendMessages"),
+      );
+
+    if (channel) {
+      await channel.send({ embeds: [welcomeEmbed] });
+    }
+
+    client.guilds.cache.forEach((oldGuild) => {
+      if (oldGuild.id !== guild.id) {
+        console.log(
+          `[SYSTEM] New hub detected. Scheduling decommissioning of sector ${oldGuild.name} in 60s.`,
+        );
+        setTimeout(async () => {
+          try {
+            await oldGuild.leave();
+            console.log(`[SYSTEM] Decommissioned sector ${oldGuild.name}.`);
+          } catch (e) {
+            console.error(
+              `[SYSTEM] Failed to leave sector ${oldGuild.name}:`,
+              e.message,
+            );
+          }
+        }, 60000);
+      }
+    });
+  } catch (err) {
+    console.error("[GUILD-CREATE] Error sending welcome:", err.message);
+  }
 });
 client.on("voiceStateUpdate", (oldState, newState) => {
   const guildId = oldState.guild.id;
@@ -234,6 +329,21 @@ client.on("messageCreate", async (message) => {
 });
 
 client.on("interactionCreate", async (interaction) => {
+  if (interaction.isAutocomplete()) {
+    const { commandName } = interaction;
+    if (commandName === "playlist") {
+      const lists = getPlaylists(interaction.user.id);
+      const focusedValue = interaction.options.getFocused().toLowerCase();
+      const choices = Object.keys(lists).filter((n) =>
+        n.toLowerCase().includes(focusedValue),
+      );
+      await interaction.respond(
+        choices.slice(0, 25).map((choice) => ({ name: choice, value: choice })),
+      );
+    }
+    return;
+  }
+
   if (interaction.isChatInputCommand()) {
     const { commandName } = interaction;
     const isMusicCmd = [
@@ -262,8 +372,53 @@ client.on("interactionCreate", async (interaction) => {
       "info",
       "icon",
       "banner",
-      "server",
+      "diagnostics",
+      "emoji",
+      "move",
+      "hibernate",
+      "wakeup",
+      "purge",
+      "backup",
+      "scan",
+      "logs",
     ].includes(commandName);
+
+    const settings = fs.existsSync(settingsPath)
+      ? JSON.parse(fs.readFileSync(settingsPath, "utf-8"))
+      : {};
+    const isAdmin = interaction.member.permissions.has(
+      PermissionFlagsBits.Administrator,
+    );
+
+    if (settings.isHibernating && !isAdmin && commandName !== "wakeup") {
+      return interaction.reply({
+        content: "*Operational Matrix Suspend. System in hibernation Mode.*",
+        flags: [MessageFlags.Ephemeral],
+      });
+    }
+
+    const isAdminCmd = [
+      "setup",
+      "reset",
+      "diagnostics",
+      "move",
+      "hibernate",
+      "wakeup",
+      "purge",
+      "backup",
+      "scan",
+      "logs",
+    ].includes(commandName);
+
+    if (
+      isAdminCmd &&
+      !interaction.member.permissions.has(PermissionFlagsBits.Administrator)
+    ) {
+      return interaction.reply({
+        content: "*Unauthorized. Administrative override required.*",
+        flags: [MessageFlags.Ephemeral],
+      });
+    }
 
     if (isMusicCmd && musicChannel && interaction.channel.id !== musicChannel) {
       return interaction.reply({
@@ -350,6 +505,9 @@ client.on("interactionCreate", async (interaction) => {
 
     if (commandName === "play") {
       const query = interaction.options.getString("query");
+      const source = interaction.options.getString("source") || "yt";
+      if (source === "bc")
+        return await musicHandler(interaction, { title: query, source: "bc" });
       return await musicHandler(interaction, { title: query });
     }
 
@@ -547,7 +705,6 @@ client.on("interactionCreate", async (interaction) => {
             content: "*Nothing is playing or in queue.*",
             flags: [MessageFlags.Ephemeral],
           });
-          setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
           return;
         }
         const allTracks = state.current
@@ -558,7 +715,6 @@ client.on("interactionCreate", async (interaction) => {
           content: `*Playlist '${name}' saved with ${allTracks.length} tracks.*`,
           flags: [MessageFlags.Ephemeral],
         });
-        setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
         return;
       }
 
@@ -581,7 +737,6 @@ client.on("interactionCreate", async (interaction) => {
             embeds: [emptyEmbed],
             flags: [MessageFlags.Ephemeral],
           });
-          setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
           return;
         }
 
@@ -598,7 +753,9 @@ client.on("interactionCreate", async (interaction) => {
           .setColor("#00008b")
           .setDescription(
             `### ${LEA} **Saved Playlists**\n` +
-              names.map((n) => `${ARROW} \`${n}\``).join("\n"),
+              names
+                .map((n) => `${ARROW} \`${n}\` (${lists[n].length} tracks)`)
+                .join("\n"),
           )
           .setFooter({ text: `MaveL | Total Playlists: ${names.length}` });
 
@@ -606,7 +763,43 @@ client.on("interactionCreate", async (interaction) => {
           embeds: [listEmbed],
           flags: [MessageFlags.Ephemeral],
         });
-        setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
+        return;
+      }
+
+      if (sub === "view") {
+        const name = interaction.options.getString("name");
+        const playlists = getPlaylists(userId);
+        const list = playlists[name.toLowerCase()];
+        if (!list) {
+          await interaction.reply({
+            content: `*Playlist '${name}' not found.*`,
+            flags: [MessageFlags.Ephemeral],
+          });
+          return;
+        }
+
+        const ARROW =
+          interaction.guild.emojis.cache
+            .find((e) => e.name === "arrow")
+            ?.toString() || ">";
+        const total = list.length;
+        const tracks = list
+          .slice(0, 20)
+          .map((t, i) => `\`${i + 1}.\` ${t.title}`)
+          .join("\n");
+        const suffix =
+          total > 20 ? `\n*...and ${total - 20} more tracks.*` : "";
+
+        const viewEmbed = new EmbedBuilder()
+          .setColor("#00008b")
+          .setTitle(`Playlist: ${name}`)
+          .setDescription(`${tracks}${suffix}`)
+          .setFooter({ text: `Total: ${total} tracks` });
+
+        await interaction.reply({
+          embeds: [viewEmbed],
+          flags: [MessageFlags.Ephemeral],
+        });
         return;
       }
 
@@ -618,14 +811,12 @@ client.on("interactionCreate", async (interaction) => {
             content: `*Playlist '${name}' not found.*`,
             flags: [MessageFlags.Ephemeral],
           });
-          setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
           return;
         }
         await interaction.reply({
           content: `*Playlist '${name}' deleted.*`,
           flags: [MessageFlags.Ephemeral],
         });
-        setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
         return;
       }
 
@@ -638,7 +829,6 @@ client.on("interactionCreate", async (interaction) => {
             content: `*Playlist '${name}' not found.*`,
             flags: [MessageFlags.Ephemeral],
           });
-          setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
           return;
         }
 
@@ -649,7 +839,6 @@ client.on("interactionCreate", async (interaction) => {
           await interaction.editReply({
             content: `*Enqueued ${list.length} tracks from playlist '${name}'.*`,
           });
-          setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
         } catch (e) {
           await interaction.editReply({
             content: `*Error: ${e.message}*`,
@@ -661,6 +850,32 @@ client.on("interactionCreate", async (interaction) => {
 
     if (commandName === "help") {
       return await helpHandler(interaction);
+    }
+
+    if (commandName === "reset") {
+      const sub = interaction.options.getSubcommand();
+      if (sub === "tunnel") {
+        await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+
+        const guildEmojis = await interaction.guild.emojis.fetch();
+        const PING_GREEN =
+          guildEmojis.find((e) => e.name === "ping_green")?.toString() || "🟢";
+        const PING_RED =
+          guildEmojis.find((e) => e.name === "ping_red")?.toString() || "🔴";
+
+        try {
+          const newUrl = await resetTunnel();
+          await interaction.editReply({
+            content: `### ${PING_GREEN} **Tunnel Reset Successful**\n> *New Link: ${newUrl}*`,
+          });
+        } catch (e) {
+          await interaction.editReply({
+            content: `### ${PING_RED} **Tunnel Reset Failed**\n> *Error: ${e.message}*`,
+          });
+        }
+        setTimeout(() => interaction.deleteReply().catch(() => {}), 45000);
+        return;
+      }
     }
 
     if (commandName === "diagnostics") {
@@ -695,10 +910,12 @@ client.on("interactionCreate", async (interaction) => {
             });
           else await interaction.followUp({ content: chunks[i], flags: [64] });
         }
+        setTimeout(() => interaction.deleteReply().catch(() => {}), 300000);
       } else {
         await interaction.editReply({
           content: `*Lyrics for ${query}:*\n\n${lyrics}`,
         });
+        setTimeout(() => interaction.deleteReply().catch(() => {}), 180000);
       }
       return;
     }
@@ -711,12 +928,63 @@ client.on("interactionCreate", async (interaction) => {
       return await emojiHandler(interaction);
     }
 
+    if (commandName === "move") {
+      const botUser = await interaction.client.user.fetch();
+      const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
+      const inviteUrl = `https://discord.com/api/oauth2/authorize?client_id=${config.clientId}&permissions=8&scope=bot%20applications.commands`;
+
+      const LINK =
+        interaction.guild.emojis.cache
+          .find((e) => e.name === "blue_arrow_right")
+          ?.toString() || "➡";
+      const PC =
+        interaction.guild.emojis.cache
+          .find((e) => e.name === "pc")
+          ?.toString() || "💻";
+      const ARROW =
+        interaction.guild.emojis.cache
+          .find((e) => e.name === "arrow")
+          ?.toString() || ">";
+
+      const moveEmbed = new EmbedBuilder()
+        .setColor("#1e4d2b")
+        .setTitle("*Endpoint Migration Protocol*")
+        .setImage(botBanner)
+        .setDescription(
+          `### ${LINK} **Bot Induction Protocol Initialized**\n` +
+            `> *To synchronize the MaveL Hub with a new server endpoint, utilize the induction link below. This will deploy the operational matrix across a different server environment.*\n\n` +
+            `${PC} [Induct MaveL Hub to another server](${inviteUrl})\n\n` +
+            `**Post-Arrival Checklist:**\n` +
+            `${ARROW} *Run **\`/emoji needs\`** to sync visual assets.*\n` +
+            `${ARROW} *Run **\`/setup\`** to activate the operational system.*`,
+        )
+        .setFooter({ text: "MaveL Deployment Module" });
+
+      await interaction.reply({
+        embeds: [moveEmbed],
+        flags: [MessageFlags.Ephemeral],
+      });
+      return;
+    }
+
+    if (
+      ["hibernate", "wakeup", "purge", "backup", "scan", "logs"].includes(
+        commandName,
+      )
+    ) {
+      return await adminCmdsHandler(interaction);
+    }
+
     if (commandName === "setup") {
       return await setupHandler(interaction);
     }
   }
 
   if (interaction.isButton()) {
+    if (interaction.customId === "sync_emojis") {
+      return await emojiHandler.syncMissingEmojis(interaction);
+    }
+
     try {
       await downloaderHandler.handleDownloadCallback(interaction);
     } catch (e) {
@@ -741,15 +1009,23 @@ client.on("interactionCreate", async (interaction) => {
       }
 
       try {
-        const [rawUrl, rawTitle] = interaction.values[0].split("|");
+        const { searchCache } = require("./handlers/music/index");
+        const cached = searchCache.get(interaction.values[0]);
+        const playUrl = cached
+          ? cached.url
+          : interaction.values[0].split("|")[0];
+        const rawTitle = cached
+          ? cached.title
+          : interaction.values[0].split("|")[1] || "Track";
+
         await interaction
           .update({
-            content: `*Loading: ${rawTitle || "Track"}*`,
+            content: `*Loading: ${rawTitle}*`,
             components: [],
           })
           .catch(() => {});
         return await musicHandler(interaction, {
-          url: rawUrl,
+          url: playUrl,
           title: rawTitle,
         });
       } catch (e) {
@@ -760,7 +1036,7 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.customId.startsWith("search_select")) {
       const url = interaction.values[0];
       const subcommand = interaction.customId.split("_").pop();
-      const type = ["ytm", "spot", "sc"].includes(subcommand) ? "mp3" : "mp4";
+      const type = ["ytm", "bc"].includes(subcommand) ? "mp3" : "mp4";
 
       try {
         await interaction
@@ -774,6 +1050,10 @@ client.on("interactionCreate", async (interaction) => {
       } catch (e) {
         console.error("[SELECT-HANDLER] Error:", e.message);
       }
+    }
+
+    if (interaction.customId === "sync_emojis") {
+      return await emojiHandler.syncMissingEmojis(interaction);
     }
   }
 });

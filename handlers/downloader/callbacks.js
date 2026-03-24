@@ -266,6 +266,16 @@ async function startDownload(
 
         const outputFile =
           format === "mp4" ? `${outputBase}.mp4` : `${outputBase}.mp3`;
+        const ua =
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
+        const referer = url.includes("tiktok.com")
+          ? "https://www.tiktok.com/"
+          : url.includes("instagram.com")
+            ? "https://www.instagram.com/"
+            : url.includes("twitter.com") || url.includes("x.com")
+              ? "https://x.com/"
+              : "https://www.google.com/";
+
         const dlArgs =
           format === "mp4"
             ? [
@@ -273,9 +283,21 @@ async function startDownload(
                 job.directUrl ? "best" : `best[height<=${resolution}]/best`,
                 "--no-playlist",
                 "--newline",
+                "--embed-metadata",
+                "--embed-thumbnail",
                 ...getJsRuntimeArgs(),
                 ...getCookiesArgs(),
                 ...getVpsArgs(),
+                "--user-agent",
+                ua,
+                "--referer",
+                referer,
+                "--add-header",
+                "Sec-Fetch-Mode:navigate",
+                "--add-header",
+                "Sec-Fetch-Site:same-origin",
+                "--add-header",
+                "Sec-Fetch-Dest:document",
                 "-o",
                 outputFile,
                 job.directUrl || url,
@@ -288,25 +310,46 @@ async function startDownload(
                 "mp3",
                 "--no-playlist",
                 "--newline",
+                "--embed-metadata",
+                "--embed-thumbnail",
                 ...getJsRuntimeArgs(),
                 ...getCookiesArgs(),
                 ...getVpsArgs(),
+                "--user-agent",
+                ua,
+                "--referer",
+                referer,
+                "--add-header",
+                "Sec-Fetch-Mode:navigate",
+                "--add-header",
+                "Sec-Fetch-Site:same-origin",
+                "--add-header",
+                "Sec-Fetch-Dest:document",
                 "-o",
                 outputFile,
                 job.directUrl || url,
               ];
 
-        if (job.directUrl && format === "mp4") {
+        const skipAxiosPlatforms = [
+          "tiktok",
+          "instagram",
+          "facebook",
+          "youtube",
+          "ytm",
+        ];
+        const isSkipPlatform = skipAxiosPlatforms.some((p) =>
+          job.platform?.toLowerCase().includes(p),
+        );
+
+        if (job.directUrl && format === "mp4" && !isSkipPlatform) {
           try {
             const response = await axios({
               method: "get",
               url: job.directUrl,
               responseType: "stream",
               headers: {
-                "User-Agent":
-                  process.env.YT_USER_AGENT ||
-                  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-                Referer: "https://x.com/",
+                "User-Agent": ua,
+                Referer: referer,
               },
               timeout: 300000,
             });
@@ -444,6 +487,18 @@ async function startDownload(
           guild.emojis.cache.find((e) => e.name === "check")?.toString() ||
           "✅";
 
+        const formatDuration = (input) => {
+          if (!input) return "---";
+          if (typeof input === "string" && input.includes(":")) {
+            return input.split(".")[0];
+          }
+          if (isNaN(input)) return input || "---";
+          const s = Math.floor(input);
+          const m = Math.floor(s / 60);
+          const rs = s % 60;
+          return `${m}:${rs.toString().padStart(2, "0")}`;
+        };
+
         const doneEmbed = new EmbedBuilder()
           .setColor("#5d3fd3")
           .setAuthor({
@@ -451,13 +506,15 @@ async function startDownload(
             iconURL: interaction.client.user.displayAvatarURL(),
           })
           .setTitle(`${NOTIF} **Media Transfer Success**`)
+          .setThumbnail(job.thumbnail || "")
           .setImage(botBanner)
           .setDescription(
             (userMention ? `${userMention}\n\n` : "") +
               `### ${LEA} **Content Delivered**\n` +
               `${ARROW} **Resource:** *${title}*\n` +
-              `${ARROW} **Platform:** *${uploader || job.platform || "System"}*\n` +
-              `${ARROW} **Length:** *${duration || "---"}*\n` +
+              `${ARROW} **Platform:** *${uploader || "---"}*\n` +
+              `${ARROW} **Source:** *${job.platform || "---"}*\n` +
+              `${ARROW} **Length:** *${formatDuration(duration)}*\n` +
               `${ARROW} **Link:** [Source Hub](<${url}>)\n\n` +
               `**${formatNumber(likes)}** *Likes*  •  **${formatNumber(comments)}** *Comments*  •  **${formatNumber(views)}** *Views*`,
           )

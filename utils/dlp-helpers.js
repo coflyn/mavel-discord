@@ -107,8 +107,6 @@ function getVpsArgs() {
     `youtube:${extractorArgs.join(";")}`,
     "--add-header",
     "Accept-Language:id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
-    "--referer",
-    "https://www.youtube.com/",
   ];
 
   return args;

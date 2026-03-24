@@ -6,8 +6,49 @@ const fs = require("fs");
 const app = express();
 let tunnelUrl = null;
 let cfProcess = null;
+let currentPort = 3033;
+
+function launchCloudflared(port, resolve) {
+  if (cfProcess) {
+    try {
+      cfProcess.kill();
+    } catch (e) {}
+  }
+
+  console.log("[TUNNEL] Connecting to edge...");
+  cfProcess = spawn("/opt/homebrew/bin/cloudflared", [
+    "tunnel",
+    "--url",
+    `http://localhost:${port}`,
+    "--protocol",
+    "http2",
+    "--no-autoupdate",
+  ]);
+
+  cfProcess.stderr.on("data", (data) => {
+    const output = data.toString();
+    const match = output.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
+    if (match) {
+      const newUrl = match[0];
+      if (tunnelUrl !== newUrl) {
+        tunnelUrl = newUrl;
+        console.log(`[TUNNEL] Active Hub: ${tunnelUrl}`);
+        if (resolve) resolve(tunnelUrl);
+      }
+    }
+  });
+
+  cfProcess.on("close", (code) => {
+    if (code !== null) {
+      console.log(`[TUNNEL] Tunnel closed (${code}). Reconnecting...`);
+      tunnelUrl = null;
+      setTimeout(() => launchCloudflared(port), 5000);
+    }
+  });
+}
 
 async function startTunnel(port = 3033) {
+  currentPort = port;
   const tempPath = path.join(__dirname, "../temp");
   if (!fs.existsSync(tempPath)) fs.mkdirSync(tempPath, { recursive: true });
 
@@ -25,42 +66,25 @@ async function startTunnel(port = 3033) {
     server.timeout = 20 * 60 * 1000;
     server.keepAliveTimeout = 65000;
 
-    function launchCloudflared() {
-      if (cfProcess) {
-        try {
-          cfProcess.kill();
-        } catch (e) {}
-      }
+    launchCloudflared(port, resolve);
+  });
+}
 
-      console.log("[TUNNEL] Connecting to edge...");
-      cfProcess = spawn("/opt/homebrew/bin/cloudflared", [
-        "tunnel",
-        "--url",
-        `http://localhost:${port}`,
-        "--protocol",
-        "http2", // Lyn's protocol
-        "--no-autoupdate",
-      ]);
-
-      cfProcess.stderr.on("data", (data) => {
-        const output = data.toString();
-        const match = output.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
-        if (match && !tunnelUrl) {
-          tunnelUrl = match[0];
-          console.log(`[TUNNEL] Active Hub: ${tunnelUrl}`);
+async function resetTunnel() {
+  console.log("[TUNNEL] Force resetting connection...");
+  tunnelUrl = null;
+  if (cfProcess) {
+    cfProcess.kill();
+    return new Promise((resolve) => {
+      const check = setInterval(() => {
+        if (tunnelUrl) {
+          clearInterval(check);
           resolve(tunnelUrl);
         }
-      });
-
-      cfProcess.on("close", (code) => {
-        console.log(`[TUNNEL] Tunnel closed (${code}). Reconnecting...`);
-        tunnelUrl = null;
-        setTimeout(launchCloudflared, 5000);
-      });
-    }
-
-    launchCloudflared();
-  });
+      }, 1000);
+    });
+  }
+  return null;
 }
 
 function getAssetUrl(filename) {
@@ -70,5 +94,6 @@ function getAssetUrl(filename) {
 
 module.exports = {
   startTunnel,
+  resetTunnel,
   getAssetUrl,
 };

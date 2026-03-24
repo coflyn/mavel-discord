@@ -39,7 +39,12 @@ async function handleUserInfo(interaction, EMOJIS) {
     .fetch(user.id)
     .catch(() => null);
 
-  const banner = user.bannerURL({ dynamic: true, size: 1024 });
+  const botUser = await interaction.client.user.fetch();
+  let banner = user.bannerURL({ dynamic: true, size: 1024 });
+
+  if (!banner) {
+    banner = botUser.bannerURL({ dynamic: true, size: 1024 });
+  }
 
   const embed = new EmbedBuilder()
     .setColor(user.hexAccentColor || "#dcdade")

@@ -1,7 +1,7 @@
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 
 module.exports = async function helpHandler(interaction) {
-  const guildEmojis = await interaction.guild.emojis.fetch();
+  const guildEmojis = await interaction.guild.fetch().then(g => g.emojis.cache);
   const getEmoji = (name, fallback) => {
     const emoji = guildEmojis.find((e) => e.name === name);
     return emoji ? emoji.toString() : fallback;
@@ -13,6 +13,8 @@ module.exports = async function helpHandler(interaction) {
   const PC = getEmoji("crowncyan", "💻");
   const DOTS = getEmoji("three_dots", "🎵");
   const HELP = getEmoji("anno", "📚");
+  const ROCKET = getEmoji("rocket", "🚀");
+  const LOCK = getEmoji("cash", "💵");
 
   const botUser = await interaction.client.user.fetch();
   const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
@@ -33,7 +35,8 @@ module.exports = async function helpHandler(interaction) {
         name: `${DIAMOND} **Core Operations**`,
         value:
           `${ARROW} **/dl** — *Universal media downloader*\n` +
-          `${ARROW} **/search** — *Integrated search engine*`,
+          `${ARROW} **/search** — *Integrated search engine (YT/BC)*\n` +
+          `${ARROW} **/lyrics** — *Extract song metadata and lyrics*`,
         inline: false,
       },
       {
@@ -41,36 +44,46 @@ module.exports = async function helpHandler(interaction) {
         value:
           `${ARROW} **/icon** — *Grab high-res icon asset (User/Server)*\n` +
           `${ARROW} **/banner** — *Grab high-res banner asset (User/Server)*\n` +
-          `${ARROW} **/server** — *Check operational base information*\n` +
-          `${ARROW} **/setup** — *Configure system channel endpoints*\n` +
-          `${ARROW} **/info** — *Check user intelligence and profile*\n` +
-          `${ARROW} **/emoji** — *Advanced server emoji management*\n` +
-          `${ARROW} **/diagnostics** — *Performance & Pulse Analysis*\n` +
-          `${ARROW} **/ping** — *Monitor connection latency*`,
+          `${ARROW} **/emoji list** — *List all server assets*\n` +
+          `${ARROW} **/emoji** ${LOCK} — *Manage emoji assets (add/rename/delete)*\n` +
+          `${ARROW} **/emoji needs** ${LOCK} — *Sync missing system assets*\n` +
+          `${ARROW} **/info** — *Check user intelligence and profile*`,
         inline: false,
       },
       {
-        name: `${PC} **Playback & Operations**`,
+        name: `${PC} **Playback & Controls**`,
         value:
           `${ARROW} **/play** — *Initialize audio playback*\n` +
           `${ARROW} **/stop** — *Decommission player and disconnect*\n` +
-          `${ARROW} **/lyrics** — *Extract song metadata and lyrics*\n` +
           `${ARROW} **/nowplaying** — *Display active track details*\n` +
           `${ARROW} **/skip** — *Bypass current audio track*\n` +
-          `${ARROW} **/pause** — *Suspend audio playback*\n` +
-          `${ARROW} **/resume** — *Restore audio playback*`,
+          `${ARROW} **/skipto** — *Bypass to specific track index*\n` +
+          `${ARROW} **/pause** / **/resume** — *Global playback control*`,
         inline: false,
       },
       {
-        name: `${DOTS} **Library & Queue**`,
+        name: `${DOTS} **Library & Registry**`,
         value:
           `${ARROW} **/queue** — *Monitor synchronized queue*\n` +
+          `${ARROW} **/playlist** — *Handle personal audio registries*\n` +
           `${ARROW} **/shuffle** — *Randomize queue sequence*\n` +
           `${ARROW} **/repeat** — *Define playback repetition mode*\n` +
           `${ARROW} **/clear** — *Wipe current synchronized queue*\n` +
-          `${ARROW} **/remove** — *Detach specific track from queue*\n` +
-          `${ARROW} **/skipto** — *Bypass to specific track index*\n` +
-          `${ARROW} **/playlist** — *Handle personal audio registries*`,
+          `${ARROW} **/remove** — *Detach specific track from queue*`,
+        inline: false,
+      },
+      {
+        name: `${ROCKET} **System Administration**`,
+        value:
+          `${ARROW} **/server** — *Check operational base information*\n` +
+          `${ARROW} **/setup** ${LOCK} — *Configure system endpoints*\n` +
+          `${ARROW} **/move** ${LOCK} — *Induction link for migration*\n` +
+          `${ARROW} **/reset tunnel** ${LOCK} — *Regenerate tunnel*\n` +
+          `${ARROW} **/diagnostics** ${LOCK} — *Performance Report*\n` +
+          `${ARROW} **/hibernate** / **/wakeup** ${LOCK} — *Operational Standby*\n` +
+          `${ARROW} **/purge** / **/backup** ${LOCK} — *Asset & Registry care*\n` +
+          `${ARROW} **/scan** / **/logs** ${LOCK} — *In-depth Integrity Audit*\n` +
+          `${ARROW} **/ping** — *Monitor latency*`,
         inline: false,
       },
     )
@@ -81,21 +94,12 @@ module.exports = async function helpHandler(interaction) {
     .setTimestamp();
 
   if (interaction.isCommand?.()) {
-    const reply = await interaction.reply({
+    await interaction.reply({
       embeds: [embed],
       flags: [MessageFlags.Ephemeral],
-      withResponse: true,
     });
-
-    setTimeout(() => {
-      interaction.deleteReply().catch(() => {});
-    }, 300000);
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
   } else if (interaction.reply) {
-    const reply = await interaction.reply({ embeds: [embed] }).catch(() => {});
-    if (reply && reply.delete) {
-      setTimeout(() => {
-        reply.delete().catch(() => {});
-      }, 300000);
-    }
+    await interaction.reply({ embeds: [embed] }).catch(() => {});
   }
 };

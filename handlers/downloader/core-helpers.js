@@ -17,23 +17,32 @@ function cleanupTemp() {
   const now = Date.now();
   const expiry = 10 * 60 * 1000;
 
-  try {
-    const files = fs.readdirSync(tempDir);
-    files.forEach((file) => {
-      const filePath = path.join(tempDir, file);
-      const stats = fs.statSync(filePath);
+  const sweep = (dir) => {
+    try {
+      if (!fs.existsSync(dir)) return;
+      const items = fs.readdirSync(dir);
+      items.forEach((item) => {
+        const itemPath = path.join(dir, item);
+        const stats = fs.statSync(itemPath);
 
-      if (stats.isFile()) {
-        const age = now - stats.mtimeMs;
-        if (age > expiry) {
-          console.log(`[CLEANUP] Deleting expired file: ${file} (Age: ${Math.round(age/1000)}s)`);
-          fs.unlinkSync(filePath);
+        if (stats.isDirectory()) {
+          sweep(itemPath);
+        } else if (stats.isFile()) {
+          const age = now - stats.mtimeMs;
+          if (age > expiry) {
+            console.log(
+              `[CLEANUP] Deleting expired file: ${item} (Age: ${Math.round(age / 1000)}s)`,
+            );
+            fs.unlinkSync(itemPath);
+          }
         }
-      }
-    });
-  } catch (e) {
-    console.error(`[CLEANUP] Error during sweep:`, e.message);
-  }
+      });
+    } catch (e) {
+      console.error(`[CLEANUP] Error during sweep in ${dir}:`, e.message);
+    }
+  };
+
+  sweep(tempDir);
 }
 
 function saveDB(db) {
@@ -179,18 +188,18 @@ async function sendAdminLog(client, data) {
       .setImage(botBanner)
       .setDescription(
         `### ${ROCKET} **Operation Overview**\n` +
-          `> ${ARROW} **Status:** \`${data.title || "Log Entry"}\`\n` +
-          `> ${ARROW} **Details:** *${data.message || "No activity reported."}*`,
+          `${ARROW} **Status:** \`${data.title || "Log Entry"}\`\n` +
+          `${ARROW} **Details:** *${data.message || "No activity reported."}*`,
       )
       .addFields(
         {
           name: `${LEA} **User Context**`,
-          value: `> ${ARROW} ${data.user || "System/Auto"}`,
+          value: `${ARROW} ${data.user || "System/Auto"}`,
           inline: true,
         },
         {
           name: `${ONLINE} **Data Engine**`,
-          value: `> ${ARROW} ${(data.platform || "Generic").toUpperCase()}`,
+          value: `${ARROW} ${(data.platform || "Generic").toUpperCase()}`,
           inline: true,
         },
       )
@@ -203,7 +212,7 @@ async function sendAdminLog(client, data) {
     if (data.url) {
       logEmbed.addFields({
         name: `${NOTIF} **Resource Link**`,
-        value: `> [Click to View](${data.url})`,
+        value: `[Click to View](${data.url})`,
         inline: false,
       });
     }
@@ -211,7 +220,7 @@ async function sendAdminLog(client, data) {
     if (data.size) {
       logEmbed.addFields({
         name: `${CHEST} **Metadata Size**`,
-        value: `> \`${data.size} MB\``,
+        value: `\`${data.size} MB\``,
         inline: true,
       });
     }
