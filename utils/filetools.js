@@ -20,9 +20,17 @@ async function bundleImagesToPdf(imagePaths) {
     if (!fs.existsSync(imgPath)) continue;
 
     try {
-      const imageBuffer = await sharp(fs.readFileSync(imgPath))
-        .resize(1200, 1600, { fit: "inside", withoutEnlargement: true })
-        .jpeg({ quality: 80 })
+      const imgBuffer = fs.readFileSync(imgPath);
+      const isPng = imgPath.toLowerCase().endsWith(".png");
+
+      const imageBuffer = await sharp(imgBuffer)
+        .resize(1500, 2000, {
+          fit: "inside",
+          withoutEnlargement: false,
+          kernel: sharp.kernel.lanczos3,
+        })
+        .sharpen({ sigma: 1.5, m1: 0.5, j2: 0.2 })
+        .jpeg({ quality: 90, chromaSubsampling: "4:4:4" })
         .toBuffer();
 
       const image = await pdfDoc.embedJpg(imageBuffer);
@@ -48,5 +56,5 @@ async function bundleImagesToPdf(imagePaths) {
 
 module.exports = {
   bundleImagesToPdf,
-  tempPath
+  tempPath,
 };

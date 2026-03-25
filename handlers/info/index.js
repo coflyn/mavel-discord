@@ -222,7 +222,7 @@ async function handleServerInfo(interaction, EMOJIS) {
   const owner = await guild.fetchOwner();
 
   const embed = new EmbedBuilder()
-    .setColor("#00008b")
+    .setColor("#1e4d2b")
     .setAuthor({
       name: "Operational Base Registry",
       iconURL: guild.iconURL({ dynamic: true }),

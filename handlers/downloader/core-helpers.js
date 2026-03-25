@@ -100,7 +100,7 @@ function createProgressUpdater(target, title) {
     const bar = "█".repeat(progress) + "░".repeat(size - progress);
 
     const embed = new EmbedBuilder()
-      .setColor("#00008b")
+      .setColor("#1e4d2b")
       .setDescription(
         `### ${FIRE} **Processing active...**\n` +
           `${ARROW} **Resource:** *${title}*\n` +
@@ -113,6 +113,8 @@ function createProgressUpdater(target, title) {
 }
 
 function formatNumber(num) {
+  if (typeof num === "string" && (num.includes("K") || num.includes("M")))
+    return num;
   const n = parseInt(num);
   if (isNaN(n)) return "0";
   if (n >= 1000000) return (n / 1000000).toFixed(1) + "M";
@@ -183,7 +185,7 @@ async function sendAdminLog(client, data) {
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
     const logEmbed = new EmbedBuilder()
-      .setColor("#5d3fd3")
+      .setColor("#1e4d2b")
       .setAuthor({
         name: "MaveL System Logger",
         iconURL: client.user.displayAvatarURL(),

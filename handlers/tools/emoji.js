@@ -366,7 +366,7 @@ module.exports.syncMissingEmojis = async function (interaction) {
   await interaction.editReply({
     embeds: [
       new EmbedBuilder()
-        .setColor("#5d3fd3")
+        .setColor("#1e4d2b")
         .setDescription(
           `### ⏳ **Synthesizing Assets...**\n*Please wait while MaveL retrieves **${missing.length}** sector data units.*`,
         ),

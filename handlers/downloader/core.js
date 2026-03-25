@@ -20,71 +20,15 @@ const { runTikTokFlow } = require("./tiktok-handler");
 const { runCloudFlow } = require("./cloud-handler");
 const { runSpotifyFlow } = require("./spotify-handler");
 const { runTwitterFlow } = require("./twitter-handler");
+const { runThreadsFlow } = require("./threads-handler");
+const { runFacebookFlow } = require("./facebook-handler");
+const { runScribdFlow } = require("./scribd-handler");
+
+const musicKeywords = ["music.youtube.com", "spotify.com", "soundcloud.com", "bandcamp.com"];
 
 async function runYtDlpFlow(target, url, options = {}) {
+  let finalUrl = url.replace("threads.com", "threads.net");
   let statusMsg;
-
-  const isCommand = target.isChatInputCommand && target.isChatInputCommand();
-
-  if (url.includes("pixiv.net")) {
-    const jobResult = await runPixivFlow(target, url);
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(
-        target,
-        jobResult.jobId,
-        jobResult.isUgoira ? "pixiv_ugoira" : "pixiv_gallery",
-        { statusMsg: jobResult.statusMsg },
-      );
-    }
-    return;
-  }
-  if (url.includes("tiktok.com")) {
-    const jobResult = await runTikTokFlow(target, url, {
-      isCommand,
-      ...options,
-    });
-    if (!isCommand && jobResult && jobResult.jobId) {
-      return await startDownload(
-        target,
-        jobResult.jobId,
-        jobResult.isGallery ? "tkgallery" : "tkmp4",
-        { statusMsg: jobResult.statusMsg },
-      );
-    }
-    return;
-  }
-  if (url.includes("open.spotify.com")) {
-    const jobResult = await runSpotifyFlow(target, url);
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(target, jobResult.jobId, "spmp3", {
-        statusMsg: jobResult.statusMsg,
-      });
-    }
-    return;
-  }
-  if (
-    url.includes("mediafire.com") ||
-    url.includes("drive.google.com") ||
-    url.includes("mega.nz") ||
-    url.includes("mega.co.nz")
-  ) {
-    return await runCloudFlow(target, url);
-  }
-
-  if (
-    url.includes("twitter.com") ||
-    url.includes("x.com") ||
-    url.includes("vxtwitter.com") ||
-    url.includes("fixupx.com")
-  ) {
-    const jobResult = await runTwitterFlow(target, url);
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(target, jobResult.jobId, "mp4", {
-        statusMsg: jobResult.statusMsg,
-      });
-    }
-    // If specialized Twitter flow fails, we fall back to generic yt-dlp
-  }
 
   const guild = target.guild || target.client?.guilds?.cache.first();
   const guildEmojis = guild
@@ -143,9 +87,198 @@ async function runYtDlpFlow(target, url, options = {}) {
     }
   };
 
-  let finalUrl = url;
-  if (url.includes("tiktok.com") && url.includes("/photo/")) {
-    finalUrl = url.replace("/photo/", "/video/");
+  if (url.includes("pixiv.net")) {
+    const jobResult = await runPixivFlow(target, url, { statusMsg });
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(
+        target,
+        jobResult.jobId,
+        jobResult.isUgoira ? "pixiv_ugoira" : "pixiv_gallery",
+        { statusMsg: jobResult.statusMsg },
+      );
+    }
+    return;
+  }
+  if (url.includes("tiktok.com")) {
+    const jobResult = await runTikTokFlow(target, url, {
+      isCommand: target.isChatInputCommand && target.isChatInputCommand(),
+      statusMsg,
+      ...options,
+    });
+    if (
+      !(target.isChatInputCommand && target.isChatInputCommand()) &&
+      jobResult &&
+      jobResult.jobId
+    ) {
+      return await startDownload(
+        target,
+        jobResult.jobId,
+        jobResult.isGallery ? "tkgallery" : "tkmp4",
+        { statusMsg: jobResult.statusMsg },
+      );
+    }
+    return;
+  }
+  if (url.includes("open.spotify.com")) {
+    const jobResult = await runSpotifyFlow(target, url, { statusMsg });
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(target, jobResult.jobId, "spmp3", {
+        statusMsg: jobResult.statusMsg,
+      });
+    }
+    return;
+  }
+  if (
+    url.includes("mediafire.com") ||
+    url.includes("drive.google.com") ||
+    url.includes("mega.nz") ||
+    url.includes("mega.co.nz")
+  ) {
+    return await runCloudFlow(target, url, { statusMsg });
+  }
+
+  if (
+    finalUrl.includes("twitter.com") ||
+    finalUrl.includes("x.com") ||
+    finalUrl.includes("vxtwitter.com") ||
+    finalUrl.includes("fixupx.com")
+  ) {
+    const jobResult = await runTwitterFlow(target, finalUrl, { statusMsg });
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(
+        target,
+        jobResult.jobId,
+        jobResult.isGallery ? "twgallery" : "mp4",
+        {
+          statusMsg: jobResult.statusMsg,
+        },
+      );
+    }
+  }
+
+  if (finalUrl.includes("threads.net") || finalUrl.includes("threads.com")) {
+    const jobResult = await runThreadsFlow(target, finalUrl, { statusMsg });
+    if (!jobResult) return;
+    if (jobResult.jobId && jobResult.jobId !== null) {
+      return await startDownload(target, jobResult.jobId, "mp4", {
+        statusMsg: jobResult.statusMsg,
+      });
+    }
+    return;
+  }
+
+  if (finalUrl.includes("pinterest.com") || finalUrl.includes("pin.it")) {
+    const { exec } = require("child_process");
+    const checkCmd = `yt-dlp --simulate --get-url "${finalUrl}"`;
+
+    const isVideo = await new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        resolve(false);
+      }, 5000);
+
+      exec(checkCmd, (error, stdout, stderr) => {
+        clearTimeout(timeout);
+        if (error || !stdout || stdout.trim() === "") resolve(false);
+        else resolve(true);
+      });
+    });
+
+    if (isVideo) {
+      let jobId = Math.random().toString(36).substring(2, 10);
+      const db = loadDB();
+
+      const metaCmd = `yt-dlp --simulate --print "%(duration)s|%(uploader)s|%(title)s" "${finalUrl}"`;
+      const meta = await new Promise((resolve) => {
+        exec(metaCmd, (error, stdout) => {
+          if (error || !stdout) resolve("||");
+          else resolve(stdout.trim());
+        });
+      });
+      const [dur, uploader, rawTitle] = meta.split("|");
+
+      db.jobs[jobId] = {
+        url: finalUrl,
+        timestamp: Date.now(),
+        title: (rawTitle && rawTitle !== "NA"
+          ? rawTitle
+          : "Pinterest Video"
+        ).substring(0, 100),
+        stats: {
+          likes: "0",
+          views: "0",
+          comments: "0",
+          shares: "0",
+          duration: dur && dur !== "NA" ? parseFloat(dur) : "",
+          uploader: uploader && uploader !== "NA" ? uploader : "Pinterest",
+        },
+        thumbnail: "",
+        platform: "Pinterest",
+        userId: target.user ? target.user.id : target.author?.id || "unknown",
+        isGallery: false,
+        hasVideo: true,
+        extractor: "pinterest",
+        directUrl: null,
+      };
+      saveDB(db);
+      return await startDownload(target, jobId, "mp4", { statusMsg });
+    }
+
+    const jobResult = await require("./pinterest-handler").runPinterestFlow(
+      target,
+      finalUrl,
+      { statusMsg },
+    );
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(target, jobResult.jobId, "twgallery", {
+        statusMsg: jobResult.statusMsg,
+      });
+    }
+    return;
+  }
+
+  if (
+    finalUrl.includes("facebook.com") ||
+    finalUrl.includes("fb.watch") ||
+    finalUrl.includes("fb.com")
+  ) {
+    const jobResult = await require("./facebook-handler").runFacebookFlow(
+      target,
+      finalUrl,
+      { statusMsg },
+    );
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(target, jobResult.jobId, "mp4", {
+        statusMsg: jobResult.statusMsg,
+      });
+    }
+    return;
+  }
+
+  if (finalUrl.includes("slideshare.net")) {
+    const jobResult = await require("./slideshare-handler").runSlideshareFlow(
+      target,
+      finalUrl,
+      { statusMsg },
+    );
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(target, jobResult.jobId, "twgallery", {
+        statusMsg: jobResult.statusMsg,
+      });
+    }
+    return;
+  }
+
+  if (finalUrl.includes("scribd.com")) {
+    const jobResult = await runScribdFlow(target, finalUrl, { statusMsg });
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(target, jobResult.jobId, "twgallery", {
+        statusMsg: jobResult.statusMsg,
+      });
+    }
+    return;
+  }
+  if (finalUrl.includes("tiktok.com") && finalUrl.includes("/photo/")) {
+    finalUrl = finalUrl.replace("/photo/", "/video/");
   }
 
   const referer = finalUrl.includes("instagram.com")
@@ -159,9 +292,11 @@ async function runYtDlpFlow(target, url, options = {}) {
         ? "https://x.com/"
         : finalUrl.includes("pinterest.com") || finalUrl.includes("pin.it")
           ? "https://www.pinterest.com/"
-          : finalUrl.includes("capcut.com")
-            ? "https://www.capcut.com/"
-            : "https://www.google.com/";
+          : finalUrl.includes("music.youtube.com") || finalUrl.includes("youtube.com")
+            ? "https://www.youtube.com/"
+            : finalUrl.includes("capcut.com")
+              ? "https://www.capcut.com/"
+              : "https://www.google.com/";
 
   const dlArgs = [
     ...getJsRuntimeArgs(),
@@ -184,6 +319,12 @@ async function runYtDlpFlow(target, url, options = {}) {
   ];
 
   const metadataProcess = spawn(getYtDlp(), dlArgs, { env: getDlpEnv() });
+  
+  const metadataTimeout = setTimeout(() => {
+    metadataProcess.kill();
+    console.error("[METADATA-TIMEOUT] Process killed after 30s");
+  }, 30000);
+
   let metadata = "";
   let errorLog = "";
 
@@ -196,7 +337,8 @@ async function runYtDlpFlow(target, url, options = {}) {
   });
 
   metadataProcess.on("close", async (code) => {
-    let finalTitle = "Untitled";
+    clearTimeout(metadataTimeout);
+    let finalTitle = options.title || "Untitled";
     let finalPlatform = "Generic";
     let views = "0";
     let likes = "0";
@@ -260,13 +402,13 @@ async function runYtDlpFlow(target, url, options = {}) {
       }
     } else {
       try {
-        const json = JSON.parse(metadata.trim());
+        const json = JSON.parse(metadata.trim().split("\n")[0]);
         const hasVideo = json.formats?.some(
           (f) => f.vcodec !== "none" && f.vcodec !== undefined,
         );
         const isTikTok = json.webpage_url?.includes("tiktok.com");
 
-        finalTitle = json.title || "Untitled";
+        finalTitle = (finalTitle === "Untitled" || !finalTitle) ? (json.title || "Untitled") : finalTitle;
         finalPlatform = json.extractor || "Generic";
         views = json.view_count || "0";
         likes = json.like_count || "0";
@@ -325,7 +467,7 @@ async function runYtDlpFlow(target, url, options = {}) {
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#00008b")
+      .setColor("#1e4d2b")
       .setTitle(`${FIRE} **Media Research Found**`)
       .setImage(botBanner)
       .setDescription(
@@ -369,12 +511,13 @@ async function runYtDlpFlow(target, url, options = {}) {
       );
     }
 
+    const isMusic = musicKeywords.some((keyword) => url.includes(keyword));
     const isTikTok = url.includes("tiktok.com");
-    const shouldDirect = !isTikTok || !isCommand;
+    const shouldDirect = !isTikTok || !isCommand || isMusic;
 
     if (shouldDirect && options.type) {
       const finalFormat =
-        options.type === "mp3" ? "mp3" : isGallery ? "gallery" : "mp4";
+        options.type === "mp3" || isMusic ? "mp3" : isGallery ? "gallery" : "mp4";
       return await startDownload(target, jobId, finalFormat, { statusMsg });
     }
 

@@ -54,13 +54,13 @@ module.exports = async function searchHandler(interaction) {
           inline: false,
         },
         {
-        name: `${DOTS} **Acoustics**`,
-        value:
-          `${ARROW} *YouTube Music (Audio Download)*\n` +
-          `${ARROW} *Spotify (Metadata Extraction)*\n` +
-          `${ARROW} *Bandcamp (Original Metadata)*`,
-        inline: false,
-      },
+          name: `${DOTS} **Acoustics**`,
+          value:
+            `${ARROW} *YouTube Music (Audio Download)*\n` +
+            `${ARROW} *Spotify (Metadata Extraction)*\n` +
+            `${ARROW} *Bandcamp (Original Metadata)*`,
+          inline: false,
+        },
       )
       .setFooter({
         text: "MaveL | Select Option Above",
@@ -83,24 +83,6 @@ module.exports = async function searchHandler(interaction) {
   await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
   let refinedQuery = query;
-
-  try {
-    const spotUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(query + " site:open.spotify.com/track")}`;
-    const { data: spotData } = await axios.get(spotUrl, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-    });
-    const $s = cheerio.load(spotData);
-    const topResult = $s(".result__a").first().text().trim();
-    if (topResult && topResult.includes("song and lyrics")) {
-      const parts = topResult.split(" - ");
-      if (parts.length > 0) {
-        refinedQuery = parts[0].trim();
-        console.log(`[SEARCH-META] Refined: ${refinedQuery}`);
-      }
-    }
-  } catch (e) {
-    console.error("[SEARCH-META] Refinement error:", e.message);
-  }
 
   let finalResults = [];
 
@@ -133,26 +115,29 @@ module.exports = async function searchHandler(interaction) {
   if (typeSelection === "bc") {
     const tryBcSearch = async (q) => {
       const res = [];
-      const searchUrl = `https://search.brave.com/search?q=${encodeURIComponent(q + " site:bandcamp.com")}`;
+      const searchUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(q + " site:bandcamp.com")}`;
       try {
         const { data } = await axios.get(searchUrl, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-            Accept:
-              "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          },
-          timeout: 10000,
+          headers: { "User-Agent": "Mozilla/5.0" },
         });
 
         const $ = cheerio.load(data);
-        $("a").each((i, el) => {
+        $(".result__a").each((i, el) => {
           let href = $(el).attr("href");
+          if (href && href.includes("uddg=")) {
+            try {
+              const urlParams = new URL(href, "https://duckduckgo.com").searchParams;
+              const uddg = urlParams.get("uddg");
+              if (uddg) href = decodeURIComponent(uddg);
+            } catch (e) {}
+          }
+          
           if (
             href &&
             (href.includes(".bandcamp.com/track/") ||
               href.includes(".bandcamp.com/album/"))
           ) {
+            const isAlbum = href.includes(".bandcamp.com/album/");
             const urlParts = new URL(href);
             const artistName = urlParts.hostname.split(".")[0];
             const titleSlug = urlParts.pathname
@@ -161,22 +146,29 @@ module.exports = async function searchHandler(interaction) {
               .replace(/-/g, " ");
 
             let title = titleSlug.charAt(0).toUpperCase() + titleSlug.slice(1);
-            if (q && titleSlug.includes(q.toLowerCase().split(" ")[0])) {
-              title = q;
-            }
+            if (isAlbum) title = `[Album] ${title}`;
+
+            const isHighConfidence = q && (title.toLowerCase().includes(q.toLowerCase().split(" ")[0]) || titleSlug.includes(q.toLowerCase().split(" ")[0]));
 
             if (title && !res.some((r) => r.webpage_url === href)) {
-              res.push({
-                title: title,
-                webpage_url: href,
-                uploader:
-                  artistName.charAt(0).toUpperCase() + artistName.slice(1),
-              });
+              if (!isAlbum && isHighConfidence) {
+                 res.unshift({
+                   title: title,
+                   webpage_url: href,
+                   uploader: artistName.charAt(0).toUpperCase() + artistName.slice(1),
+                 });
+              } else {
+                 res.push({
+                   title: title,
+                   webpage_url: href,
+                   uploader: artistName.charAt(0).toUpperCase() + artistName.slice(1),
+                 });
+              }
             }
           }
         });
       } catch (e) {}
-      return res;
+      return res.slice(0, 20);
     };
     finalResults = await tryBcSearch(refinedQuery);
   } else if (typeSelection === "spot") {
@@ -190,20 +182,21 @@ module.exports = async function searchHandler(interaction) {
         const $ = cheerio.load(data);
         $(".result__a").each((i, el) => {
           let href = $(el).attr("href");
-          
+
           if (href && href.includes("uddg=")) {
             try {
-              const urlParams = new URL(href, "https://duckduckgo.com").searchParams;
+              const urlParams = new URL(href, "https://duckduckgo.com")
+                .searchParams;
               const uddg = urlParams.get("uddg");
               if (uddg) href = decodeURIComponent(uddg);
             } catch (e) {}
           } else if (href && href.startsWith("//duckduckgo.com/l/")) {
-             try {
-               const parts = href.split("uddg=");
-               if (parts.length > 1) {
-                 href = decodeURIComponent(parts[1].split("&")[0]);
-               }
-             } catch (e) {}
+            try {
+              const parts = href.split("uddg=");
+              if (parts.length > 1) {
+                href = decodeURIComponent(parts[1].split("&")[0]);
+              }
+            } catch (e) {}
           }
 
           if (href && href.includes("open.spotify.com/track/")) {
@@ -260,7 +253,11 @@ module.exports = async function searchHandler(interaction) {
       finalResults.slice(0, 10).map((res, index) => {
         const url = res.webpage_url || res.url;
         const resultId = `res_${Math.random().toString(36).substring(7)}_${index}`;
-        searchCache.set(resultId, url);
+        searchCache.set(resultId, {
+          url,
+          title: res.title,
+          uploader: res.uploader,
+        });
         if (searchCache.size > 100) {
           const firstKey = searchCache.keys().next().value;
           searchCache.delete(firstKey);

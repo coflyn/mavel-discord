@@ -7,10 +7,12 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
   let url = manualOptions.manualUrl || "";
   let type = manualOptions.manualType || null;
   let resolution = manualOptions.manualResolution || null;
+  let title = manualOptions.manualTitle || null;
 
   if (manualOptions.manualUrl) {
     type = manualOptions.manualType || "mp4";
     resolution = manualOptions.manualResolution || "720";
+    title = manualOptions.manualTitle || null;
   } else if (
     target.options &&
     target.isChatInputCommand &&
@@ -26,7 +28,10 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
     if (!linkMatch) return;
     url = linkMatch[0];
 
-    type = "mp4";
+    const musicKeywords = ["music.youtube.com", "spotify.com", "soundcloud.com", "bandcamp.com"];
+    const isMusic = musicKeywords.some(keyword => url.includes(keyword));
+
+    type = isMusic ? "mp3" : "mp4";
     resolution = "720";
   }
 
@@ -49,7 +54,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
     const embed = new EmbedBuilder()
-      .setColor("#5d3fd3")
+      .setColor("#1e4d2b")
       .setAuthor({
         name: "MaveL Downloader System",
         iconURL: target.client.user.displayAvatarURL(),
@@ -82,7 +87,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
         },
         {
           name: `${FIRE} **Archival & Docs**`,
-          value: `${ARROW} *Slideshare, Docplayer*`,
+          value: `${ARROW} *Scribd, Slideshare*`,
           inline: false,
         },
       )
@@ -107,7 +112,13 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
     return;
   }
 
-  await runYtDlpFlow(target, url, { type, resolution });
+  if (target.deferReply && typeof target.deferReply === "function") {
+    await target
+      .deferReply({ flags: [MessageFlags.Ephemeral] })
+      .catch(() => {});
+  }
+
+  await runYtDlpFlow(target, url, { type, resolution, title });
 };
 
 module.exports.handleDownloadCallback = handleDownloadCallback;

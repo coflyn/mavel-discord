@@ -127,7 +127,7 @@ async function runPixivFlow(target, url) {
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#0096fa")
+      .setColor("#1e4d2b")
       .setTitle(`${NOTIF} **Pixiv Metadata Secured**`)
       .setThumbnail(thumbnail)
       .setDescription(

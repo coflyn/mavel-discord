@@ -579,7 +579,7 @@ client.on("interactionCreate", async (interaction) => {
 
       if (list.length === 0) {
         const emptyEmbed = new EmbedBuilder()
-          .setColor("#00008b")
+          .setColor("#1e4d2b")
           .setDescription(
             `### ${FIRE} **Queue is empty**\n*Add some tracks to get started.*`,
           );
@@ -727,7 +727,7 @@ client.on("interactionCreate", async (interaction) => {
 
         if (names.length === 0) {
           const emptyEmbed = new EmbedBuilder()
-            .setColor("#00008b")
+            .setColor("#1e4d2b")
             .setDescription(
               `### ${FIRE} **No Playlists**\n> *You haven't saved any playlists yet.*`,
             );
@@ -749,7 +749,7 @@ client.on("interactionCreate", async (interaction) => {
             ?.toString() || "•";
 
         const listEmbed = new EmbedBuilder()
-          .setColor("#00008b")
+          .setColor("#1e4d2b")
           .setDescription(
             `### ${LEA} **Saved Playlists**\n` +
               names
@@ -790,7 +790,7 @@ client.on("interactionCreate", async (interaction) => {
           total > 20 ? `\n*...and ${total - 20} more tracks.*` : "";
 
         const viewEmbed = new EmbedBuilder()
-          .setColor("#00008b")
+          .setColor("#1e4d2b")
           .setTitle(`Playlist: ${name}`)
           .setDescription(`${tracks}${suffix}`)
           .setFooter({ text: `Total: ${total} tracks` });
@@ -1034,10 +1034,11 @@ client.on("interactionCreate", async (interaction) => {
 
     if (interaction.customId.startsWith("search_select")) {
       const { searchCache } = require("./handlers/search/index");
-      const url =
-        searchCache.get(interaction.values[0]) || interaction.values[0];
+      const cached = searchCache.get(interaction.values[0]);
+      const url = cached?.url || interaction.values[0];
+      const title = cached?.title ? `${cached.uploader ? cached.uploader + " - " : ""}${cached.title}` : "Resource";
       const subcommand = interaction.customId.split("_").pop();
-      const type = ["ytm", "bc"].includes(subcommand) ? "mp3" : "mp4";
+      const type = ["ytm", "bc", "spot"].includes(subcommand) ? "mp3" : "mp4";
 
       try {
         await interaction
@@ -1047,6 +1048,7 @@ client.on("interactionCreate", async (interaction) => {
         return await downloaderHandler(interaction, {
           manualUrl: url,
           manualType: type,
+          manualTitle: title
         });
       } catch (e) {
         console.error("[SELECT-HANDLER] Error:", e.message);

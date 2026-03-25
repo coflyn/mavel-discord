@@ -62,24 +62,6 @@ async function musicHandler(target, manualData = null) {
 
     let refinedQuery = query;
 
-    try {
-      const spotUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(query + " site:open.spotify.com/track")}`;
-      const { data: spotData } = await axios.get(spotUrl, {
-        headers: { "User-Agent": "Mozilla/5.0" },
-      });
-      const $s = cheerio.load(spotData);
-      const topResult = $s(".result__a").first().text().trim();
-      if (topResult && topResult.includes("song and lyrics")) {
-        const parts = topResult.split(" - ");
-        if (parts.length > 0) {
-          refinedQuery = parts[0].trim();
-          console.log(`[MUSIC-META] Refined via Spotify: ${refinedQuery}`);
-        }
-      }
-    } catch (e) {
-      console.error("[MUSIC-META] Spotify refinement error:", e.message);
-    }
-
     let results = [];
 
     const tryYtSearch = async (prefix, q) => {
@@ -111,26 +93,29 @@ async function musicHandler(target, manualData = null) {
     if (source === "bc") {
       const tryBcSearchLocal = async (q) => {
         const res = [];
-        const searchUrl = `https://search.brave.com/search?q=${encodeURIComponent(q + " site:bandcamp.com")}`;
+        const searchUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(q + " site:bandcamp.com")}`;
         try {
           const { data } = await axios.get(searchUrl, {
-            headers: {
-              "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-              Accept:
-                "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            },
-            timeout: 10000,
+            headers: { "User-Agent": "Mozilla/5.0" },
           });
 
           const $ = cheerio.load(data);
-          $("a").each((i, el) => {
+          $(".result__a").each((i, el) => {
             let href = $(el).attr("href");
+            if (href && href.includes("uddg=")) {
+              try {
+                const urlParams = new URL(href, "https://duckduckgo.com")
+                  .searchParams;
+                const uddg = urlParams.get("uddg");
+                if (uddg) href = decodeURIComponent(uddg);
+              } catch (e) {}
+            }
             if (
               href &&
               (href.includes(".bandcamp.com/track/") ||
                 href.includes(".bandcamp.com/album/"))
             ) {
+              const isAlbum = href.includes(".bandcamp.com/album/");
               const urlParts = new URL(href);
               const artistName = urlParts.hostname.split(".")[0];
               const titleSlug = urlParts.pathname
@@ -140,17 +125,24 @@ async function musicHandler(target, manualData = null) {
 
               let title =
                 titleSlug.charAt(0).toUpperCase() + titleSlug.slice(1);
-              if (q && titleSlug.includes(q.toLowerCase().split(" ")[0])) {
-                title = q;
-              }
+              if (isAlbum) title = `[Album] ${title}`;
 
               if (title && !res.some((r) => r.webpage_url === href)) {
-                res.push({
-                  title: title,
-                  webpage_url: href,
-                  uploader:
-                    artistName.charAt(0).toUpperCase() + artistName.slice(1),
-                });
+                if (!isAlbum) {
+                  res.unshift({
+                    title: title,
+                    webpage_url: href,
+                    uploader:
+                      artistName.charAt(0).toUpperCase() + artistName.slice(1),
+                  });
+                } else {
+                  res.push({
+                    title: title,
+                    webpage_url: href,
+                    uploader:
+                      artistName.charAt(0).toUpperCase() + artistName.slice(1),
+                  });
+                }
               }
             }
           });
@@ -197,7 +189,6 @@ async function musicHandler(target, manualData = null) {
           const shortId = `tr_${author.id}_${Date.now()}_${index}`;
           searchCache.set(shortId, { url: r.webpage_url, title: r.title });
 
-          // Auto-cleanup after 10 minutes
           setTimeout(() => searchCache.delete(shortId), 600000);
 
           return {

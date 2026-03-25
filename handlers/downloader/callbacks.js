@@ -30,46 +30,61 @@ async function startDownload(interaction, jobId, format, options = {}) {
   const resolution = options.resolution || "720";
   const statusMsg = options.statusMsg || null;
   const db = loadDB();
-  const job = db.jobs[jobId];
-
-  if (!job) {
-    const errorMsg = "*Error: Request expired.*";
-    if (interaction.editReply) {
-      return interaction.editReply({ content: errorMsg });
+  let job = null;
+  if (jobId) {
+    job = db.jobs[jobId];
+    if (!job) {
+      const errorMsg = "*Error: Request expired.*";
+      const editResponse = async (data) => {
+        try {
+          if (interaction.editReply) return await interaction.editReply(data);
+          const msg = statusMsg || interaction;
+          if (msg.edit) return await msg.edit(data);
+        } catch {}
+      };
+      return await editResponse({ content: errorMsg });
     }
-    const msg = statusMsg || interaction;
-    if (msg.edit) return await msg.edit({ content: errorMsg });
-    return interaction.reply
-      ? interaction.reply({ content: errorMsg, ephemeral: true })
-      : null;
   }
 
-  const url = job.url;
-  const title = job.title;
+  const url = job ? job.url : options.url;
+  const title = job ? job.title : options.title || "External Resource";
 
   const statusContent = `*Queued (${format.toUpperCase()}${format === "mp4" ? ` ${resolution}p` : ""})...*`;
 
   const cleanupStatus = async () => {
     try {
       if (statusMsg) {
-        const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
-        if (msg && msg.delete) await msg.delete().catch(() => {});
+        const msg = statusMsg.resource?.message || statusMsg.message || statusMsg;
+        if (msg && typeof msg.delete === "function") {
+          await msg.delete().catch(() => {});
+        }
       }
-    } catch {}
+      if (interaction && typeof interaction.deleteReply === "function") {
+          await interaction.deleteReply().catch(() => {});
+      }
+    } catch (e) {
+        console.error("[CLEANUP-STATUS] Error:", e.message);
+    }
   };
 
   const editLocal = async (data) => {
     try {
-      if (interaction.isButton && interaction.isButton() && !statusMsg) {
-        return await interaction.update(data);
+      const payload = typeof data === "string" ? { content: data } : data;
+      
+      if (interaction.isButton?.() && !statusMsg) {
+        return await interaction.update(payload).catch(() => {});
       }
+      
       if (interaction.editReply) {
-        return await interaction.editReply(data);
+        return await interaction.editReply(payload).catch(() => {});
       }
-      const msg = statusMsg || interaction;
-      if (msg.edit) return await msg.edit(data);
+      
+      const msg = statusMsg?.resource?.message || statusMsg?.message || statusMsg || interaction;
+      if (msg && typeof msg.edit === "function") {
+        return await msg.edit(payload).catch(() => {});
+      }
     } catch (e) {
-      // Silent error for message deletions
+       console.error("[EDIT-LOCAL] Error:", e.message);
     }
   };
 
@@ -148,8 +163,147 @@ async function startDownload(interaction, jobId, format, options = {}) {
         );
         const updateProgress = createProgressUpdater(interaction, title);
 
+        if (format === "twgallery") {
+          const { bundleImagesToPdf } = require("../../utils/filetools");
+          const urls = job?.twUrls || job?.imageUrls || [];
+          if (urls.length === 0) throw new Error("No assets captured.");
+
+          const platformName =
+            job?.platform || options.platform || "X / Twitter";
+          const progressPrefix = platformName;
+
+          const photoPaths = [];
+          for (let i = 0; i < urls.length; i++) {
+            const photoUrl = urls[i];
+            const photoPath = path.join(tempDir, `arch_${jobId}_${i}.jpg`);
+
+            try {
+              const isLocalFile =
+                photoUrl.startsWith("/") ||
+                photoUrl.startsWith("file://") ||
+                fs.existsSync(photoUrl);
+
+              if (isLocalFile) {
+                const cleanLocalPath = photoUrl.replace("file://", "");
+                if (fs.existsSync(cleanLocalPath)) {
+                  fs.copyFileSync(cleanLocalPath, photoPath);
+                } else {
+                  console.error(
+                    `[SYNC-LOCAL-FAIL] File missing: ${cleanLocalPath}`,
+                  );
+                  throw new Error(
+                    `Local resource not found: ${cleanLocalPath}`,
+                  );
+                }
+              } else {
+                const photoRes = await axios.get(photoUrl, {
+                  responseType: "arraybuffer",
+                  headers: {
+                    "User-Agent":
+                      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+                  },
+                });
+                fs.writeFileSync(photoPath, photoRes.data);
+              }
+              photoPaths.push(photoPath);
+            } catch (e) {
+              console.error(`[SYNC-ERROR] Index ${i}:`, e.message);
+              throw e;
+            }
+          }
+
+          const isDocumentPlatform = ["Scribd", "SlideShare"].includes(
+            platformName,
+          );
+          const shouldBundle = photoPaths.length > 5 || isDocumentPlatform;
+
+          let pdfPath = null;
+          let attachments = [];
+
+          if (shouldBundle) {
+            await editLocal({
+              content: `${CHEST} **Compiling multi-stream into PDF document...**`,
+            });
+            pdfPath = await bundleImagesToPdf(photoPaths);
+            attachments.push(
+              new AttachmentBuilder(pdfPath, { name: `${sanitizedTitle}.pdf` }),
+            );
+          } else {
+            attachments = photoPaths.map((p, idx) => {
+              const ext = p.split(".").pop();
+              return new AttachmentBuilder(p, {
+                name: `${sanitizedTitle}_${idx + 1}.${ext}`,
+              });
+            });
+          }
+
+          const userMention = job?.userId ? `<@${job.userId}>` : "";
+          const doneEmbed = new EmbedBuilder()
+            .setColor("#1e4d2b")
+            .setAuthor({
+              name: "MaveL Operation Hub",
+              iconURL: interaction.client.user.displayAvatarURL(),
+            })
+            .setTitle(`${NOTIF} **Media Transfer Success**`)
+            .setImage(botBanner);
+
+          if (
+            job?.thumbnail &&
+            typeof job?.thumbnail === "string" &&
+            job?.thumbnail.startsWith("http")
+          ) {
+            doneEmbed.setThumbnail(job?.thumbnail);
+          }
+
+          doneEmbed.setDescription(
+            (userMention ? `${userMention}\n\n` : "") +
+              `${LEA} **Content Delivered**\n` +
+              `${ARROW} **Resource:** *${title}*\n` +
+              `${ARROW} **Platform:** *${shouldBundle ? (isDocumentPlatform ? "Archival PDF" : "Gallery Bundle") : "Direct Assets"}*\n` +
+              `${ARROW} **Source:** *${platformName}*\n` +
+              `${ARROW} **Files:** *${urls.length} Images/Assets*\n` +
+              `${ARROW} **Link:** [Source Hub](<${url}>)\n\n` +
+              (() => {
+                const s = job?.stats || {};
+                const parts = [];
+                const l = formatNumber(s.likes || 0);
+                const c = formatNumber(s.comments || 0);
+                const v = formatNumber(s.views || 0);
+                if (l !== "0") parts.push(`${l} Likes`);
+                if (c !== "0") parts.push(`${c} Comments`);
+                if (v !== "0") parts.push(`${v} Views`);
+                return parts.length > 0 ? `*${parts.join(" • ")}*` : "";
+              })(),
+          );
+
+          const finalMsg = await interaction.channel.send({
+            embeds: [doneEmbed],
+            files: attachments,
+          });
+          await finalMsg.react(CHECK).catch(() => {});
+
+          await cleanupStatus();
+
+          photoPaths.forEach((p) => fs.existsSync(p) && fs.unlinkSync(p));
+          urls.forEach((p) => {
+            const isLocalHd =
+              typeof p === "string" &&
+              (p.includes("_hd_") ||
+                p.includes("scribd_") ||
+                p.includes("slideshare_") ||
+                p.includes("pinterest_"));
+            if (isLocalHd && fs.existsSync(p)) {
+              fs.unlinkSync(p);
+            }
+          });
+          if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+          if (interaction.deleteReply)
+            await interaction.deleteReply().catch(() => {});
+          return;
+        }
+
         if (format === "tkgallery") {
-          const urls = job.images || [];
+          const urls = job?.images || [];
           if (urls.length === 0) throw new Error("No photos found.");
 
           await editLocal({
@@ -180,25 +334,35 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
           const guild = interaction.guild;
 
-          const userMention = job.userId ? `<@${job.userId}>` : "";
+          const userMention = job?.userId ? `<@${job.userId}>` : "";
           const doneEmbed = new EmbedBuilder()
-            .setColor("#5865f2")
+            .setColor("#1e4d2b")
             .setAuthor({
               name: "MaveL Operation Hub",
               iconURL: interaction.client.user.displayAvatarURL(),
             })
             .setTitle(`${NOTIF} **Media Transfer Success**`)
-            .setThumbnail(job.thumbnail || "")
+            .setThumbnail(job?.thumbnail || "")
             .setImage(botBanner)
             .setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `${LEA} **Content Delivered**\n` +
                 `${ARROW} **Resource:** *${title}*\n` +
                 `${ARROW} **Platform:** *TikTok (Photo Gallery)*\n` +
-                `${ARROW} **Source:** *${job.platform || "TikTok"}*\n` +
+                `${ARROW} **Source:** *${job?.platform || options.platform || "TikTok"}*\n` +
                 `${ARROW} **Pages:** *${urls.length} Photos*\n` +
                 `${ARROW} **Link:** [Source Hub](<${url}>)\n\n` +
-                `*${formatNumber(job.stats?.likes || 0)} Likes • ${formatNumber(job.stats?.comments || 0)} Comments • ${formatNumber(job.stats?.views || 0)} Views*`,
+                (() => {
+                  const s = job?.stats || {};
+                  const parts = [];
+                  const l = formatNumber(s.likes || 0);
+                  const c = formatNumber(s.comments || 0);
+                  const v = formatNumber(s.views || 0);
+                  if (l !== "0") parts.push(`${l} Likes`);
+                  if (c !== "0") parts.push(`${c} Comments`);
+                  if (v !== "0") parts.push(`${v} Views`);
+                  return parts.length > 0 ? `*${parts.join(" • ")}*` : "";
+                })(),
             )
             .setFooter({
               text: `MaveL Downloader (${formatSize(fs.statSync(pdfPath).size)}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
@@ -225,18 +389,23 @@ async function startDownload(interaction, jobId, format, options = {}) {
         if (
           format === "tkmp4" ||
           format === "tkmp3" ||
-          job.extractor === "fx-scrape"
+          job?.extractor === "fx-scrape" ||
+          job?.extractor === "threads-scrape" ||
+          job?.extractor === "facebook-scrape"
         ) {
-          const directUrl = job.directUrl;
+          const directUrl = job?.directUrl || options.url;
           if (!directUrl) throw new Error("Source stream lost.");
 
-          let ext = format === "tkmp3" ? "mp3" : job.hasVideo ? "mp4" : "jpg";
+          let ext = format === "tkmp3" ? "mp3" : job?.hasVideo ? "mp4" : "jpg";
           if (directUrl.includes(".png")) ext = "png";
 
-          const outputFile = path.join(tempDir, `x_${jobId}.${ext}`);
+          const outputFile = path.join(
+            tempDir,
+            `meta_${jobId || "direct"}.${ext}`,
+          );
 
           await editLocal({
-            content: `${TIME} **Fetching X / Twitter Media...**`,
+            content: `${TIME} **Fetching Meta Media Resource...**`,
           });
 
           try {
@@ -274,25 +443,35 @@ async function startDownload(interaction, jobId, format, options = {}) {
               name: `${sanitizedTitle}.${ext}`,
             });
 
-            const userMention = job.userId ? `<@${job.userId}>` : "";
+            const userMention = job?.userId ? `<@${job.userId}>` : "";
             const doneEmbed = new EmbedBuilder()
-              .setColor("#5865f2")
+              .setColor("#1e4d2b")
               .setAuthor({
                 name: "MaveL Operation Hub",
                 iconURL: interaction.client.user.displayAvatarURL(),
               })
               .setTitle(`${NOTIF} **Media Transfer Success**`)
-              .setThumbnail(job.thumbnail || "")
+              .setThumbnail(job?.thumbnail || "")
               .setImage(botBanner)
               .setDescription(
                 (userMention ? `${userMention}\n\n` : "") +
                   `${LEA} **Content Delivered**\n` +
                   `${ARROW} **Resource:** *${title}*\n` +
-                  `${ARROW} **Platform:** *${job.hasVideo ? "Video Stream" : "Static Image"}*\n` +
-                  `${ARROW} **Source:** *${job.platform || "X / Twitter"}*\n` +
-                  `${ARROW} **Length:** *${job.stats?.duration || "---"}*\n` +
+                  `${ARROW} **Platform:** *${job?.hasVideo ? "Video Stream" : "Static Image"}*\n` +
+                  `${ARROW} **Source:** *${job?.platform || options.platform || "X / Twitter"}*\n` +
+                  `${ARROW} **Length:** *${job?.stats?.duration || "---"}*\n` +
                   `${ARROW} **Link:** [Source Hub](<${url}>)\n\n` +
-                  `*${formatNumber(job.stats?.likes || 0)} Likes • ${formatNumber(job.stats?.comments || 0)} Comments • ${formatNumber(job.stats?.views || 0)} Views*`,
+                  (() => {
+                    const s = job?.stats || {};
+                    const parts = [];
+                    const l = formatNumber(s.likes || 0);
+                    const c = formatNumber(s.comments || 0);
+                    const v = formatNumber(s.views || 0);
+                    if (l !== "0") parts.push(`${l} Likes`);
+                    if (c !== "0") parts.push(`${c} Comments`);
+                    if (v !== "0") parts.push(`${v} Views`);
+                    return parts.length > 0 ? `*${parts.join(" • ")}*` : "";
+                  })(),
               )
               .setFooter({
                 text: `MaveL Downloader (${formatSize(fs.statSync(outputFile).size)}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
@@ -315,11 +494,11 @@ async function startDownload(interaction, jobId, format, options = {}) {
         }
 
         if (format === "cloud") {
-          const directUrl = job.directUrl;
-          const platform = job.platform;
+          const directUrl = job?.directUrl || options.url;
+          const platform = job?.platform || options.platform || "Platform";
           const outputFile = path.join(
             tempDir,
-            job.title || `cloud_${jobId}.bin`,
+            job?.title || `cloud_${jobId || "direct"}.bin`,
           );
 
           await editLocal({
@@ -351,9 +530,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
           const attachment = new AttachmentBuilder(outputFile);
           const guild = interaction.guild;
 
-          const userMention = job.userId ? `<@${job.userId}>` : "";
+          const userMention = job?.userId ? `<@${job.userId}>` : "";
           const doneEmbed = new EmbedBuilder()
-            .setColor("#5865f2")
+            .setColor("#1e4d2b")
             .setAuthor({
               name: "MaveL Operation Hub",
               iconURL: interaction.client.user.displayAvatarURL(),
@@ -363,7 +542,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             .setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `${LEA} **Vault Object Retrieved**\n` +
-                `${ARROW} **Resource:** *${job.title}*\n` +
+                `${ARROW} **Resource:** *${job?.title || options.title || "External Resource"}*\n` +
                 `${ARROW} **Platform:** *Cloud Document*\n` +
                 `${ARROW} **Source:** *${platform}*\n` +
                 `${ARROW} **Length:** *---*\n` +
@@ -394,7 +573,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         }
 
         if (format === "spmp3") {
-          const query = job.searchQuery;
+          const query = job?.searchQuery || options.query || "Query";
           const outputFile = path.join(tempDir, `spotify_${jobId}.mp3`);
 
           await editLocal({
@@ -427,15 +606,15 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
           const guild = interaction.guild;
 
-          const userMention = job.userId ? `<@${job.userId}>` : "";
+          const userMention = job?.userId ? `<@${job.userId}>` : "";
           const doneEmbed = new EmbedBuilder()
-            .setColor("#5865f2")
+            .setColor("#1e4d2b")
             .setAuthor({
               name: "MaveL Operation Hub",
               iconURL: interaction.client.user.displayAvatarURL(),
             })
             .setTitle(`${NOTIF} **Media Transfer Success**`)
-            .setThumbnail(job.thumbnail || "")
+            .setThumbnail(job?.thumbnail || "")
             .setImage(botBanner)
             .setDescription(
               (userMention ? `${userMention}\n\n` : "") +
@@ -473,7 +652,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const { bundleImagesToPdf } = require("../../utils/filetools");
 
         if (format === "pixiv_gallery") {
-          const urls = job.pixivUrls || [];
+          const urls = job?.pixivUrls || options.urls || [];
           if (urls.length === 0) throw new Error("Artwork data lost.");
 
           await editLocal({
@@ -508,13 +687,13 @@ async function startDownload(interaction, jobId, format, options = {}) {
           const guild = interaction.guild;
 
           const doneEmbed = new EmbedBuilder()
-            .setColor("#5865f2")
+            .setColor("#1e4d2b")
             .setAuthor({
               name: "MaveL Operation Hub",
               iconURL: interaction.client.user.displayAvatarURL(),
             })
             .setTitle(`${NOTIF} **Media Transfer Success**`)
-            .setThumbnail(job.thumbnail || "")
+            .setThumbnail(job?.thumbnail || "")
             .setImage(botBanner)
             .setDescription(
               (userMention ? `${userMention}\n\n` : "") +
@@ -547,7 +726,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         }
 
         if (format === "pixiv_ugoira") {
-          const directUrl = job.pixivUrls[0];
+          const directUrl = job?.pixivUrls ? job.pixivUrls[0] : options.url;
           const outputFile = path.join(tempDir, `pixiv_${jobId}.mp4`);
 
           await editLocal({
@@ -569,7 +748,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           const guild = interaction.guild;
 
           const doneEmbed = new EmbedBuilder()
-            .setColor("#5865f2")
+            .setColor("#1e4d2b")
             .setAuthor({
               name: "MaveL Operation Hub",
               iconURL: interaction.client.user.displayAvatarURL(),
@@ -679,7 +858,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             attachments.push(new AttachmentBuilder(audioPath));
 
           const { likes, comments, shares, views, duration, uploader } =
-            job.stats || {
+            job?.stats || {
               likes: "0",
               comments: "0",
               shares: "0",
@@ -688,19 +867,19 @@ async function startDownload(interaction, jobId, format, options = {}) {
               uploader: "",
             };
 
-          const userMention = job.userId ? `<@${job.userId}>` : "";
+          const userMention = job?.userId ? `<@${job.userId}>` : "";
           const checkEmoji =
             guild.emojis.cache.find((e) => e.name === "check")?.toString() ||
             "✅";
 
           const doneEmbed = new EmbedBuilder()
-            .setColor("#5865f2")
+            .setColor("#1e4d2b")
             .setAuthor({
               name: "MaveL Operation Hub",
               iconURL: interaction.client.user.displayAvatarURL(),
             })
             .setTitle(`${NOTIF} **Media Transfer Success**`)
-            .setThumbnail(job.thumbnail || "")
+            .setThumbnail(job?.thumbnail || "")
             .setImage(botBanner)
             .setDescription(
               (userMention ? `${userMention}\n\n` : "") +
@@ -710,7 +889,16 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 `${ARROW} **Source:** *${uploader || "System"}*\n` +
                 `${ARROW} **Length:** *---*\n` +
                 `${ARROW} **Link:** [Source Hub](<${url}>)\n\n` +
-                `*${formatNumber(likes)} Likes • ${formatNumber(comments)} Comments • ${formatNumber(views)} Views*`,
+                (() => {
+                  const parts = [];
+                  const l = formatNumber(likes || 0);
+                  const c = formatNumber(comments || 0);
+                  const v = formatNumber(views || 0);
+                  if (l !== "0") parts.push(`${l} Likes`);
+                  if (c !== "0") parts.push(`${c} Comments`);
+                  if (v !== "0") parts.push(`${v} Views`);
+                  return parts.length > 0 ? `*${parts.join(" • ")}*` : "";
+                })(),
             )
             .setFooter({
               text: `MaveL Downloader (${formatSize(photoPaths.reduce((acc, p) => acc + fs.statSync(p).size, 0))}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
@@ -749,14 +937,18 @@ async function startDownload(interaction, jobId, format, options = {}) {
               ? "https://x.com/"
               : "https://www.google.com/";
 
+        const cleanTitleMatch = (job?.title || options.title || "").replace(/\[Album\]/g, "").trim();
+
         const dlArgs =
           format === "mp4"
             ? [
                 "-f",
-                job.directUrl
+                job?.directUrl
                   ? "best"
                   : `bv*[height<=${resolution}]+ba/b[height<=${resolution}] / best[height<=${resolution}] / best`,
                 "--no-playlist",
+                cleanTitleMatch && !job?.directUrl ? "--match-title" : null,
+                cleanTitleMatch && !job?.directUrl ? `(?i)${cleanTitleMatch.split(" - ").pop()}` : null,
                 "--newline",
                 "--embed-metadata",
                 "--embed-thumbnail",
@@ -777,8 +969,8 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 outputFile,
                 url.includes("twitter.com") || url.includes("x.com")
                   ? url
-                  : job.directUrl || url,
-              ]
+                  : job?.directUrl || url,
+              ].filter(Boolean)
             : [
                 "-f",
                 "ba/best",
@@ -786,6 +978,8 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 "--audio-format",
                 "mp3",
                 "--no-playlist",
+                cleanTitleMatch && !job?.directUrl ? "--match-title" : null,
+                cleanTitleMatch && !job?.directUrl ? `(?i)${cleanTitleMatch.split(" - ").pop()}` : null,
                 "--newline",
                 "--embed-metadata",
                 "--embed-thumbnail",
@@ -806,8 +1000,8 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 outputFile,
                 url.includes("twitter.com") || url.includes("x.com")
                   ? url
-                  : job.directUrl || url,
-              ];
+                  : job?.directUrl || url,
+              ].filter(Boolean);
 
         const skipAxiosPlatforms = [
           "tiktok",
@@ -817,17 +1011,18 @@ async function startDownload(interaction, jobId, format, options = {}) {
           "ytm",
         ];
         const isSkipPlatform = skipAxiosPlatforms.some((p) =>
-          job.platform?.toLowerCase().includes(p),
+          job?.platform?.toLowerCase().includes(p),
         );
 
-        if (job.directUrl && format === "mp4" && !isSkipPlatform) {
+        const directUrl = job?.directUrl || options.url;
+        if (job?.directUrl && format === "mp4" && !isSkipPlatform) {
           await editLocal({
             content: `${TIME} **Extracting high-fidelity stream...**`,
           });
           try {
             const response = await axios({
               method: "get",
-              url: job.directUrl,
+              url: directUrl,
               responseType: "stream",
               headers: {
                 "User-Agent": ua,
@@ -920,7 +1115,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 ?.toString() || "💎";
 
             const { likes, comments, shares, views, duration, uploader } =
-              job.stats || {
+              job?.stats || {
                 likes: "0",
                 comments: "0",
                 shares: "0",
@@ -941,28 +1136,37 @@ async function startDownload(interaction, jobId, format, options = {}) {
               return `${m}:${rs.toString().padStart(2, "0")}`;
             };
 
-            const userMention = job.userId ? `<@${job.userId}>` : "";
+            const userMention = job?.userId ? `<@${job.userId}>` : "";
 
             const linkEmbed = new EmbedBuilder()
-              .setColor("#5865f2")
+              .setColor("#1e4d2b")
               .setAuthor({
                 name: "MaveL Operation Hub",
                 iconURL: interaction.client.user.displayAvatarURL(),
               })
               .setTitle(`${NOTIF} **Media Link Ready**`)
-              .setThumbnail(job.thumbnail || "")
+              .setThumbnail(job?.thumbnail || "")
               .setImage(botBanner)
               .setDescription(
                 (userMention ? `${userMention}\n\n` : "") +
                   `### ${DIAMOND} **File Too Large for Discord**\n` +
                   `${ARROW} **Resource:** *${title}*\n` +
                   `${ARROW} **Size:** *${sizeMB}*\n` +
-                  `${ARROW} **Source:** *${job.platform || uploader || "---"}*\n` +
+                  `${ARROW} **Source:** *${job?.platform || options.platform || uploader || "---"}*\n` +
                   `${ARROW} **Length:** *${formatDuration(duration)}*\n` +
                   `${ARROW} **Link:** [Source Hub](<${url}>)\n\n` +
                   `${ARROW} **[DOWNLOAD HD VIDEO](${publicUrl})**\n\n` +
                   `*Click the link above to download directly from local host. Link expires in **10 minutes**.*\n\n` +
-                  `*${formatNumber(likes)} Likes • ${formatNumber(comments)} Comments • ${formatNumber(views)} Views*`,
+                  (() => {
+                    const parts = [];
+                    const l = formatNumber(likes || 0);
+                    const c = formatNumber(comments || 0);
+                    const v = formatNumber(views || 0);
+                    if (l !== "0") parts.push(`${l} Likes`);
+                    if (c !== "0") parts.push(`${c} Comments`);
+                    if (v !== "0") parts.push(`${v} Views`);
+                    return parts.length > 0 ? `*${parts.join(" • ")}*` : "";
+                  })(),
               )
               .setFooter({
                 text: `MaveL Downloader (${sizeMB}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
@@ -991,7 +1195,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         });
 
         const { likes, comments, shares, views, duration, uploader } =
-          job.stats || {
+          job?.stats || {
             likes: "0",
             comments: "0",
             shares: "0",
@@ -1000,7 +1204,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             uploader: "",
           };
 
-        const userMention = job.userId ? `<@${job.userId}>` : "";
+        const userMention = job?.userId ? `<@${job.userId}>` : "";
 
         const formatDuration = (input) => {
           if (!input) return "---";
@@ -1015,23 +1219,34 @@ async function startDownload(interaction, jobId, format, options = {}) {
         };
 
         const doneEmbed = new EmbedBuilder()
-          .setColor("#5865f2")
+          .setColor("#1e4d2b")
           .setAuthor({
             name: "MaveL Operation Hub",
             iconURL: interaction.client.user.displayAvatarURL(),
           })
           .setTitle(`${NOTIF} **Media Transfer Success**`)
-          .setThumbnail(job.thumbnail || "")
+          .setThumbnail(
+            job?.thumbnail || interaction.client.user.displayAvatarURL(),
+          )
           .setImage(botBanner)
           .setDescription(
             (userMention ? `${userMention}\n\n` : "") +
               `${LEA} **Content Delivered**\n` +
               `${ARROW} **Resource:** *${title}*\n` +
               `${ARROW} **Platform:** *${format === "mp3" ? "Audio (MPEG-3)" : "Video (MP4)"}*\n` +
-              `${ARROW} **Source:** *${job.platform || uploader || "---"}*\n` +
+              `${ARROW} **Source:** *${job?.platform || options.platform || uploader || "---"}*\n` +
               `${ARROW} **Length:** *${formatDuration(duration)}*\n` +
               `${ARROW} **Link:** [Source Hub](<${url}>)\n\n` +
-              `*${formatNumber(likes)} Likes • ${formatNumber(comments)} Comments • ${formatNumber(views)} Views*`,
+              (() => {
+                const parts = [];
+                const l = formatNumber(likes || 0);
+                const c = formatNumber(comments || 0);
+                const v = formatNumber(views || 0);
+                if (l !== "0") parts.push(`${l} Likes`);
+                if (c !== "0") parts.push(`${c} Comments`);
+                if (v !== "0") parts.push(`${v} Views`);
+                return parts.length > 0 ? `*${parts.join(" • ")}*` : "";
+              })(),
           )
           .setFooter({
             text: `MaveL Downloader (${sizeMB}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
@@ -1054,7 +1269,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           color: 0x000000,
           message: `Delivered.`,
           user: userTag,
-          platform: job.platform,
+          platform: job?.platform || options.platform || "Platform",
           url: url,
           size: sizeMB,
         });
@@ -1078,7 +1293,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             color: 0x000000,
             message: e.message,
             user: userTag,
-            platform: job.platform,
+            platform: job?.platform || options.platform || "Platform",
             url: url,
           });
           break;

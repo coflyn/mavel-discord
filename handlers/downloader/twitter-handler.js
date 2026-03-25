@@ -5,8 +5,8 @@ const cheerio = require("cheerio");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const { loadDB, saveDB, formatNumber } = require("./core-helpers");
 
-async function runTwitterFlow(target, url) {
-  let statusMsg;
+async function runTwitterFlow(target, url, options = {}) {
+  let statusMsg = options.statusMsg;
   const guild = target.guild || target.client?.guilds?.cache.first();
   const guildEmojis = guild
     ? await guild.emojis.fetch().catch(() => null)
@@ -21,7 +21,7 @@ async function runTwitterFlow(target, url) {
 
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#1DA1F2")
+      .setColor("#1e4d2b")
       .setDescription(
         `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
       );
@@ -32,21 +32,26 @@ async function runTwitterFlow(target, url) {
     "Refining signal frequency...",
   );
 
-  if (target.replied || target.deferred) {
-    statusMsg = await target.editReply({
-      embeds: [initialEmbed],
-      withResponse: true,
-    });
-  } else if (target.isChatInputCommand && target.isChatInputCommand()) {
-    statusMsg = await target.reply({
-      embeds: [initialEmbed],
-      flags: [MessageFlags.Ephemeral],
-      withResponse: true,
-    });
+  if (!statusMsg) {
+    if (target.replied || target.deferred) {
+      statusMsg = await target.editReply({
+        embeds: [initialEmbed],
+        withResponse: true,
+      });
+    } else if (target.isChatInputCommand && target.isChatInputCommand()) {
+      statusMsg = await target.reply({
+        embeds: [initialEmbed],
+        flags: [MessageFlags.Ephemeral],
+        withResponse: true,
+      });
+    } else {
+      statusMsg = target.reply
+        ? await target.reply({ embeds: [initialEmbed], withResponse: true })
+        : await target.channel.send({ embeds: [initialEmbed] });
+    }
   } else {
-    statusMsg = target.reply
-      ? await target.reply({ embeds: [initialEmbed], withResponse: true })
-      : await target.channel.send({ embeds: [initialEmbed] });
+    const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
+    await msg.edit({ embeds: [initialEmbed] }).catch(() => {});
   }
 
   const editResponse = async (data) => {
@@ -74,6 +79,7 @@ async function runTwitterFlow(target, url) {
     let stats = { likes: 0, views: 0, comments: 0, shares: 0, duration: "---" };
     let thumbnail = "";
     let isVideo = false;
+    let allImages = [];
 
     const providers = ["fxtwitter.com", "vxtwitter.com", "fixupx.com"];
     let scrapeSuccess = false;
@@ -81,6 +87,7 @@ async function runTwitterFlow(target, url) {
     for (const provider of providers) {
       if (scrapeSuccess) break;
       try {
+        allImages = [];
         const apiRes = await axios.get(
           `https://${provider}/status/${statusId}`,
           {
@@ -120,15 +127,72 @@ async function runTwitterFlow(target, url) {
           } catch (e) {}
         }
 
-        if (statsText) {
-          stats = {
-            comments: statsText.match(/💬\s*([\d.K]+)/)?.[1] || 0,
-            shares: statsText.match(/[🔁🔄]\s*([\d.K]+)/)?.[1] || 0,
-            likes: statsText.match(/[❤️♥️]\s*([\d.K]+)/)?.[1] || 0,
-            views: statsText.match(/[👁️👀]\s*([\d.K]+)/)?.[1] || 0,
-            duration: "---",
-          };
-        }
+        const getMeta = (tag) =>
+          $(`meta[name="${tag}"], meta[property="${tag}"]`).attr("content") ||
+          "";
+        const labels = [
+          getMeta("twitter:label1"),
+          getMeta("twitter:label2"),
+          getMeta("twitter:label3"),
+          getMeta("twitter:label4"),
+        ];
+        const datas = [
+          getMeta("twitter:data1"),
+          getMeta("twitter:data2"),
+          getMeta("twitter:data3"),
+          getMeta("twitter:data4"),
+        ];
+
+        const metaStats = {};
+        labels.forEach((label, idx) => {
+          if (!label) return;
+          const data = datas[idx];
+          if (!data) return;
+          const cleanData = data.replace(/,/g, "");
+          if (label.match(/Like/i)) metaStats.likes = cleanData;
+          if (label.match(/Retweet|Repost/i)) metaStats.shares = cleanData;
+          if (label.match(/Reply|Comment/i)) metaStats.comments = cleanData;
+          if (label.match(/View|Tayangan/i)) metaStats.views = cleanData;
+        });
+
+        const textForStats =
+          (statsText && statsText.length > 5 ? statsText : rawDesc) || "";
+        const getStatFromText = (pattern) => {
+          const match = textForStats.match(pattern);
+          if (!match) return null;
+          for (let j = 1; j < match.length; j++) {
+            if (match[j]) return match[j].replace(/,/g, "");
+          }
+          return null;
+        };
+
+        stats = {
+          comments:
+            metaStats.comments ||
+            getStatFromText(
+              /(?:💬|Replies|Comments|Balasan)\s*([\d,.K]+)|([\d,.K]+)\s*(?:💬|Replies|Comments|Balasan)/i,
+            ) ||
+            "0",
+          shares:
+            metaStats.shares ||
+            getStatFromText(
+              /(?:🔁|🔄|Retweets|Reposts|Shares)\s*([\d,.K]+)|([\d,.K]+)\s*(?:🔁|🔄|Retweets|Reposts|Shares)/i,
+            ) ||
+            "0",
+          likes:
+            metaStats.likes ||
+            getStatFromText(
+              /(?:❤️|♥️|Likes|Suka)\s*([\d,.K]+)|([\d,.K]+)\s*(?:❤️|♥️|Likes|Suka)/i,
+            ) ||
+            "0",
+          views:
+            metaStats.views ||
+            getStatFromText(
+              /(?:👁️|👀|Views|Tayangan)\s*([\d,.K]+)|([\d,.K]+)\s*(?:👁️|👀|Views|Tayangan)/i,
+            ) ||
+            "0",
+          duration: "---",
+        };
 
         const directVideo =
           $('meta[property="og:video:secure_url"]').attr("content") ||
@@ -136,15 +200,27 @@ async function runTwitterFlow(target, url) {
           $('meta[property="og:video"]').attr("content") ||
           $('meta[name="twitter:player:stream"]').attr("content") ||
           $('meta[name="twitter:player"]').attr("content");
-        const directImage =
+
+        for (let i = 1; i <= 4; i++) {
+          const img =
+            $(`meta[property="og:image:${i}"]`).attr("content") ||
+            $(`meta[name="twitter:image:${i}"]`).attr("content");
+          if (img) allImages.push(img);
+        }
+
+        const fallbackImage =
           $('meta[property="og:image:secure_url"]').attr("content") ||
           $('meta[property="og:image:url"]').attr("content") ||
           $('meta[property="og:image"]').attr("content") ||
           $('meta[name="twitter:image"]').attr("content") ||
           $('meta[name="twitter:image:src"]').attr("content");
 
-        mediaUrl = directVideo || directImage;
-        thumbnail = directImage || "";
+        if (allImages.length === 0 && fallbackImage) {
+          allImages.push(fallbackImage);
+        }
+
+        mediaUrl = directVideo || allImages[0];
+        thumbnail = allImages[0] || "";
         isVideo = !!directVideo;
 
         if (mediaUrl) scrapeSuccess = true;
@@ -163,12 +239,17 @@ async function runTwitterFlow(target, url) {
       title: (title || "X Media") + (author ? ` (@${author})` : ""),
       stats,
       thumbnail,
-      platform: isVideo ? "X / Twitter (Video)" : "X / Twitter (Image)",
+      platform: isVideo
+        ? "X / Twitter (Video)"
+        : allImages.length > 1
+          ? "X / Twitter (Gallery)"
+          : "X / Twitter (Image)",
       userId: target.user ? target.user.id : target.author.id,
-      isGallery: false,
+      isGallery: !isVideo && allImages.length > 1,
       hasVideo: isVideo,
       extractor: "fx-scrape",
       directUrl: mediaUrl,
+      twUrls: allImages,
     };
     saveDB(db);
 
@@ -176,7 +257,7 @@ async function runTwitterFlow(target, url) {
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#1DA1F2")
+      .setColor("#1e4d2b")
       .setTitle(`${NOTIF} **X Signal Captured**`)
       .setThumbnail(thumbnail)
       .setDescription(

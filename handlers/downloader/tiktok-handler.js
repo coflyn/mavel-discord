@@ -98,7 +98,7 @@ async function runTikTokFlow(target, url, options = {}) {
         const NOTIF = getEmoji("notif", "🔔");
 
         const foundEmbed = new EmbedBuilder()
-            .setColor("#ff0050")
+            .setColor("#1e4d2b")
             .setTitle(`${NOTIF} **TikTok Signal Secured**`)
             .setThumbnail(formatUrl(cover))
             .setDescription(
