@@ -5,6 +5,16 @@ const cheerio = require("cheerio");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const { loadDB, saveDB, formatNumber } = require("./core-helpers");
 
+function formatDuration(seconds) {
+  if (!seconds || seconds === "---") return "---";
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  if (h > 0)
+    return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 async function runTwitterFlow(target, url, options = {}) {
   let statusMsg = options.statusMsg;
   const guild = target.guild || target.client?.guilds?.cache.first();
@@ -21,7 +31,7 @@ async function runTwitterFlow(target, url, options = {}) {
 
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setDescription(
         `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
       );
@@ -80,151 +90,195 @@ async function runTwitterFlow(target, url, options = {}) {
     let thumbnail = "";
     let isVideo = false;
     let allImages = [];
-
-    const providers = ["fxtwitter.com", "vxtwitter.com", "fixupx.com"];
     let scrapeSuccess = false;
 
-    for (const provider of providers) {
-      if (scrapeSuccess) break;
-      try {
-        allImages = [];
-        const apiRes = await axios.get(
-          `https://${provider}/status/${statusId}`,
-          {
-            timeout: 8000,
-            headers: {
-              "User-Agent": "Discordbot/2.0 (+https://discordapp.com)",
-            },
-          },
-        );
-        const html = apiRes.data;
-        const $ = cheerio.load(html);
+    const { exec } = require("child_process");
+    const { getCookiesArgs, getYtDlp } = require("../../utils/dlp-helpers");
+    const cookies = getCookiesArgs("twitter").join(" ");
 
-        const metaTitle =
-          $('meta[property="og:title"]').attr("content") || author;
-        author = metaTitle.split(" (")[0] || author;
-        let rawDesc =
-          $('meta[property="og:description"]').attr("content") || title;
-        if (rawDesc.match(/Quoting/i))
-          rawDesc = rawDesc.split(/Quoting/i)[0].trim();
-        title = rawDesc
-          .replace(/&lt;br\s*\/?&gt;/gi, " ")
-          .replace(/<br\s*\/?>/gi, " ")
-          .replace(/<\/?[^>]+(>|$)/g, "")
-          .replace(/https?:\/\/\S+/gi, "")
-          .trim();
-        if (title.length > 80) title = title.substring(0, 77) + "...";
-
-        let statsText = $('p:contains("💬")').text() || "";
-        if (!statsText) {
-          try {
-            const oembedLink =
-              $('link[type="application/json+oembed"]').attr("href") || "";
-            if (oembedLink) {
-              const urlParams = new URLSearchParams(oembedLink.split("?")[1]);
-              statsText = urlParams.get("text") || "";
-            }
-          } catch (e) {}
-        }
-
-        const getMeta = (tag) =>
-          $(`meta[name="${tag}"], meta[property="${tag}"]`).attr("content") ||
-          "";
-        const labels = [
-          getMeta("twitter:label1"),
-          getMeta("twitter:label2"),
-          getMeta("twitter:label3"),
-          getMeta("twitter:label4"),
-        ];
-        const datas = [
-          getMeta("twitter:data1"),
-          getMeta("twitter:data2"),
-          getMeta("twitter:data3"),
-          getMeta("twitter:data4"),
-        ];
-
-        const metaStats = {};
-        labels.forEach((label, idx) => {
-          if (!label) return;
-          const data = datas[idx];
-          if (!data) return;
-          const cleanData = data.replace(/,/g, "");
-          if (label.match(/Like/i)) metaStats.likes = cleanData;
-          if (label.match(/Retweet|Repost/i)) metaStats.shares = cleanData;
-          if (label.match(/Reply|Comment/i)) metaStats.comments = cleanData;
-          if (label.match(/View|Tayangan/i)) metaStats.views = cleanData;
+    try {
+      const ytTarget = url;
+      const ytCheck = await new Promise((resolve) => {
+        const timeout = setTimeout(() => resolve(null), 12000);
+        const command = `${getYtDlp()} ${cookies} --simulate --get-url --format "bestvideo+bestaudio/best" --add-header "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36" "${ytTarget}"`;
+        exec(command, (err, stdout) => {
+          clearTimeout(timeout);
+          const out = stdout?.trim();
+          if (!err && out && !out.includes("login") && out.length > 10)
+            resolve(out.split("\n")[0]);
+          else resolve(null);
         });
+      });
 
-        const textForStats =
-          (statsText && statsText.length > 5 ? statsText : rawDesc) || "";
-        const getStatFromText = (pattern) => {
-          const match = textForStats.match(pattern);
-          if (!match) return null;
-          for (let j = 1; j < match.length; j++) {
-            if (match[j]) return match[j].replace(/,/g, "");
+      if (
+        ytCheck &&
+        (ytCheck.includes(".mp4") ||
+          ytCheck.includes(".m3u8") ||
+          ytCheck.includes("video") ||
+          ytCheck.includes("twimg.com/video"))
+      ) {
+        mediaUrl = ytCheck;
+        isVideo = true;
+        scrapeSuccess = true;
+
+        // Fetch metadata for high-fidelity phase
+        const meta = await new Promise((resolve) => {
+          const mCmd = `${getYtDlp()} ${cookies} --simulate --print "%(uploader)s|%(title)s|%(thumbnail)s|%(duration)s" "${ytTarget}"`;
+          exec(mCmd, (err, stdout) => resolve(stdout?.trim() || "|||"));
+        });
+        const [u, t, thumb, dur] = meta.split("|");
+        if (u && u !== "NA") author = u;
+        if (t && t !== "NA") title = t;
+        if (thumb && thumb !== "NA") thumbnail = thumb;
+        if (dur && dur !== "NA")
+          stats.duration = formatDuration(parseFloat(dur));
+      }
+    } catch (e) {}
+
+    if (!scrapeSuccess) {
+      const providers = ["fxtwitter.com", "vxtwitter.com", "fixupx.com"];
+      for (const provider of providers) {
+        if (scrapeSuccess) break;
+        try {
+          allImages = [];
+          const apiRes = await axios.get(
+            `https://${provider}/status/${statusId}`,
+            {
+              timeout: 8000,
+              headers: {
+                "User-Agent": "Discordbot/2.0 (+https://discordapp.com)",
+              },
+            },
+          );
+          const html = apiRes.data;
+          const $ = cheerio.load(html);
+
+          const metaTitle =
+            $('meta[property="og:title"]').attr("content") || author;
+          author = metaTitle.split(" (")[0] || author;
+          let rawDesc =
+            $('meta[property="og:description"]').attr("content") || title;
+          if (rawDesc.match(/Quoting/i))
+            rawDesc = rawDesc.split(/Quoting/i)[0].trim();
+          title = rawDesc
+            .replace(/&lt;br\s*\/?&gt;/gi, " ")
+            .replace(/<br\s*\/?>/gi, " ")
+            .replace(/<\/?[^>]+(>|$)/g, "")
+            .replace(/https?:\/\/\S+/gi, "")
+            .trim();
+          if (title.length > 80) title = title.substring(0, 77) + "...";
+
+          let statsText = $('p:contains("💬")').text() || "";
+          if (!statsText) {
+            try {
+              const oembedLink =
+                $('link[type="application/json+oembed"]').attr("href") || "";
+              if (oembedLink) {
+                const urlParams = new URLSearchParams(oembedLink.split("?")[1]);
+                statsText = urlParams.get("text") || "";
+              }
+            } catch (e) {}
           }
-          return null;
-        };
 
-        stats = {
-          comments:
-            metaStats.comments ||
-            getStatFromText(
-              /(?:💬|Replies|Comments|Balasan)\s*([\d,.K]+)|([\d,.K]+)\s*(?:💬|Replies|Comments|Balasan)/i,
-            ) ||
-            "0",
-          shares:
-            metaStats.shares ||
-            getStatFromText(
-              /(?:🔁|🔄|Retweets|Reposts|Shares)\s*([\d,.K]+)|([\d,.K]+)\s*(?:🔁|🔄|Retweets|Reposts|Shares)/i,
-            ) ||
-            "0",
-          likes:
-            metaStats.likes ||
-            getStatFromText(
-              /(?:❤️|♥️|Likes|Suka)\s*([\d,.K]+)|([\d,.K]+)\s*(?:❤️|♥️|Likes|Suka)/i,
-            ) ||
-            "0",
-          views:
-            metaStats.views ||
-            getStatFromText(
-              /(?:👁️|👀|Views|Tayangan)\s*([\d,.K]+)|([\d,.K]+)\s*(?:👁️|👀|Views|Tayangan)/i,
-            ) ||
-            "0",
-          duration: "---",
-        };
+          const getMeta = (tag) =>
+            $(`meta[name="${tag}"], meta[property="${tag}"]`).attr("content") ||
+            "";
+          const labels = [
+            getMeta("twitter:label1"),
+            getMeta("twitter:label2"),
+            getMeta("twitter:label3"),
+            getMeta("twitter:label4"),
+          ];
+          const datas = [
+            getMeta("twitter:data1"),
+            getMeta("twitter:data2"),
+            getMeta("twitter:data3"),
+            getMeta("twitter:data4"),
+          ];
 
-        const directVideo =
-          $('meta[property="og:video:secure_url"]').attr("content") ||
-          $('meta[property="og:video:url"]').attr("content") ||
-          $('meta[property="og:video"]').attr("content") ||
-          $('meta[name="twitter:player:stream"]').attr("content") ||
-          $('meta[name="twitter:player"]').attr("content");
+          const metaStats = {};
+          labels.forEach((label, idx) => {
+            if (!label) return;
+            const data = datas[idx];
+            if (!data) return;
+            const cleanData = data.replace(/,/g, "");
+            if (label.match(/Like/i)) metaStats.likes = cleanData;
+            if (label.match(/Retweet|Repost/i)) metaStats.shares = cleanData;
+            if (label.match(/Reply|Comment/i)) metaStats.comments = cleanData;
+            if (label.match(/View|Tayangan/i)) metaStats.views = cleanData;
+          });
 
-        for (let i = 1; i <= 4; i++) {
-          const img =
-            $(`meta[property="og:image:${i}"]`).attr("content") ||
-            $(`meta[name="twitter:image:${i}"]`).attr("content");
-          if (img) allImages.push(img);
-        }
+          const textForStats =
+            (statsText && statsText.length > 5 ? statsText : rawDesc) || "";
+          const getStatFromText = (pattern) => {
+            const match = textForStats.match(pattern);
+            if (!match) return null;
+            for (let j = 1; j < match.length; j++) {
+              if (match[j]) return match[j].replace(/,/g, "");
+            }
+            return null;
+          };
 
-        const fallbackImage =
-          $('meta[property="og:image:secure_url"]').attr("content") ||
-          $('meta[property="og:image:url"]').attr("content") ||
-          $('meta[property="og:image"]').attr("content") ||
-          $('meta[name="twitter:image"]').attr("content") ||
-          $('meta[name="twitter:image:src"]').attr("content");
+          stats = {
+            comments:
+              metaStats.comments ||
+              getStatFromText(
+                /(?:💬|Replies|Comments|Balasan)\s*([\d,.K]+)|([\d,.K]+)\s*(?:💬|Replies|Comments|Balasan)/i,
+              ) ||
+              "0",
+            shares:
+              metaStats.shares ||
+              getStatFromText(
+                /(?:🔁|🔄|Retweets|Reposts|Shares)\s*([\d,.K]+)|([\d,.K]+)\s*(?:🔁|🔄|Retweets|Reposts|Shares)/i,
+              ) ||
+              "0",
+            likes:
+              metaStats.likes ||
+              getStatFromText(
+                /(?:❤️|♥️|Likes|Suka)\s*([\d,.K]+)|([\d,.K]+)\s*(?:❤️|♥️|Likes|Suka)/i,
+              ) ||
+              "0",
+            views:
+              metaStats.views ||
+              getStatFromText(
+                /(?:👁️|👀|Views|Tayangan)\s*([\d,.K]+)|([\d,.K]+)\s*(?:👁️|👀|Views|Tayangan)/i,
+              ) ||
+              "0",
+            duration: "---",
+          };
 
-        if (allImages.length === 0 && fallbackImage) {
-          allImages.push(fallbackImage);
-        }
+          const directVideo =
+            $('meta[property="og:video:secure_url"]').attr("content") ||
+            $('meta[property="og:video:url"]').attr("content") ||
+            $('meta[property="og:video"]').attr("content") ||
+            $('meta[name="twitter:player:stream"]').attr("content") ||
+            $('meta[name="twitter:player"]').attr("content");
 
-        mediaUrl = directVideo || allImages[0];
-        thumbnail = allImages[0] || "";
-        isVideo = !!directVideo;
+          for (let i = 1; i <= 4; i++) {
+            const img =
+              $(`meta[property="og:image:${i}"]`).attr("content") ||
+              $(`meta[name="twitter:image:${i}"]`).attr("content");
+            if (img) allImages.push(img);
+          }
 
-        if (mediaUrl) scrapeSuccess = true;
-      } catch (e) {}
+          const fallbackImage =
+            $('meta[property="og:image:secure_url"]').attr("content") ||
+            $('meta[property="og:image:url"]').attr("content") ||
+            $('meta[property="og:image"]').attr("content") ||
+            $('meta[name="twitter:image"]').attr("content") ||
+            $('meta[name="twitter:image:src"]').attr("content");
+
+          if (allImages.length === 0 && fallbackImage) {
+            allImages.push(fallbackImage);
+          }
+
+          mediaUrl = directVideo || allImages[0];
+          thumbnail = allImages[0] || "";
+          isVideo = !!directVideo;
+
+          if (mediaUrl) scrapeSuccess = true;
+        } catch (e) {}
+      }
     }
 
     if (!scrapeSuccess || !mediaUrl) {
@@ -247,6 +301,7 @@ async function runTwitterFlow(target, url, options = {}) {
       userId: target.user ? target.user.id : target.author.id,
       isGallery: !isVideo && allImages.length > 1,
       hasVideo: isVideo,
+      isVideo: isVideo,
       extractor: "fx-scrape",
       directUrl: mediaUrl,
       twUrls: allImages,
@@ -257,9 +312,8 @@ async function runTwitterFlow(target, url, options = {}) {
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setTitle(`${NOTIF} **X Signal Captured**`)
-      .setThumbnail(thumbnail)
       .setDescription(
         `### ${LEA} **Transmission Identified**\n` +
           `${ARROW} **Author:** *${author}*\n` +
@@ -268,8 +322,17 @@ async function runTwitterFlow(target, url, options = {}) {
           `*Signal strength optimal. Commencing high-fidelity retrieval.*`,
       );
 
+    if (thumbnail && thumbnail.startsWith("http")) {
+      foundEmbed.setThumbnail(thumbnail);
+    }
+
     await editResponse({ embeds: [foundEmbed] });
-    return { jobId, statusMsg: statusMsg };
+    return {
+      jobId,
+      statusMsg: statusMsg,
+      isVideo: isVideo,
+      isGallery: !isVideo && allImages.length > 1,
+    };
   } catch (e) {
     console.error("[TWITTER-FLOW] Critical Error:", e.message);
     return null;

@@ -34,6 +34,9 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
     type = isMusic ? "mp3" : "mp4";
     resolution = "720";
   }
+  if (target.deferReply && (target.isChatInputCommand?.() || target.isButton?.() || target.isStringSelectMenu?.())) {
+    await target.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+  }
 
   if (!url) {
     const guildEmojis = await target.guild.emojis.fetch();
@@ -54,7 +57,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
     const embed = new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setAuthor({
         name: "MaveL Downloader System",
         iconURL: target.client.user.displayAvatarURL(),
@@ -97,26 +100,25 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
       })
       .setTimestamp();
 
-    if (target.reply) {
-      const reply = await target.reply({
+    if (target.editReply && (target.isChatInputCommand?.() || target.isButton?.() || target.isStringSelectMenu?.())) {
+      const reply = await target.editReply({
         embeds: [embed],
-        flags: [MessageFlags.Ephemeral],
-        withResponse: true,
       });
       setTimeout(() => {
-        if (target.deleteReply) target.deleteReply().catch(() => {});
-        else if (reply && reply.delete) reply.delete().catch(() => {});
+        target.deleteReply().catch(() => {});
       }, 60000);
+      return;
+    }
+    if (target.reply) {
+      await target.reply({
+        embeds: [embed],
+        flags: [MessageFlags.Ephemeral],
+      }).catch(() => {});
       return;
     }
     return;
   }
 
-  if (target.deferReply && typeof target.deferReply === "function") {
-    await target
-      .deferReply({ flags: [MessageFlags.Ephemeral] })
-      .catch(() => {});
-  }
 
   await runYtDlpFlow(target, url, { type, resolution, title });
 };

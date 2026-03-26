@@ -100,7 +100,7 @@ function createProgressUpdater(target, title) {
     const bar = "█".repeat(progress) + "░".repeat(size - progress);
 
     const embed = new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setDescription(
         `### ${FIRE} **Processing active...**\n` +
           `${ARROW} **Resource:** *${title}*\n` +
@@ -185,7 +185,7 @@ async function sendAdminLog(client, data) {
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
     const logEmbed = new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setAuthor({
         name: "MaveL System Logger",
         iconURL: client.user.displayAvatarURL(),

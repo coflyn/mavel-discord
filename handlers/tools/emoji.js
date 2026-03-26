@@ -10,6 +10,10 @@ const { REQUIRED_EMOJIS } = require("../../utils/emoji-registry");
 module.exports = async function emojiHandler(interaction) {
   const subcommand = interaction.options.getSubcommand();
 
+  if (interaction.deferReply && (subcommand !== "add")) {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+  }
+
   if (subcommand === "add") {
     return handleAdd(interaction);
   } else if (subcommand === "delete") {
@@ -117,14 +121,12 @@ async function handleDelete(interaction) {
   try {
     const emojiName = target.name;
     await target.delete();
-    await interaction.reply({
+    await interaction.editReply({
       content: `*Successfully deleted emoji:* \`${emojiName}\``,
-      flags: [MessageFlags.Ephemeral],
     });
   } catch (err) {
-    await interaction.reply({
+    await interaction.editReply({
       content: `*Failed to delete emoji: ${err.message}*`,
-      flags: [MessageFlags.Ephemeral],
     });
   }
 }
@@ -154,14 +156,12 @@ async function handleRename(interaction) {
   try {
     const oldName = target.name;
     await target.setName(newName);
-    await interaction.reply({
+    await interaction.editReply({
       content: `*Successfully renamed emoji from* \`${oldName}\` *to* \`${newName}\` ${target.toString()}`,
-      flags: [MessageFlags.Ephemeral],
     });
   } catch (err) {
-    await interaction.reply({
+    await interaction.editReply({
       content: `*Failed to rename emoji: ${err.message}*`,
-      flags: [MessageFlags.Ephemeral],
     });
   }
 }
@@ -197,7 +197,7 @@ async function handleInfo(interaction) {
       ?.toString() || "•";
 
   const embed = new EmbedBuilder()
-    .setColor("#1e4d2b")
+    .setColor("#6c5ce7")
     .setTitle("*Emoji Intelligence Report*")
     .setDescription(
       `${ARROW} *Target ID: \`${emojiId}\`*\n${ARROW} *Type: ${isAnimated ? "Animated" : "Static"}*\n\n[Download High-Res Asset](${finalUrl})`,
@@ -205,11 +205,13 @@ async function handleInfo(interaction) {
     .setThumbnail(finalUrl)
     .setFooter({ text: "MaveL Asset Identifier" });
 
-  const sent = await interaction.reply({
+  const res = await (interaction.deferred ? interaction.editReply({
+    embeds: [embed],
+  }) : interaction.reply({
     embeds: [embed],
     flags: [MessageFlags.Ephemeral],
     withResponse: true,
-  });
+  }));
 
   const reply = sent?.resource || sent;
   if (reply && reply.delete) {
@@ -251,7 +253,7 @@ async function handleList(interaction) {
 
     for (const chunk of chunks) {
       const embed = new EmbedBuilder()
-        .setColor("#1e4d2b")
+        .setColor("#6c5ce7")
         .setTitle("*Server Asset Registry*")
         .setDescription(chunk);
       const res = await interaction.followUp({
@@ -269,16 +271,18 @@ async function handleList(interaction) {
     }
   } else {
     const embed = new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setTitle("*Server Asset Registry*")
       .setDescription(list)
       .setFooter({ text: `Total Assets: ${emojis.size}` });
 
-    const sent = await interaction.reply({
+    const sent = await (interaction.deferred ? interaction.editReply({
+      embeds: [embed],
+    }) : interaction.reply({
       embeds: [embed],
       flags: [MessageFlags.Ephemeral],
       withResponse: true,
-    });
+    }));
 
     const response = sent?.resource || sent;
     if (response && response.delete) {
@@ -312,7 +316,7 @@ async function handleNeeds(interaction) {
   const CROSS = getEmoji("ping_red", "🔴");
 
   const embed = new EmbedBuilder()
-    .setColor("#1e4d2b")
+    .setColor("#6c5ce7")
     .setTitle("*System Emoji Diagnostics*")
     .setDescription(
       REQUIRED_EMOJIS.map((req) => {
@@ -329,17 +333,23 @@ async function handleNeeds(interaction) {
         .setStyle(ButtonStyle.Primary),
     );
 
-    return interaction.reply({
+    return (interaction.deferred ? interaction.editReply({
+      embeds: [embed],
+      components: [row],
+    }) : interaction.reply({
       embeds: [embed],
       components: [row],
       flags: [MessageFlags.Ephemeral],
-    });
+    }));
   } else {
-    return interaction.reply({
+    return (interaction.deferred ? interaction.editReply({
+      embeds: [embed],
+      content: "*All required system assets are currently synchronized.*",
+    }) : interaction.reply({
       embeds: [embed],
       content: "*All required system assets are currently synchronized.*",
       flags: [MessageFlags.Ephemeral],
-    });
+    }));
   }
 }
 
@@ -366,7 +376,7 @@ module.exports.syncMissingEmojis = async function (interaction) {
   await interaction.editReply({
     embeds: [
       new EmbedBuilder()
-        .setColor("#1e4d2b")
+        .setColor("#6c5ce7")
         .setDescription(
           `### ⏳ **Synthesizing Assets...**\n*Please wait while MaveL retrieves **${missing.length}** sector data units.*`,
         ),
@@ -404,7 +414,7 @@ module.exports.syncMissingEmojis = async function (interaction) {
   }
 
   const embed = new EmbedBuilder()
-    .setColor("#1e4d2b")
+    .setColor("#6c5ce7")
     .setTitle("*Asset Synchronization Report*")
     .setDescription(
       `### ${successCount > 0 ? PING_GREEN : PING_RED} **Sync Complete**\n*Successfully synthesized **${successCount}** assets.*\n*Failed to retrieve **${failCount}** assets.*`,

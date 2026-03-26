@@ -13,6 +13,10 @@ const settingsPath = path.join(__dirname, "../../database/settings.json");
 module.exports = async function adminCmdsHandler(interaction) {
   const { commandName } = interaction;
 
+  if (interaction.deferReply && commandName !== "scan") {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+  }
+
   if (commandName === "hibernate") {
     return await toggleHibernate(interaction, true);
   }
@@ -54,10 +58,12 @@ async function toggleHibernate(interaction, status) {
     interaction.guild.emojis.cache.find((e) => e.name === "ping_red")?.toString() ||
     "🔴";
 
-  await interaction.reply({
+  await (interaction.deferred ? interaction.editReply({
+    content: `### ${status ? LOCK : POWER} **System State Updated**\n*Core hibernation protocol: **${status ? "ACTIVATED" : "DEACTIVATED"}***`,
+  }) : interaction.reply({
     content: `### ${status ? LOCK : POWER} **System State Updated**\n*Core hibernation protocol: **${status ? "ACTIVATED" : "DEACTIVATED"}***`,
     flags: [MessageFlags.Ephemeral],
-  });
+  }));
 }
 
 async function handlePurge(interaction) {
@@ -86,10 +92,12 @@ async function handlePurge(interaction) {
     } catch (e) {}
   });
 
-  await interaction.reply({
+  await (interaction.deferred ? interaction.editReply({
+    content: `### ${FIRE} **Purge Protocol Complete**\n*Decommissioned and deleted **${count}** temporary assets from the sector.*`,
+  }) : interaction.reply({
     content: `### ${FIRE} **Purge Protocol Complete**\n*Decommissioned and deleted **${count}** temporary assets from the sector.*`,
     flags: [MessageFlags.Ephemeral],
-  });
+  }));
   setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
 }
 
@@ -115,11 +123,14 @@ async function handleBackup(interaction) {
     interaction.guild.emojis.cache.find((e) => e.name === "lea")?.toString() ||
     "✅";
 
-  await interaction.reply({
+  await (interaction.deferred ? interaction.editReply({
+    content: `### ${LEA} **Registry Backup Successful**\n*The MaveL Operational Registry has been synchronized and dispatched to this sector. Archive Trace: \`backup-${timestamp}\`*`,
+    files: attachments,
+  }) : interaction.reply({
     content: `### ${LEA} **Registry Backup Successful**\n*The MaveL Operational Registry has been synchronized and dispatched to this sector. Archive Trace: \`backup-${timestamp}\`*`,
     files: attachments,
     flags: [MessageFlags.Ephemeral],
-  });
+  }));
   setTimeout(() => interaction.deleteReply().catch(() => {}), 180000);
 }
 
@@ -165,7 +176,7 @@ async function handleScan(interaction) {
       .find((e) => e.name === "arrow")
       ?.toString() || "•";
   const embed = new EmbedBuilder()
-    .setColor("#1e4d2b")
+    .setColor("#6c5ce7")
     .setTitle(`${NOTIF} **Network Integrity Scan**`)
     .setDescription(
       results.join("\n") +
@@ -194,9 +205,11 @@ async function handleLogs(interaction) {
     interaction.guild.emojis.cache.find((e) => e.name === "pc")?.toString() ||
     "💻";
 
-  await interaction.reply({
+  await (interaction.deferred ? interaction.editReply({
+    content: `### ${PC} **Terminal Transcript (Last 15 Lines)**\n\`\`\`text\n${logs || "Registry empty."}\n\`\`\``,
+  }) : interaction.reply({
     content: `### ${PC} **Terminal Transcript (Last 15 Lines)**\n\`\`\`text\n${logs || "Registry empty."}\n\`\`\``,
     flags: [MessageFlags.Ephemeral],
-  });
+  }));
   setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
 }

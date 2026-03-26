@@ -146,7 +146,7 @@ client.on("guildCreate", async (guild) => {
     const ANNO = guildEmojis.find((e) => e.name === "anno")?.toString() || "🚀";
 
     const welcomeEmbed = new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setTitle(`${ANNO} **Operational Matrix Initialized**`)
       .setImage(botBanner)
       .setDescription(
@@ -464,11 +464,24 @@ client.on("interactionCreate", async (interaction) => {
         return await downloaderHandler(interaction);
       } catch (e) {
         console.error("[SLASH-HANDLER] Error:", e.message);
-        if (!interaction.replied && !interaction.deferred) {
-          await interaction.reply({
-            content: `*Error: ${e.message}*`,
-            flags: [MessageFlags.Ephemeral],
-          });
+        try {
+          if (interaction.replied) {
+            await interaction.followUp({
+              content: `*Error: ${e.message}*`,
+              flags: [MessageFlags.Ephemeral],
+            }).catch(() => {});
+          } else if (interaction.deferred) {
+            await interaction.editReply({
+              content: `*Error: ${e.message}*`,
+            }).catch(() => {});
+          } else {
+            await interaction.reply({
+              content: `*Error: ${e.message}*`,
+              flags: [MessageFlags.Ephemeral],
+            }).catch(() => {});
+          }
+        } catch (innerErr) {
+          console.error("[ERROR-REPORTING-FAIL] Could not send error reply:", innerErr.message);
         }
       }
     }
@@ -504,17 +517,16 @@ client.on("interactionCreate", async (interaction) => {
 
     if (commandName === "play") {
       const query = interaction.options.getString("query");
-      const source = interaction.options.getString("source") || "yt";
-      if (source === "bc")
-        return await musicHandler(interaction, { title: query, source: "bc" });
-      return await musicHandler(interaction, { title: query });
+      const source = interaction.options.getString("source") || "bc";
+      return await musicHandler(interaction, { title: query, source });
     }
 
     if (commandName === "skip") {
       player.skip(interaction.guild.id);
+      const E_NEXT = interaction.guild.emojis.cache.find(e => e.name === "blue_arrow_right")?.toString() || "⏭️";
       await interaction.reply({
-        content: "*Skipped current track.*",
-        flags: [MessageFlags.Ephemeral],
+        content: `### ${E_NEXT} **Track bypassed. Advancing.**`,
+        flags: [64],
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
       return;
@@ -522,9 +534,10 @@ client.on("interactionCreate", async (interaction) => {
 
     if (commandName === "stop") {
       player.stop(interaction.guild.id);
+      const E_STOP = interaction.guild.emojis.cache.find(e => e.name === "ping_red")?.toString() || "⏹️";
       await interaction.reply({
-        content: "*Stopped and disconnected.*",
-        flags: [MessageFlags.Ephemeral],
+        content: `### ${E_STOP} **Operation decommissioned.**`,
+        flags: [64],
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
       return;
@@ -532,9 +545,10 @@ client.on("interactionCreate", async (interaction) => {
 
     if (commandName === "pause") {
       player.pause(interaction.guild.id);
+      const E_PAUSE = interaction.guild.emojis.cache.find(e => e.name === "time")?.toString() || "⏸️";
       await interaction.reply({
-        content: "*Paused.*",
-        flags: [MessageFlags.Ephemeral],
+        content: `### ${E_PAUSE} **Stream Suspension Active.**`,
+        flags: [64],
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
       return;
@@ -542,9 +556,10 @@ client.on("interactionCreate", async (interaction) => {
 
     if (commandName === "resume") {
       player.resume(interaction.guild.id);
+      const E_RESUME = interaction.guild.emojis.cache.find(e => e.name === "time")?.toString() || "▶️";
       await interaction.reply({
-        content: "*Resumed.*",
-        flags: [MessageFlags.Ephemeral],
+        content: `### ${E_RESUME} **Transmission Resumed.**`,
+        flags: [64],
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
       return;
@@ -568,44 +583,31 @@ client.on("interactionCreate", async (interaction) => {
 
     if (commandName === "queue") {
       const list = player.getQueueList(interaction.guild.id);
-      const NOTIF =
-        interaction.guild.emojis.cache
-          .find((e) => e.name === "notif")
-          ?.toString() || "🔔";
-      const FIRE =
-        interaction.guild.emojis.cache
-          .find((e) => e.name === "purple_fire")
-          ?.toString() || "🔥";
+      const E_ANNO = interaction.guild.emojis.cache.find(e => e.name === "anno")?.toString() || "📜";
+      const E_FIRE = interaction.guild.emojis.cache.find(e => e.name === "purple_fire")?.toString() || "🔥";
 
       if (list.length === 0) {
         const emptyEmbed = new EmbedBuilder()
-          .setColor("#1e4d2b")
-          .setDescription(
-            `### ${FIRE} **Queue is empty**\n*Add some tracks to get started.*`,
-          );
+          .setColor("#6c5ce7")
+          .setDescription(`### ${E_FIRE} **Queue: Offline**\n> *No targets currently in registry.*`);
 
         await interaction.reply({
           embeds: [emptyEmbed],
-          flags: [MessageFlags.Ephemeral],
+          flags: [64],
         });
         setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
         return;
       }
 
       const queueEmbed = new EmbedBuilder()
-        .setColor("#1e4d2b")
-        .setAuthor({
-          name: "MaveL Synchronized Queue",
-          iconURL: client.user.displayAvatarURL(),
-        })
-        .setDescription(
-          `### ${NOTIF} **Synchronized Queue**\n` + list.join("\n"),
-        )
-        .setFooter({ text: `MaveL | Total Tracks: ${list.length}` });
+        .setColor("#6c5ce7")
+        .setAuthor({ name: "MaveL Operation Queue", iconURL: client.user.displayAvatarURL() })
+        .setDescription(`### ${E_ANNO} **Synchronized Targets**\n` + list.join("\n"))
+        .setFooter({ text: `Hub | Pending Operations: ${list.length}` });
 
       await interaction.reply({
         embeds: [queueEmbed],
-        flags: [MessageFlags.Ephemeral],
+        flags: [64],
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 30000);
       return;
@@ -614,9 +616,10 @@ client.on("interactionCreate", async (interaction) => {
     if (commandName === "shuffle") {
       const mode = interaction.options.getString("mode");
       player.toggleShuffle(interaction.guild.id, mode);
+      const E_SHUFFLE = interaction.guild.emojis.cache.find(e => e.name === "diamond")?.toString() || "🔀";
       await interaction.reply({
-        content: `*Shuffle mode set to: ${mode.toUpperCase()}*`,
-        flags: [MessageFlags.Ephemeral],
+        content: `### ${E_SHUFFLE} **Shuffle mode set to: ${mode.toUpperCase()}**`,
+        flags: [64],
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
       return;
@@ -625,20 +628,19 @@ client.on("interactionCreate", async (interaction) => {
     if (commandName === "repeat") {
       const mode = interaction.options.getString("mode");
       player.setRepeat(interaction.guild.id, mode);
+      const E_REPEAT = interaction.guild.emojis.cache.find(e => e.name === "rocket")?.toString() || "🔁";
 
       const state = player.queues.get(interaction.guild.id);
       if (state && state.lastNowPlayingMsg) {
         const updatedEmbed = player.getNowPlayingEmbed(interaction.guild.id);
         if (updatedEmbed) {
-          state.lastNowPlayingMsg
-            .edit({ embeds: [updatedEmbed] })
-            .catch(() => {});
+          state.lastNowPlayingMsg.edit({ embeds: [updatedEmbed] }).catch(() => {});
         }
       }
 
       await interaction.reply({
-        content: `*Repeat mode set to: ${mode.toUpperCase()}*`,
-        flags: [MessageFlags.Ephemeral],
+        content: `### ${E_REPEAT} **Repeat Protocol: ${mode.toUpperCase()}**`,
+        flags: [64],
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
       return;
@@ -646,9 +648,10 @@ client.on("interactionCreate", async (interaction) => {
 
     if (commandName === "clear") {
       player.clear(interaction.guild.id);
+      const E_CLEAR = interaction.guild.emojis.cache.find(e => e.name === "lea")?.toString() || "🗑️";
       await interaction.reply({
-        content: "*Queue cleared.*",
-        flags: [MessageFlags.Ephemeral],
+        content: `### ${E_CLEAR} **Registry wiped. Queue Offline.**`,
+        flags: [64],
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
       return;
@@ -657,17 +660,18 @@ client.on("interactionCreate", async (interaction) => {
     if (commandName === "remove") {
       const num = interaction.options.getInteger("number");
       const removed = player.remove(interaction.guild.id, num);
+      const E_CLEAR = interaction.guild.emojis.cache.find(e => e.name === "lea")?.toString() || "🗑️";
       if (!removed) {
         await interaction.reply({
-          content: "*Track not found at that position.*",
-          flags: [MessageFlags.Ephemeral],
+          content: `### ${E_CLEAR} **Target not found at position #${num}.**`,
+          flags: [64],
         });
         setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
         return;
       }
       await interaction.reply({
-        content: `*Removed: ${removed.title}*`,
-        flags: [MessageFlags.Ephemeral],
+        content: `### ${E_CLEAR} **Removed track: ${removed.title}**`,
+        flags: [64],
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
       return;
@@ -676,17 +680,18 @@ client.on("interactionCreate", async (interaction) => {
     if (commandName === "skipto") {
       const num = interaction.options.getInteger("number");
       const success = player.skipto(interaction.guild.id, num);
+      const E_NEXT = interaction.guild.emojis.cache.find(e => e.name === "blue_arrow_right")?.toString() || "⏭️";
       if (!success) {
         await interaction.reply({
-          content: "*Track not found at that position.*",
-          flags: [MessageFlags.Ephemeral],
+          content: `### ${E_NEXT} **Tactical error: Track #${num} nonexistent.**`,
+          flags: [64],
         });
         setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
         return;
       }
       await interaction.reply({
-        content: `*Skipped to track #${num}.*`,
-        flags: [MessageFlags.Ephemeral],
+        content: `### ${E_NEXT} **Advancing to track #${num}.**`,
+        flags: [64],
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
       return;
@@ -727,7 +732,7 @@ client.on("interactionCreate", async (interaction) => {
 
         if (names.length === 0) {
           const emptyEmbed = new EmbedBuilder()
-            .setColor("#1e4d2b")
+            .setColor("#6c5ce7")
             .setDescription(
               `### ${FIRE} **No Playlists**\n> *You haven't saved any playlists yet.*`,
             );
@@ -749,7 +754,7 @@ client.on("interactionCreate", async (interaction) => {
             ?.toString() || "•";
 
         const listEmbed = new EmbedBuilder()
-          .setColor("#1e4d2b")
+          .setColor("#6c5ce7")
           .setDescription(
             `### ${LEA} **Saved Playlists**\n` +
               names
@@ -790,7 +795,7 @@ client.on("interactionCreate", async (interaction) => {
           total > 20 ? `\n*...and ${total - 20} more tracks.*` : "";
 
         const viewEmbed = new EmbedBuilder()
-          .setColor("#1e4d2b")
+          .setColor("#6c5ce7")
           .setTitle(`Playlist: ${name}`)
           .setDescription(`${tracks}${suffix}`)
           .setFooter({ text: `Total: ${total} tracks` });
@@ -946,7 +951,7 @@ client.on("interactionCreate", async (interaction) => {
           ?.toString() || "•";
 
       const moveEmbed = new EmbedBuilder()
-        .setColor("#1e4d2b")
+        .setColor("#6c5ce7")
         .setTitle("*Endpoint Migration Protocol*")
         .setImage(botBanner)
         .setDescription(
@@ -1036,7 +1041,9 @@ client.on("interactionCreate", async (interaction) => {
       const { searchCache } = require("./handlers/search/index");
       const cached = searchCache.get(interaction.values[0]);
       const url = cached?.url || interaction.values[0];
-      const title = cached?.title ? `${cached.uploader ? cached.uploader + " - " : ""}${cached.title}` : "Resource";
+      const title = cached?.title
+        ? `${cached.uploader ? cached.uploader + " - " : ""}${cached.title}`
+        : "Resource";
       const subcommand = interaction.customId.split("_").pop();
       const type = ["ytm", "bc", "spot"].includes(subcommand) ? "mp3" : "mp4";
 
@@ -1048,10 +1055,192 @@ client.on("interactionCreate", async (interaction) => {
         return await downloaderHandler(interaction, {
           manualUrl: url,
           manualType: type,
-          manualTitle: title
+          manualTitle: title,
         });
       } catch (e) {
         console.error("[SELECT-HANDLER] Error:", e.message);
+      }
+    }
+
+    if (interaction.customId === "music_control_hub") {
+      const value = interaction.values[0];
+      const guildId = interaction.guild.id;
+
+      if (value === "lyrics") {
+        await interaction
+          .update({ components: [player.getPlaybackComponents(guildId)] })
+          .catch(() => {});
+        const statusMsg = await interaction.followUp({
+          content: "*Fetching intelligence report...*",
+          flags: [64],
+        });
+        const state = player.queues.get(guildId);
+        if (!state || !state.current) {
+          return await interaction.webhook.editMessage(statusMsg.id, {
+            content: "*No active stream found.*",
+          });
+        }
+
+        const query = state.current.title;
+        const lyrics = await findLyrics(query);
+
+        if (!lyrics || lyrics.includes("Could not find lyrics")) {
+          return await interaction.webhook.editMessage(statusMsg.id, {
+            content: `### 📋 **Lyrics Retrieval: Failed**\n> *No intelligence found for track: \`${query}\`*`,
+          });
+        }
+
+        const guildEmojis = await interaction.guild.emojis.fetch();
+        const E_LYRICS =
+          guildEmojis.find((e) => e.name === "book")?.toString() || "📋";
+
+        const cleanLyrics =
+          lyrics.length > 1900 ? lyrics.substring(0, 1900) + "..." : lyrics;
+
+        const total = state.current.duration || 180;
+        const played = state.resource
+          ? Math.floor(state.resource.playbackDuration / 1000)
+          : 0;
+        const remaining = total - played;
+        const waitTime = Math.max(remaining, 5);
+
+        await interaction.webhook.editMessage(statusMsg.id, {
+          content: `### ${E_LYRICS} **Lyrics: ${query}**\n\n${cleanLyrics}`,
+        });
+
+        setTimeout(
+          () => interaction.webhook.deleteMessage(statusMsg.id).catch(() => {}),
+          (waitTime + 3) * 1000,
+        );
+        return;
+      }
+
+      if (value === "pause") {
+        const state = player.queues.get(guildId);
+        if (!state) return;
+        const isPaused = state.player.state.status === "paused";
+        if (isPaused) player.resume(guildId);
+        else player.pause(guildId);
+
+        return await interaction
+          .update({
+            embeds: [player.getNowPlayingEmbed(guildId)],
+            components: [player.getPlaybackComponents(guildId)],
+          })
+          .catch(() => {});
+      }
+
+      if (value === "shuffle") {
+        const state = player.queues.get(guildId);
+        if (!state) return;
+
+        const guildEmojis = await interaction.guild.emojis.fetch();
+        const E_SHUFFLE = guildEmojis.find(e => e.name === "diamond")?.toString() || "🔀";
+
+        if (state.queue.length === 0) {
+          return await interaction.reply({
+            content: `### ${E_SHUFFLE} **Shuffle: Engagement Denied**\n> *No upcoming targets detected in the registry.*`,
+            flags: [64],
+          });
+        }
+        const newMode = state.shuffle ? "off" : "on";
+        player.toggleShuffle(guildId, newMode);
+
+        await interaction
+          .update({
+            embeds: [player.getNowPlayingEmbed(guildId)],
+            components: [player.getPlaybackComponents(guildId)],
+          })
+          .catch(() => {});
+        return await interaction.followUp({
+          content: `### ${E_SHUFFLE} **Shuffle: ${newMode.toUpperCase()}**`,
+          flags: [64],
+        });
+      }
+
+      if (value === "repeat") {
+        const state = player.queues.get(guildId);
+        if (!state) return;
+
+        const guildEmojis = await interaction.guild.emojis.fetch();
+        const E_REPEAT = guildEmojis.find(e => e.name === "rocket")?.toString() || "🔁";
+
+        const cycle = { off: "one", one: "all", all: "off" };
+        const nextMode = cycle[state.repeatMode || "off"];
+        player.setRepeat(guildId, nextMode);
+
+        await interaction
+          .update({
+            embeds: [player.getNowPlayingEmbed(guildId)],
+            components: [player.getPlaybackComponents(guildId)],
+          })
+          .catch(() => {});
+        return await interaction.followUp({
+          content: `### ${E_REPEAT} **Repeat: ${nextMode.toUpperCase()}**`,
+          flags: [64],
+        });
+      }
+
+      if (value === "queue") {
+        const list = player.getQueueList(guildId);
+        
+        const guildEmojis = await interaction.guild.emojis.fetch();
+        const E_ANNO = guildEmojis.find(e => e.name === "anno")?.toString() || "📜";
+
+        if (list.length === 0) {
+          return await interaction.reply({
+            content: `### ${E_ANNO} **Upcoming Queue**\n> *Queue is currently clear.*`,
+            flags: [64],
+          });
+        }
+        const text =
+          list.join("\n").length > 1900
+            ? list.slice(0, 15).join("\n") + "\n*...and more*"
+            : list.join("\n");
+        await interaction.reply({
+          content: `### ${E_ANNO} **Upcoming Queue**\n${text}`,
+          flags: [64],
+        });
+        return;
+      }
+
+      if (value === "clear") {
+        player.clear(guildId);
+        return await interaction.reply({
+          content: "*Registry wiped. Queue is now clear.*",
+          flags: [64],
+        });
+      }
+
+      if (value === "skip") {
+        const state = player.queues.get(guildId);
+        const guildEmojis = await interaction.guild.emojis.fetch();
+        const E_NEXT = guildEmojis.find(e => e.name === "blue_arrow_right")?.toString() || "⏭️";
+
+        if (state && state.queue.length === 0 && state.repeatMode === "off") {
+          return await interaction.reply({
+            content: `### ${E_NEXT} **Manual Bypass: Denied**\n> *No secondary target found in queue.*`,
+            flags: [64],
+          });
+        }
+        player.skip(guildId);
+        await interaction.update({ components: [] }).catch(() => {});
+        return await interaction.followUp({
+          content: `### ${E_NEXT} **Target bypassed. Advancing to next track.**`,
+          flags: [64],
+        });
+      }
+
+      if (value === "stop") {
+        player.stop(guildId);
+        const guildEmojis = await interaction.guild.emojis.fetch();
+        const E_STOP = guildEmojis.find(e => e.name === "ping_red")?.toString() || "⏹️";
+
+        await interaction.update({ components: [] }).catch(() => {});
+        return await interaction.followUp({
+          content: `### ${E_STOP} **Operation decommissioned. Disconnecting.**`,
+          flags: [64],
+        });
       }
     }
 

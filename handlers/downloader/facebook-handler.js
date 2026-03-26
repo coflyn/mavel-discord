@@ -19,7 +19,7 @@ async function runFacebookFlow(target, url, options = {}) {
 
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setDescription(
         `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
       );
@@ -139,7 +139,7 @@ async function runFacebookFlow(target, url, options = {}) {
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setTitle(`${NOTIF} **FB Signal Decoded**`)
       .setThumbnail(imageUrl || "")
       .setDescription(

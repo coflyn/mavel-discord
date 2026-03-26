@@ -21,7 +21,7 @@ async function runScribdFlow(target, url, options = {}) {
 
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setDescription(
         `### ${ARCHIVE} **${status}**\n${ARROW} **Details:** *${details}*`,
       );
@@ -182,7 +182,7 @@ async function runScribdFlow(target, url, options = {}) {
 
     const LEA = getEmoji("lea", "✅");
     const foundEmbed = new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setTitle(`${ARCHIVE} **Scribd Document Intercepted**`)
       .setDescription(
         `### ${LEA} **HD Archival Ready**\n` +

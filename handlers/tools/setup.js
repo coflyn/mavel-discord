@@ -40,7 +40,7 @@ module.exports = async function setupHandler(interaction) {
 
   const generateEmbed = () => {
     return new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setTitle(`${NOTIF} **System Registry Configuration**`)
       .setDescription(
         `*Configure the operational endpoints for MaveL Hub across the server.*`,

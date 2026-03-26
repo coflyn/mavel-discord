@@ -10,8 +10,8 @@ const {
 } = require("discord.js");
 const { loadDB, saveDB, formatNumber } = require("./core-helpers");
 
-async function runPixivFlow(target, url) {
-  let statusMsg;
+async function runPixivFlow(target, url, options = {}) {
+  let statusMsg = options.statusMsg;
   const guild = target.guild || target.client?.guilds?.cache.first();
   const guildEmojis = guild
     ? await guild.emojis.fetch().catch(() => null)
@@ -26,7 +26,7 @@ async function runPixivFlow(target, url) {
 
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setDescription(
         `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
       );
@@ -37,21 +37,26 @@ async function runPixivFlow(target, url) {
     "Secure scan in progress...",
   );
 
-  if (target.replied || target.deferred) {
-    statusMsg = await target.editReply({
-      embeds: [initialEmbed],
-      withResponse: true,
-    });
-  } else if (target.isChatInputCommand && target.isChatInputCommand()) {
-    statusMsg = await target.reply({
-      embeds: [initialEmbed],
-      flags: [MessageFlags.Ephemeral],
-      withResponse: true,
-    });
+  if (!statusMsg) {
+    if (target.replied || target.deferred) {
+      statusMsg = await target.editReply({
+        embeds: [initialEmbed],
+        withResponse: true,
+      });
+    } else if (target.isChatInputCommand && target.isChatInputCommand()) {
+      statusMsg = await target.reply({
+        embeds: [initialEmbed],
+        flags: [MessageFlags.Ephemeral],
+        withResponse: true,
+      });
+    } else {
+      statusMsg = target.reply
+        ? await target.reply({ embeds: [initialEmbed], withResponse: true })
+        : await target.channel.send({ embeds: [initialEmbed] });
+    }
   } else {
-    statusMsg = target.reply
-      ? await target.reply({ embeds: [initialEmbed], withResponse: true })
-      : await target.channel.send({ embeds: [initialEmbed] });
+    const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
+    if (msg && msg.edit) await msg.edit({ embeds: [initialEmbed] }).catch(() => {});
   }
 
   const editResponse = async (data) => {
@@ -127,7 +132,7 @@ async function runPixivFlow(target, url) {
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setTitle(`${NOTIF} **Pixiv Metadata Secured**`)
       .setThumbnail(thumbnail)
       .setDescription(

@@ -20,6 +20,10 @@ module.exports = async function searchHandler(interaction) {
   const query = interaction.options.getString("query");
   const typeSelection = interaction.options.getString("type") || "ytm";
 
+  if (interaction.deferReply) {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+  }
+
   if (!query) {
     const guildEmojis = await interaction.guild.emojis.fetch();
     const getEmoji = (name, fallback) => {
@@ -37,7 +41,7 @@ module.exports = async function searchHandler(interaction) {
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
     const embed = new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setAuthor({
         name: "MaveL Search Engine",
         iconURL: interaction.client.user.displayAvatarURL(),
@@ -68,10 +72,12 @@ module.exports = async function searchHandler(interaction) {
       })
       .setTimestamp();
 
-    await interaction.reply({
+    await (interaction.deferred ? interaction.editReply({
+      embeds: [embed],
+    }) : interaction.reply({
       embeds: [embed],
       flags: [MessageFlags.Ephemeral],
-    });
+    }));
 
     setTimeout(() => {
       interaction.deleteReply().catch(() => {});
@@ -80,7 +86,6 @@ module.exports = async function searchHandler(interaction) {
     return;
   }
 
-  await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
   let refinedQuery = query;
 
@@ -238,7 +243,7 @@ module.exports = async function searchHandler(interaction) {
     return interaction.editReply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#1e4d2b")
+          .setColor("#6c5ce7")
           .setDescription(
             `### ${PING_RED} **No results found**\n*No matches found on ${typeSelection.toUpperCase()}*`,
           ),
@@ -278,7 +283,7 @@ module.exports = async function searchHandler(interaction) {
       ?.toString() || "🔎";
 
   const resultEmbed = new EmbedBuilder()
-    .setColor("#1e4d2b")
+    .setColor("#6c5ce7")
     .setDescription(
       `### ${AMOGUS} **Search Synchronized**\n` +
         `*Refined Query:* \`${refinedQuery}\`\n` +

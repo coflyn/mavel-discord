@@ -33,7 +33,7 @@ async function autoUpdateYtDlp() {
 function checkCookiesStatus() {
   const cookiesPath = path.join(__dirname, "../cookies.txt");
   if (!fs.existsSync(cookiesPath)) {
-    return { exists: false, status: "Missing", color: 0xff0000 };
+    return { exists: false, status: "Missing", color: 0x6c5ce7 };
   }
 
   const stats = fs.statSync(cookiesPath);
@@ -41,8 +41,8 @@ function checkCookiesStatus() {
   const daysOld = Math.floor((now - stats.mtimeMs) / (1000 * 60 * 60 * 24));
 
   if (daysOld > 14)
-    return { exists: true, daysOld, status: "Expired/Old", color: 0xffa500 };
-  return { exists: true, daysOld, status: "Active", color: 0x00ff00 };
+    return { exists: true, daysOld, status: "Expired/Old", color: 0x6c5ce7 };
+  return { exists: true, daysOld, status: "Active", color: 0x6c5ce7 };
 }
 
 function getDlpEnv() {
@@ -63,12 +63,22 @@ function getDlpEnv() {
 function getJsRuntimeArgs() {
   return ["--js-runtimes", "node", "--remote-components", "ejs:github"];
 }
-function getCookiesArgs() {
+function getCookiesArgs(platform = "") {
   const args = [];
 
   if (process.env.SKIP_LOCAL_COOKIES !== "true") {
-    const cookiesPath = path.join(__dirname, "../cookies.txt");
-    if (fs.existsSync(cookiesPath)) {
+    let cookiesPath = "";
+    if (platform) {
+      const platPath = path.join(__dirname, `../${platform}_cookies.txt`);
+      if (fs.existsSync(platPath)) cookiesPath = platPath;
+    }
+
+    if (!cookiesPath) {
+      const globalPath = path.join(__dirname, "../cookies.txt");
+      if (fs.existsSync(globalPath)) cookiesPath = globalPath;
+    }
+
+    if (cookiesPath) {
       args.push("--cookies", cookiesPath);
     }
   }
@@ -82,10 +92,9 @@ function getCookiesArgs() {
 
 function getVpsArgs() {
   const isMac = process.platform === "darwin";
-  const userAgent =
-    isMac
-      ? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
-      : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
+  const userAgent = isMac
+    ? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
+    : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
 
   const clients = process.env.YT_PLAYER_CLIENTS || "tv,mweb,ios";
   const extractorArgs = [`player_client=${clients}`];

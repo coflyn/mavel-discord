@@ -7,6 +7,10 @@ const os = require("os");
 const process = require("process");
 
 module.exports = async function diagnosticsHandler(interaction) {
+  if (interaction.deferReply) {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+  }
+
   const guildEmojis = await interaction.guild.emojis.fetch().catch(() => null);
   const getEmoji = (name, fallback) => {
     const emoji = guildEmojis?.find((e) => e.name === name);
@@ -34,7 +38,7 @@ module.exports = async function diagnosticsHandler(interaction) {
   const nodeVersion = process.version;
 
   const embed = new EmbedBuilder()
-    .setColor("#1e4d2b")
+    .setColor("#6c5ce7")
     .setAuthor({
       name: "MaveL System Diagnostics",
       iconURL: interaction.client.user.displayAvatarURL(),
@@ -69,11 +73,13 @@ module.exports = async function diagnosticsHandler(interaction) {
     })
     .setTimestamp();
 
-  await interaction.reply({
-    embeds: [embed],
-    flags: [MessageFlags.Ephemeral],
-    withResponse: true,
-  });
+  await (interaction.deferred
+    ? interaction.editReply({ embeds: [embed] })
+    : interaction.reply({
+        embeds: [embed],
+        flags: [MessageFlags.Ephemeral],
+        withResponse: true,
+      }));
 
   setTimeout(() => {
     interaction.deleteReply().catch(() => {});

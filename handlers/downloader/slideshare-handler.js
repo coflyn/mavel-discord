@@ -33,7 +33,7 @@ async function runSlideshareFlow(target, url, options = {}) {
 
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#1a472a")
+      .setColor("#6c5ce7")
       .setDescription(
         `### ${ARCHIVE} **${status}**\n${ARROW} **Details:** *${details}*`,
       );

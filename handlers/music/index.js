@@ -57,7 +57,7 @@ async function musicHandler(target, manualData = null) {
         content: searchingMsg,
         flags: [MessageFlags.Ephemeral],
       });
-      setTimeout(() => target.deleteReply().catch(() => {}), 15000);
+      setTimeout(() => target.deleteReply().catch(() => {}), 45000);
     } else await target.reply(searchingMsg);
 
     let refinedQuery = query;
@@ -181,6 +181,10 @@ async function musicHandler(target, manualData = null) {
       return;
     }
 
+    const guild = target.guild;
+    const E_FIRE = guild.emojis.cache.find(e => e.name === "purple_fire")?.toString() || "🔥";
+    const arrowEmoji = guild.emojis.cache.find(e => e.name === "arrow");
+
     const menu = new StringSelectMenuBuilder()
       .setCustomId(`music_select_${author.id}`)
       .setPlaceholder("Select a track...")
@@ -191,26 +195,30 @@ async function musicHandler(target, manualData = null) {
 
           setTimeout(() => searchCache.delete(shortId), 600000);
 
+          let labelText = r.title.length > 100 ? r.title.substring(0, 97) + "..." : r.title;
+          
           return {
-            label:
-              r.title.length > 100 ? r.title.substring(0, 97) + "..." : r.title,
+            label: labelText,
             description: r.uploader ? `By ${r.uploader}` : "",
             value: shortId,
+            emoji: arrowEmoji?.id || "»"
           };
         }),
       );
 
     const row = new ActionRowBuilder().addComponents(menu);
 
-    const content = `*Found ${results.length} results for: ${query} (${source.toUpperCase()})*`;
     if (isInteraction) {
       await target.editReply({
-        content: `*Found ${results.length} results. Select one within 45 seconds:*`,
+        content: `### ${E_FIRE} Found **${results.length}** results. Select one within 45 seconds:`,
         components: [row],
       });
       setTimeout(() => target.deleteReply().catch(() => {}), 45000);
     } else {
-      await target.reply({ content, components: [row] });
+      await target.reply({ 
+        content: `### ${E_FIRE} Found **${results.length}** results for: **${query}**`, 
+        components: [row] 
+      });
     }
     return;
   }

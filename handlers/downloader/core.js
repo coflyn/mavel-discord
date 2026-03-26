@@ -23,8 +23,14 @@ const { runTwitterFlow } = require("./twitter-handler");
 const { runThreadsFlow } = require("./threads-handler");
 const { runFacebookFlow } = require("./facebook-handler");
 const { runScribdFlow } = require("./scribd-handler");
+const { runInstagramFlow } = require("./instagram-handler");
 
-const musicKeywords = ["music.youtube.com", "spotify.com", "soundcloud.com", "bandcamp.com"];
+const musicKeywords = [
+  "music.youtube.com",
+  "spotify.com",
+  "soundcloud.com",
+  "bandcamp.com",
+];
 
 async function runYtDlpFlow(target, url, options = {}) {
   let finalUrl = url.replace("threads.com", "threads.net");
@@ -45,7 +51,7 @@ async function runYtDlpFlow(target, url, options = {}) {
 
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setDescription(
         `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
       );
@@ -119,6 +125,7 @@ async function runYtDlpFlow(target, url, options = {}) {
     }
     return;
   }
+
   if (url.includes("open.spotify.com")) {
     const jobResult = await runSpotifyFlow(target, url, { statusMsg });
     if (jobResult && jobResult.jobId) {
@@ -137,6 +144,20 @@ async function runYtDlpFlow(target, url, options = {}) {
     return await runCloudFlow(target, url, { statusMsg });
   }
 
+  if (finalUrl.includes("instagram.com")) {
+    const jobResult = await runInstagramFlow(target, finalUrl, { statusMsg });
+    if (jobResult && jobResult.jobId) {
+       return await startDownload(
+         target,
+         jobResult.jobId,
+         jobResult.isMix || jobResult.isGallery ? "twgallery" : (jobResult.isVideo ? "mp4" : "photo"),
+         {
+           statusMsg: jobResult.statusMsg,
+         },
+       );
+    }
+  }
+ 
   if (
     finalUrl.includes("twitter.com") ||
     finalUrl.includes("x.com") ||
@@ -145,14 +166,14 @@ async function runYtDlpFlow(target, url, options = {}) {
   ) {
     const jobResult = await runTwitterFlow(target, finalUrl, { statusMsg });
     if (jobResult && jobResult.jobId) {
-      return await startDownload(
-        target,
-        jobResult.jobId,
-        jobResult.isGallery ? "twgallery" : "mp4",
-        {
-          statusMsg: jobResult.statusMsg,
-        },
-      );
+       return await startDownload(
+         target,
+         jobResult.jobId,
+         jobResult.isGallery ? "twgallery" : (jobResult.isVideo ? "mp4" : "photo"),
+         {
+           statusMsg: jobResult.statusMsg,
+         },
+       );
     }
   }
 
@@ -292,7 +313,8 @@ async function runYtDlpFlow(target, url, options = {}) {
         ? "https://x.com/"
         : finalUrl.includes("pinterest.com") || finalUrl.includes("pin.it")
           ? "https://www.pinterest.com/"
-          : finalUrl.includes("music.youtube.com") || finalUrl.includes("youtube.com")
+          : finalUrl.includes("music.youtube.com") ||
+              finalUrl.includes("youtube.com")
             ? "https://www.youtube.com/"
             : finalUrl.includes("capcut.com")
               ? "https://www.capcut.com/"
@@ -319,7 +341,7 @@ async function runYtDlpFlow(target, url, options = {}) {
   ];
 
   const metadataProcess = spawn(getYtDlp(), dlArgs, { env: getDlpEnv() });
-  
+
   const metadataTimeout = setTimeout(() => {
     metadataProcess.kill();
     console.error("[METADATA-TIMEOUT] Process killed after 30s");
@@ -367,15 +389,18 @@ async function runYtDlpFlow(target, url, options = {}) {
 
     if (code !== 0 || !metadata.trim()) {
       if (url.includes("instagram.com")) {
-        const isPhoto =
-          errorLog.toLowerCase().includes("no video") ||
-          errorLog.toLowerCase().includes("not a video");
+        await editResponse({
+          embeds: [
+            getStatusEmbed(
+              "Instagram Identified",
+              "Resource parameters locked. Commencing retrieval phase...",
+            ),
+          ],
+        });
 
-        finalTitle = isPhoto ? "Instagram Photo/Gallery" : "Instagram Resource";
         finalPlatform = "INSTAGRAM";
         db.jobs[jobId].platform = "INSTAGRAM";
         db.jobs[jobId].extractor = "instagram";
-        if (isPhoto) db.jobs[jobId].isGallery = true;
       } else {
         const cleanError = errorLog
           .replace(/\[\w+\]/g, "")
@@ -408,7 +433,10 @@ async function runYtDlpFlow(target, url, options = {}) {
         );
         const isTikTok = json.webpage_url?.includes("tiktok.com");
 
-        finalTitle = (finalTitle === "Untitled" || !finalTitle) ? (json.title || "Untitled") : finalTitle;
+        finalTitle =
+          finalTitle === "Untitled" || !finalTitle
+            ? json.title || "Untitled"
+            : finalTitle;
         finalPlatform = json.extractor || "Generic";
         views = json.view_count || "0";
         likes = json.like_count || "0";
@@ -467,7 +495,7 @@ async function runYtDlpFlow(target, url, options = {}) {
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setTitle(`${FIRE} **Media Research Found**`)
       .setImage(botBanner)
       .setDescription(
@@ -517,7 +545,11 @@ async function runYtDlpFlow(target, url, options = {}) {
 
     if (shouldDirect && options.type) {
       const finalFormat =
-        options.type === "mp3" || isMusic ? "mp3" : isGallery ? "gallery" : "mp4";
+        options.type === "mp3" || isMusic
+          ? "mp3"
+          : isGallery
+            ? "gallery"
+            : "mp4";
       return await startDownload(target, jobId, finalFormat, { statusMsg });
     }
 

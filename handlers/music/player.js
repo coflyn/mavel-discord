@@ -7,7 +7,12 @@ const {
   VoiceConnectionStatus,
   getVoiceConnection,
 } = require("@discordjs/voice");
-const { EmbedBuilder, ActivityType } = require("discord.js");
+const {
+  EmbedBuilder,
+  ActivityType,
+  ActionRowBuilder,
+  StringSelectMenuBuilder,
+} = require("discord.js");
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
@@ -39,6 +44,7 @@ class MusicPlayer {
         repeatMode: "off",
         shuffle: false,
         isStarting: false,
+        activeProcesses: [],
       });
     }
     return this.queues.get(guildId);
@@ -179,6 +185,19 @@ class MusicPlayer {
     const state = this.getQueue(guildId);
     if (!state) return;
 
+    if (state.lastNowPlayingMsg) {
+      state.lastNowPlayingMsg.edit({ components: [] }).catch(() => {});
+    }
+
+    if (state.activeProcesses) {
+      state.activeProcesses.forEach((p) => {
+        try {
+          p.kill();
+        } catch (e) {}
+      });
+      state.activeProcesses = [];
+    }
+
     if (state.current) {
       if (state.repeatMode === "one") {
         state.queue.unshift(state.current);
@@ -190,6 +209,10 @@ class MusicPlayer {
     if (state.queue.length === 0) {
       state.current = null;
       if (state.idleTimer) clearTimeout(state.idleTimer);
+
+      if (state.lastNowPlayingMsg) {
+        state.lastNowPlayingMsg.edit({ components: [] }).catch(() => {});
+      }
 
       console.log(
         `[MUSIC-IDLE] Queue finished for guild ${guildId}, starting 30s timer...`,
@@ -289,6 +312,7 @@ class MusicPlayer {
                     : "Inbound Transmission (Buffering...)",
                 ),
               ],
+              components: [this.getPlaybackComponents(guildId)],
             });
             bufferingMsg = state.lastNowPlayingMsg;
           } catch (e) {
@@ -302,6 +326,7 @@ class MusicPlayer {
                       : "Inbound Transmission (Buffering...)",
                   ),
                 ],
+                components: [this.getPlaybackComponents(guildId)],
               })
               .catch(() => null);
           }
@@ -316,6 +341,7 @@ class MusicPlayer {
                     : "Inbound Transmission (Buffering...)",
                 ),
               ],
+              components: [this.getPlaybackComponents(guildId)],
             })
             .catch(() => null);
         }
@@ -358,6 +384,18 @@ class MusicPlayer {
           "pipe:1",
         ]);
 
+        state.activeProcesses.push(ytStreamProcess, ffmpegProcess);
+
+        ytStreamProcess.stdout.on("error", (e) => {
+          if (e.code !== "EPIPE")
+            console.error("[STREAM-YT] Error:", e.message);
+        });
+
+        ffmpegProcess.stdin.on("error", (e) => {
+          if (e.code !== "EPIPE")
+            console.error("[STREAM-FFMPEG] Error:", e.message);
+        });
+
         ytStreamProcess.stdout.pipe(ffmpegProcess.stdin);
         audioStream = ffmpegProcess.stdout;
 
@@ -381,6 +419,7 @@ class MusicPlayer {
       const resource = createAudioResource(audioStream, {
         inputType: StreamType.Raw,
       });
+      state.resource = resource;
       state.player.play(resource);
 
       if (bufferingMsg) {
@@ -390,6 +429,7 @@ class MusicPlayer {
               embeds: [
                 this.getNowPlayingEmbed(guildId, "Playback Synchronized"),
               ],
+              components: [this.getPlaybackComponents(guildId)],
             })
             .catch(() => {});
         });
@@ -421,11 +461,18 @@ class MusicPlayer {
         ? "Bandcamp"
         : "YouTube";
 
-    const currentStatus = statusOverride || "Playback Synchronized";
+    let currentStatus = statusOverride;
+    if (!currentStatus) {
+      currentStatus =
+        state.player.state.status === "paused"
+          ? "Streaming Paused"
+          : "Playback Synchronized";
+    }
     const repeatMode = (state.repeatMode || "OFF").toUpperCase();
+    const shuffleMode = state.shuffle ? "ON" : "OFF";
 
     return new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setAuthor({
         name: "Audio Stream Active",
         iconURL: requester?.displayAvatarURL() || undefined,
@@ -437,8 +484,10 @@ class MusicPlayer {
           `${ARROW} **Source:** *${source}*\n` +
           `${ARROW} **Requested by:** <@${track.requestedBy}>\n` +
           `${ARROW} **Length:** *${track.duration_string || "---"}*\n` +
-          `${ARROW} **Repeat:** *${repeatMode}*\n\n` +
-          `${LEA} **Status:** *${currentStatus}*`,
+          `${ARROW} **Repeat:** *${repeatMode}*\n` +
+          `${ARROW} **Shuffle:** *${shuffleMode}*\n\n` +
+          `${LEA} **Status:** *${currentStatus}*\n` +
+          `\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800`,
       )
       .setThumbnail(track.thumbnail)
       .setFooter({
@@ -446,6 +495,80 @@ class MusicPlayer {
         iconURL: state.channel.client.user.displayAvatarURL(),
       })
       .setTimestamp();
+  }
+
+  getPlaybackComponents(guildId) {
+    const state = this.queues.get(guildId);
+    if (!state || !state.channel) return null;
+
+    const guild = state.channel.guild;
+    const getEmoji = (name, fallback) =>
+      guild.emojis.cache.find((e) => e.name === name)?.toString() || fallback;
+
+    const E_LYRICS = getEmoji("book", "📋");
+    const E_SKIP = getEmoji("blue_arrow_right", "⏭️");
+    const E_STOP = getEmoji("ping_red", "⏹️");
+    const E_SHUFFLE = getEmoji("diamond", "🔀");
+    const E_REPEAT = getEmoji("rocket", "🔁");
+    const E_PAUSE = getEmoji("time", "⏸️");
+    const E_QUEUE = getEmoji("anno", "📜");
+    const E_CLEAR = getEmoji("lea", "🗑️");
+
+    return new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId("music_control_hub")
+        .setPlaceholder("Music Controls")
+        .addOptions(
+          {
+            label: "Pause / Resume",
+            value: "pause",
+            description: "Toggle track playback",
+            emoji: E_PAUSE,
+          },
+          {
+            label: "Lyrics",
+            value: "lyrics",
+            description: "Get song lyrics",
+            emoji: E_LYRICS,
+          },
+          {
+            label: "Shuffle",
+            value: "shuffle",
+            description: `Toggle random order: ${state.shuffle ? "ON" : "OFF"}`,
+            emoji: E_SHUFFLE,
+          },
+          {
+            label: "Repeat",
+            value: "repeat",
+            description: `Cycle repeat modes: ${(state.repeatMode || "off").toUpperCase()}`,
+            emoji: E_REPEAT,
+          },
+          {
+            label: "Queue",
+            value: "queue",
+            description: "View upcoming tracks",
+            emoji: E_QUEUE,
+          },
+          {
+            label: "Skip",
+            value: "skip",
+            description: "Skip this track",
+            emoji: E_SKIP,
+          },
+          {
+            label: "Clear",
+            value: "clear",
+            description: "Wipe current queue",
+            emoji: E_CLEAR,
+          },
+          {
+            label: "Stop",
+            value: "stop",
+            description: "Shutdown playback",
+            emoji: E_STOP,
+          },
+        ),
+    );
   }
 
   skip(guildId) {
@@ -465,6 +588,14 @@ class MusicPlayer {
         state.channel.client.user.setActivity("/help | MaveL", {
           type: ActivityType.Playing,
         });
+      }
+      if (state.activeProcesses) {
+        state.activeProcesses.forEach((p) => {
+          try {
+            p.kill();
+          } catch (e) {}
+        });
+        state.activeProcesses = [];
       }
       if (state.connection) state.connection.destroy();
       state.player.stop();

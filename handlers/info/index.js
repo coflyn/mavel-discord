@@ -3,9 +3,13 @@ const { EmbedBuilder, MessageFlags, ChannelType } = require("discord.js");
 module.exports = async function infoHandler(interaction) {
   const { commandName } = interaction;
 
-  const guildEmojis = await interaction.guild.emojis.fetch();
+  if (interaction.deferReply) {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+  }
+
+  const guildEmojis = await interaction.guild.emojis.fetch().catch(() => null);
   const getEmoji = (name, fallback) => {
-    const emoji = guildEmojis.find((e) => e.name === name);
+    const emoji = guildEmojis?.find((e) => e.name === name);
     return emoji ? emoji.toString() : fallback;
   };
 
@@ -47,7 +51,7 @@ async function handleUserInfo(interaction, EMOJIS) {
   }
 
   const embed = new EmbedBuilder()
-    .setColor(user.hexAccentColor || "#dcdade")
+    .setColor(user.hexAccentColor || "#6c5ce7")
     .setAuthor({
       name: `User Profile`,
       iconURL: user.displayAvatarURL({ dynamic: true }),
@@ -91,7 +95,7 @@ async function handleUserInfo(interaction, EMOJIS) {
     }
   }
 
-  const res = await interaction.reply({
+  const res = await ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
     embeds: [embed],
     flags: [MessageFlags.Ephemeral],
     withResponse: true,
@@ -119,12 +123,12 @@ async function handleIconLogic(interaction) {
       size: 1024,
     });
     const embed = new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setTitle(`*Biometric Extract: ${targetUser.username}*`)
       .setDescription(`[Download Original File](${avatarUrl})`)
       .setImage(avatarUrl);
 
-    const res = await interaction.reply({
+    const res = await ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
       embeds: [embed],
       flags: [MessageFlags.Ephemeral],
       withResponse: true,
@@ -137,18 +141,18 @@ async function handleIconLogic(interaction) {
   } else {
     const iconUrl = guild.iconURL({ dynamic: true, size: 1024 });
     if (!iconUrl)
-      return interaction.reply({
+      return ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
         content: "*No icon detected for this Base.*",
         flags: [64],
       });
 
     const embed = new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setTitle(`*Base Identity: ${guild.name}*`)
       .setDescription(`[Download Original File](${iconUrl})`)
       .setImage(iconUrl);
 
-    const res = await interaction.reply({
+    const res = await ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
       embeds: [embed],
       flags: [MessageFlags.Ephemeral],
       withResponse: true,
@@ -169,18 +173,18 @@ async function handleBannerLogic(interaction) {
     const user = await targetUser.fetch();
     const bannerUrl = user.bannerURL({ dynamic: true, size: 1024 });
     if (!bannerUrl)
-      return interaction.reply({
+      return ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
         content: "*Target user has no detectable profile banner.*",
         flags: [64],
       });
 
     const embed = new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setTitle(`*Visual Data: ${user.username}*`)
       .setDescription(`[Download Original File](${bannerUrl})`)
       .setImage(bannerUrl);
 
-    const res = await interaction.reply({
+    const res = await ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
       embeds: [embed],
       flags: [MessageFlags.Ephemeral],
       withResponse: true,
@@ -193,18 +197,18 @@ async function handleBannerLogic(interaction) {
   } else {
     const bannerUrl = guild.bannerURL({ dynamic: true, size: 1024 });
     if (!bannerUrl)
-      return interaction.reply({
+      return ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
         content: "*This server has no banner asset detected.*",
         flags: [64],
       });
 
     const embed = new EmbedBuilder()
-      .setColor("#1e4d2b")
+      .setColor("#6c5ce7")
       .setTitle(`*Base Visual: ${guild.name}*`)
       .setDescription(`[Download Original File](${bannerUrl})`)
       .setImage(bannerUrl);
 
-    const res = await interaction.reply({
+    const res = await ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
       embeds: [embed],
       flags: [MessageFlags.Ephemeral],
       withResponse: true,
@@ -222,7 +226,7 @@ async function handleServerInfo(interaction, EMOJIS) {
   const owner = await guild.fetchOwner();
 
   const embed = new EmbedBuilder()
-    .setColor("#1e4d2b")
+    .setColor("#6c5ce7")
     .setAuthor({
       name: "Operational Base Registry",
       iconURL: guild.iconURL({ dynamic: true }),
@@ -273,7 +277,7 @@ async function handleServerInfo(interaction, EMOJIS) {
     embed.setImage(guild.bannerURL({ dynamic: true, size: 1024 }));
   }
 
-  const res = await interaction.reply({
+  const res = await ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
     embeds: [embed],
     flags: [MessageFlags.Ephemeral],
     withResponse: true,
