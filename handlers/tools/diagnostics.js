@@ -8,7 +8,7 @@ const process = require("process");
 
 module.exports = async function diagnosticsHandler(interaction) {
   if (interaction.deferReply) {
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(e => console.error("[DIAG-DEFER]", e.message));
   }
 
   const guildEmojis = await interaction.guild.emojis.fetch().catch(() => null);
@@ -38,7 +38,7 @@ module.exports = async function diagnosticsHandler(interaction) {
   const nodeVersion = process.version;
 
   const embed = new EmbedBuilder()
-    .setColor("#6c5ce7")
+    .setColor("#d63031")
     .setAuthor({
       name: "MaveL System Diagnostics",
       iconURL: interaction.client.user.displayAvatarURL(),

@@ -11,7 +11,7 @@ module.exports = async function emojiHandler(interaction) {
   const subcommand = interaction.options.getSubcommand();
 
   if (interaction.deferReply && (subcommand !== "add")) {
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(e => console.error("[EMOJI-DEFER]", e.message));
   }
 
   if (subcommand === "add") {
@@ -197,7 +197,7 @@ async function handleInfo(interaction) {
       ?.toString() || "•";
 
   const embed = new EmbedBuilder()
-    .setColor("#6c5ce7")
+    .setColor("#e17055")
     .setTitle("*Emoji Intelligence Report*")
     .setDescription(
       `${ARROW} *Target ID: \`${emojiId}\`*\n${ARROW} *Type: ${isAnimated ? "Animated" : "Static"}*\n\n[Download High-Res Asset](${finalUrl})`,
@@ -253,7 +253,7 @@ async function handleList(interaction) {
 
     for (const chunk of chunks) {
       const embed = new EmbedBuilder()
-        .setColor("#6c5ce7")
+        .setColor("#e17055")
         .setTitle("*Server Asset Registry*")
         .setDescription(chunk);
       const res = await interaction.followUp({
@@ -271,7 +271,7 @@ async function handleList(interaction) {
     }
   } else {
     const embed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#e17055")
       .setTitle("*Server Asset Registry*")
       .setDescription(list)
       .setFooter({ text: `Total Assets: ${emojis.size}` });
@@ -316,7 +316,7 @@ async function handleNeeds(interaction) {
   const CROSS = getEmoji("ping_red", "🔴");
 
   const embed = new EmbedBuilder()
-    .setColor("#6c5ce7")
+    .setColor("#e17055")
     .setTitle("*System Emoji Diagnostics*")
     .setDescription(
       REQUIRED_EMOJIS.map((req) => {
@@ -376,7 +376,7 @@ module.exports.syncMissingEmojis = async function (interaction) {
   await interaction.editReply({
     embeds: [
       new EmbedBuilder()
-        .setColor("#6c5ce7")
+        .setColor("#e17055")
         .setDescription(
           `### ⏳ **Synthesizing Assets...**\n*Please wait while MaveL retrieves **${missing.length}** sector data units.*`,
         ),
@@ -414,7 +414,7 @@ module.exports.syncMissingEmojis = async function (interaction) {
   }
 
   const embed = new EmbedBuilder()
-    .setColor("#6c5ce7")
+    .setColor("#e17055")
     .setTitle("*Asset Synchronization Report*")
     .setDescription(
       `### ${successCount > 0 ? PING_GREEN : PING_RED} **Sync Complete**\n*Successfully synthesized **${successCount}** assets.*\n*Failed to retrieve **${failCount}** assets.*`,

@@ -4,7 +4,7 @@ module.exports = async function infoHandler(interaction) {
   const { commandName } = interaction;
 
   if (interaction.deferReply) {
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(e => console.error("[INFO-DEFER]", e.message));
   }
 
   const guildEmojis = await interaction.guild.emojis.fetch().catch(() => null);
@@ -51,7 +51,7 @@ async function handleUserInfo(interaction, EMOJIS) {
   }
 
   const embed = new EmbedBuilder()
-    .setColor(user.hexAccentColor || "#6c5ce7")
+    .setColor(user.hexAccentColor || "#74b9ff")
     .setAuthor({
       name: `User Profile`,
       iconURL: user.displayAvatarURL({ dynamic: true }),
@@ -123,7 +123,7 @@ async function handleIconLogic(interaction) {
       size: 1024,
     });
     const embed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#74b9ff")
       .setTitle(`*Biometric Extract: ${targetUser.username}*`)
       .setDescription(`[Download Original File](${avatarUrl})`)
       .setImage(avatarUrl);
@@ -147,7 +147,7 @@ async function handleIconLogic(interaction) {
       });
 
     const embed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#74b9ff")
       .setTitle(`*Base Identity: ${guild.name}*`)
       .setDescription(`[Download Original File](${iconUrl})`)
       .setImage(iconUrl);
@@ -179,7 +179,7 @@ async function handleBannerLogic(interaction) {
       });
 
     const embed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#74b9ff")
       .setTitle(`*Visual Data: ${user.username}*`)
       .setDescription(`[Download Original File](${bannerUrl})`)
       .setImage(bannerUrl);
@@ -203,7 +203,7 @@ async function handleBannerLogic(interaction) {
       });
 
     const embed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#74b9ff")
       .setTitle(`*Base Visual: ${guild.name}*`)
       .setDescription(`[Download Original File](${bannerUrl})`)
       .setImage(bannerUrl);
@@ -226,7 +226,7 @@ async function handleServerInfo(interaction, EMOJIS) {
   const owner = await guild.fetchOwner();
 
   const embed = new EmbedBuilder()
-    .setColor("#6c5ce7")
+    .setColor("#74b9ff")
     .setAuthor({
       name: "Operational Base Registry",
       iconURL: guild.iconURL({ dynamic: true }),

@@ -249,7 +249,7 @@ class MusicPlayer {
     try {
       const ytArgs = [
         "--buffer-size",
-        "16K",
+        "1M",
         "-j",
         "-f",
         "140/bestaudio[ext=m4a]/bestaudio/best",
@@ -346,9 +346,17 @@ class MusicPlayer {
             .catch(() => null);
         }
         state.lastNowPlayingMsg = bufferingMsg;
-        state.channel.client.user.setActivity(track.title, {
-          type: ActivityType.Listening,
-        });
+        if (state.channel.client.setTempStatus) {
+          state.channel.client.setTempStatus(
+            track.title,
+            ActivityType.Listening,
+            null,
+          );
+        } else {
+          state.channel.client.user.setActivity(track.title, {
+            type: ActivityType.Listening,
+          });
+        }
       }
 
       let audioStream;
@@ -360,6 +368,8 @@ class MusicPlayer {
           "140/ba/best",
           "--no-playlist",
           "--no-cache-dir",
+          "--buffer-size",
+          "1M",
           "-o",
           "-",
           ...getJsRuntimeArgs(),
@@ -371,6 +381,10 @@ class MusicPlayer {
           env: getDlpEnv(),
         });
         const ffmpegProcess = spawn("ffmpeg", [
+          "-analyzeduration",
+          "0",
+          "-probesize",
+          "32768",
           "-i",
           "pipe:0",
           "-f",
@@ -381,6 +395,10 @@ class MusicPlayer {
           "2",
           "-af",
           "volume=1.0",
+          "-loglevel",
+          "0",
+          "-buffer_size",
+          "1024k",
           "pipe:1",
         ]);
 
@@ -472,7 +490,7 @@ class MusicPlayer {
     const shuffleMode = state.shuffle ? "ON" : "OFF";
 
     return new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#a29bfe")
       .setAuthor({
         name: "Audio Stream Active",
         iconURL: requester?.displayAvatarURL() || undefined,
@@ -585,9 +603,13 @@ class MusicPlayer {
       if (state.aloneTimer) clearTimeout(state.aloneTimer);
       if (state.touchTimer) clearInterval(state.touchTimer);
       if (state.channel) {
-        state.channel.client.user.setActivity("/help | MaveL", {
-          type: ActivityType.Playing,
-        });
+        if (state.channel.client.clearTempStatus) {
+          state.channel.client.clearTempStatus();
+        } else {
+          state.channel.client.user.setActivity("/help | MaveL", {
+            type: ActivityType.Watching,
+          });
+        }
       }
       if (state.activeProcesses) {
         state.activeProcesses.forEach((p) => {

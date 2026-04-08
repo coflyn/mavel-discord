@@ -93,60 +93,36 @@ async function musicHandler(target, manualData = null) {
     if (source === "bc") {
       const tryBcSearchLocal = async (q) => {
         const res = [];
-        const searchUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(q + " site:bandcamp.com")}`;
+        const searchUrl = `https://bandcamp.com/search?q=${encodeURIComponent(q)}&item_type=t`;
         try {
           const { data } = await axios.get(searchUrl, {
-            headers: { "User-Agent": "Mozilla/5.0" },
+            headers: {
+              "User-Agent":
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+            },
           });
 
           const $ = cheerio.load(data);
-          $(".result__a").each((i, el) => {
-            let href = $(el).attr("href");
-            if (href && href.includes("uddg=")) {
-              try {
-                const urlParams = new URL(href, "https://duckduckgo.com")
-                  .searchParams;
-                const uddg = urlParams.get("uddg");
-                if (uddg) href = decodeURIComponent(uddg);
-              } catch (e) {}
-            }
-            if (
-              href &&
-              (href.includes(".bandcamp.com/track/") ||
-                href.includes(".bandcamp.com/album/"))
-            ) {
-              const isAlbum = href.includes(".bandcamp.com/album/");
-              const urlParts = new URL(href);
-              const artistName = urlParts.hostname.split(".")[0];
-              const titleSlug = urlParts.pathname
-                .split("/")
-                .pop()
-                .replace(/-/g, " ");
-
-              let title =
-                titleSlug.charAt(0).toUpperCase() + titleSlug.slice(1);
-              if (isAlbum) title = `[Album] ${title}`;
-
-              if (title && !res.some((r) => r.webpage_url === href)) {
-                if (!isAlbum) {
-                  res.unshift({
-                    title: title,
-                    webpage_url: href,
-                    uploader:
-                      artistName.charAt(0).toUpperCase() + artistName.slice(1),
-                  });
-                } else {
-                  res.push({
-                    title: title,
-                    webpage_url: href,
-                    uploader:
-                      artistName.charAt(0).toUpperCase() + artistName.slice(1),
-                  });
-                }
+          $(".search-result-item, .searchresult, .data-search").each((i, el) => {
+            const hrefVal = $(el).find(".heading a").attr("href");
+            if (!hrefVal) return;
+            const href = hrefVal.split("?")[0];
+            const title = $(el).find(".heading a").text().trim();
+            const artist = $(el).find(".subhead a").last().text().trim() || $(el).find(".subhead").text().trim();
+            
+            if (href && (href.includes("/track/") || href.includes("/album/"))) {
+              if (!res.some((r) => r.webpage_url === href)) {
+                 res.push({
+                   title, 
+                   webpage_url: href, 
+                   uploader: artist || "Bandcamp Artist" 
+                 });
               }
             }
           });
-        } catch (e) {}
+        } catch (e) {
+          console.error("[BC-SEARCH] Error:", e.message);
+        }
         return res;
       };
 
@@ -158,12 +134,35 @@ async function musicHandler(target, manualData = null) {
       }
     }
 
-    const filterWords = ["remix", "cover", "fanmade", "mashup", "reverb"];
+    const filterWords = [
+      "remix", "cover", "fanmade", "mashup", "reverb", "slowed", "edit", "version", "sped up", "lyrics"
+    ];
+    
+    const noisePatterns = [
+      /\((Official|Music|Lyric|Video|HD|4K|Audio|Visualizer)[^)]*\)/gi,
+      /\[(Official|Music|Lyric|Video|HD|4K|Audio|Visualizer)[^\]]*\]/gi,
+      /\|\s*Official\s*(Music\s*)?Video/gi,
+      /\(Lyrics\)/gi,
+      /\[Lyrics\]/gi,
+      /-\s*Lyrics/gi
+    ];
+
+    const cleanTitle = (txt) => {
+      let cleaned = txt;
+      noisePatterns.forEach(p => cleaned = cleaned.replace(p, ""));
+      return cleaned.replace(/\s\s+/g, " ").trim();
+    };
+
     const containsFilter = (txt) =>
       filterWords.some((w) => txt.toLowerCase().includes(w));
     const queryContainsFilter = filterWords.some((w) =>
       query.toLowerCase().includes(w),
     );
+
+    results = results.map(r => ({
+      ...r,
+      title: cleanTitle(r.title)
+    }));
 
     if (!queryContainsFilter && results.length > 0) {
       const filtered = results.filter((r) => !containsFilter(r.title));
@@ -189,7 +188,7 @@ async function musicHandler(target, manualData = null) {
       .setCustomId(`music_select_${author.id}`)
       .setPlaceholder("Select a track...")
       .addOptions(
-        results.slice(0, 5).map((r, index) => {
+        results.slice(0, 25).map((r, index) => {
           const shortId = `tr_${author.id}_${Date.now()}_${index}`;
           searchCache.set(shortId, { url: r.webpage_url, title: r.title });
 
@@ -197,9 +196,14 @@ async function musicHandler(target, manualData = null) {
 
           let labelText = r.title.length > 100 ? r.title.substring(0, 97) + "..." : r.title;
           
+          const cleanUploader = (r.uploader || "Unknown Author")
+            .replace(/\n/g, " ")
+            .replace(/\s\s+/g, " ")
+            .trim();
+
           return {
             label: labelText,
-            description: r.uploader ? `By ${r.uploader}` : "",
+            description: `By ${cleanUploader}`.substring(0, 100),
             value: shortId,
             emoji: arrowEmoji?.id || "»"
           };

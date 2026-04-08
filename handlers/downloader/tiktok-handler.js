@@ -17,7 +17,7 @@ async function runTikTokFlow(target, url, options = {}) {
 
     const getStatusEmbed = (status, details) => {
         return new EmbedBuilder()
-            .setColor("#6c5ce7")
+            .setColor("#e17055")
             .setDescription(`### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`);
     };
 
@@ -86,7 +86,7 @@ async function runTikTokFlow(target, url, options = {}) {
                 uploader: author 
             },
             thumbnail: formatUrl(cover),
-            platform: "TikTok (TikWM)",
+            platform: "TikTok",
             userId: target.user ? target.user.id : target.author.id,
             isGallery,
             hasVideo: !!tik.play,
@@ -104,7 +104,7 @@ async function runTikTokFlow(target, url, options = {}) {
         const NOTIF = getEmoji("notif", "🔔");
 
         const foundEmbed = new EmbedBuilder()
-            .setColor("#6c5ce7")
+            .setColor("#e17055")
             .setTitle(`${NOTIF} **TikTok Signal Secured**`)
             .setThumbnail(formatUrl(cover))
             .setDescription(
@@ -115,7 +115,7 @@ async function runTikTokFlow(target, url, options = {}) {
                 `*${formatNumber(tik.digg_count)} Likes  •  ${formatNumber(tik.comment_count)} Comments  •  ${formatNumber(tik.play_count)} Views*`
             )
             .setFooter({
-                text: "MaveL TikTok Resolver (TikWM)",
+                text: "MaveL TikTok Resolver",
                 iconURL: target.client.user.displayAvatarURL()
             });
 

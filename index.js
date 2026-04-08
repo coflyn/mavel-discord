@@ -51,6 +51,7 @@ const emojiHandler = require("./handlers/tools/emoji");
 const helpHandler = require("./handlers/tools/help");
 const setupHandler = require("./handlers/tools/setup");
 const diagnosticsHandler = require("./handlers/tools/diagnostics");
+const cookiesHandler = require("./handlers/tools/cookies");
 const adminCmdsHandler = require("./handlers/tools/admin-cmds");
 const { startTunnel, resetTunnel } = require("./utils/tunnel-server");
 
@@ -80,7 +81,31 @@ console.log = function (d) {
   originalConsoleLog.apply(console, arguments);
 };
 
-client.on("clientReady", async () => {
+const cooldowns = new Map();
+const COOLDOWN_TIME = 60000;
+const MAX_COMMANDS_PER_WINDOW = 2;
+
+const emojiCache = new Map();
+const EMOJI_TTL = 5 * 60 * 1000;
+
+client.getGuildEmojis = async (guildId) => {
+  const cached = emojiCache.get(guildId);
+  if (cached && Date.now() - cached.timestamp < EMOJI_TTL) {
+    return cached.emojis;
+  }
+  try {
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) return null;
+    const emojis = await guild.emojis.fetch();
+    emojiCache.set(guildId, { emojis, timestamp: Date.now() });
+    return emojis;
+  } catch (e) {
+    console.error(`[EMOJI-CACHE] Error fetching for ${guildId}:`, e.message);
+    return null;
+  }
+};
+
+client.once("ready", async () => {
   cleanupTemp();
   cleanupLogs();
 
@@ -109,7 +134,8 @@ client.on("clientReady", async () => {
     { name: "/help | @MaveL", type: 3 },
   ];
   let i = 0;
-  setInterval(() => {
+  const updateStatus = () => {
+    if (client.statusOverride) return;
     const activity = activities[i % activities.length];
     let name = activity.name;
 
@@ -123,7 +149,27 @@ client.on("clientReady", async () => {
 
     client.user.setActivity(name, { type: activity.type });
     i++;
-  }, 60000);
+  };
+
+  client.setTempStatus = (name, type = 3, duration = 15000) => {
+    client.statusOverride = true;
+    client.user.setActivity(name, { type });
+    if (client.statusTimeout) clearTimeout(client.statusTimeout);
+    if (duration !== null) {
+      client.statusTimeout = setTimeout(() => {
+        client.statusOverride = false;
+        updateStatus();
+      }, duration);
+    }
+  };
+
+  client.clearTempStatus = () => {
+    client.statusOverride = false;
+    if (client.statusTimeout) clearTimeout(client.statusTimeout);
+    updateStatus();
+  };
+
+  setInterval(updateStatus, 60000);
 
   setInterval(
     () => {
@@ -153,7 +199,8 @@ client.on("guildCreate", async (guild) => {
         `### ${LINK} **MaveL Hub Induction Successful**\n` +
           `*Connection link with sector **${guild.name}** has been established. To complete the operational integration, please execute the required protocols below:*\n\n` +
           `${ARROW} **Step 1:** Run **\`/emoji needs\`** to synchronize visual assets.\n` +
-          `${ARROW} **Step 2:** Run **\`/setup\`** to activate the operational core.\n\n` +
+          `${ARROW} **Step 2:** Run **\`/setup\`** to activate the operational core.\n` +
+          `${ARROW} **Step 3:** Run **\`/cookies\`** to synchronize authentication datasets.\n\n` +
           `*Status: Waiting for administrative authorization...*`,
       )
       .setFooter({ text: "MaveL Deployment System" })
@@ -299,6 +346,9 @@ client.on("messageCreate", async (message) => {
     return await diagnosticsHandler(message);
   }
 
+  if (commandName === "cookies") {
+    return await cookiesHandler(message);
+  }
   if (["info", "icon", "banner", "server", "setup"].includes(commandName)) {
     const target = message.mentions.users.first() || message.author;
     const subcommand = args[0] || "info";
@@ -345,6 +395,38 @@ client.on("interactionCreate", async (interaction) => {
 
   if (interaction.isChatInputCommand()) {
     const { commandName } = interaction;
+    const userId = interaction.user.id;
+
+    if (
+      !interaction.member?.permissions.has(PermissionFlagsBits.Administrator)
+    ) {
+      const now = Date.now();
+      const userHistory = cooldowns.get(userId) || [];
+
+      const validHistory = userHistory.filter(
+        (timestamp) => now - timestamp < COOLDOWN_TIME,
+      );
+
+      if (validHistory.length >= MAX_COMMANDS_PER_WINDOW) {
+        const oldestEntry = validHistory[0];
+        const nextReset = Math.ceil(
+          (COOLDOWN_TIME - (now - oldestEntry)) / 1000,
+        );
+
+        const guildEmojis = await interaction.client.getGuildEmojis?.(
+          interaction.guild.id,
+        );
+        const TIME = guildEmojis?.find((e) => e.name === "time") || "⏳";
+
+        return interaction.reply({
+          content: `### ${TIME} **Rate Limit Active**\n> *Quota exhausted (Max 2/min). System cooling down. Resetting in **${nextReset}s**.*`,
+          flags: [MessageFlags.Ephemeral],
+        });
+      }
+
+      validHistory.push(now);
+      cooldowns.set(userId, validHistory);
+    }
     const isMusicCmd = [
       "play",
       "skip",
@@ -380,6 +462,7 @@ client.on("interactionCreate", async (interaction) => {
       "backup",
       "scan",
       "logs",
+      "cookies",
     ].includes(commandName);
 
     const settings = fs.existsSync(settingsPath)
@@ -407,6 +490,7 @@ client.on("interactionCreate", async (interaction) => {
       "backup",
       "scan",
       "logs",
+      "cookies",
     ].includes(commandName);
 
     if (
@@ -466,26 +550,38 @@ client.on("interactionCreate", async (interaction) => {
         console.error("[SLASH-HANDLER] Error:", e.message);
         try {
           if (interaction.replied) {
-            await interaction.followUp({
-              content: `*Error: ${e.message}*`,
-              flags: [MessageFlags.Ephemeral],
-            }).catch(() => {});
+            await interaction
+              .followUp({
+                content: `*Error: ${e.message}*`,
+                flags: [MessageFlags.Ephemeral],
+              })
+              .catch(() => {});
           } else if (interaction.deferred) {
-            await interaction.editReply({
-              content: `*Error: ${e.message}*`,
-            }).catch(() => {});
+            await interaction
+              .editReply({
+                content: `*Error: ${e.message}*`,
+              })
+              .catch(() => {});
           } else {
-            await interaction.reply({
-              content: `*Error: ${e.message}*`,
-              flags: [MessageFlags.Ephemeral],
-            }).catch(() => {});
+            await interaction
+              .reply({
+                content: `*Error: ${e.message}*`,
+                flags: [MessageFlags.Ephemeral],
+              })
+              .catch(() => {});
           }
         } catch (innerErr) {
-          console.error("[ERROR-REPORTING-FAIL] Could not send error reply:", innerErr.message);
+          console.error(
+            "[ERROR-REPORTING-FAIL] Could not send error reply:",
+            innerErr.message,
+          );
         }
       }
     }
 
+    if (commandName === "cookies") {
+      return await cookiesHandler(interaction);
+    }
     if (commandName === "search") {
       return await searchHandler(interaction);
     }
@@ -523,18 +619,27 @@ client.on("interactionCreate", async (interaction) => {
 
     if (commandName === "skip") {
       player.skip(interaction.guild.id);
-      const E_NEXT = interaction.guild.emojis.cache.find(e => e.name === "blue_arrow_right")?.toString() || "⏭️";
+      const E_NEXT =
+        interaction.guild.emojis.cache
+          .find((e) => e.name === "blue_arrow_right")
+          ?.toString() || "⏭️";
       await interaction.reply({
         content: `### ${E_NEXT} **Track bypassed. Advancing.**`,
         flags: [64],
       });
-      setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
+      setTimeout(
+        () => interaction.deleteReply().catch(() => {}),
+        config.timeouts.quickReply,
+      );
       return;
     }
 
     if (commandName === "stop") {
       player.stop(interaction.guild.id);
-      const E_STOP = interaction.guild.emojis.cache.find(e => e.name === "ping_red")?.toString() || "⏹️";
+      const E_STOP =
+        interaction.guild.emojis.cache
+          .find((e) => e.name === "ping_red")
+          ?.toString() || "⏹️";
       await interaction.reply({
         content: `### ${E_STOP} **Operation decommissioned.**`,
         flags: [64],
@@ -545,7 +650,10 @@ client.on("interactionCreate", async (interaction) => {
 
     if (commandName === "pause") {
       player.pause(interaction.guild.id);
-      const E_PAUSE = interaction.guild.emojis.cache.find(e => e.name === "time")?.toString() || "⏸️";
+      const E_PAUSE =
+        interaction.guild.emojis.cache
+          .find((e) => e.name === "time")
+          ?.toString() || "⏸️";
       await interaction.reply({
         content: `### ${E_PAUSE} **Stream Suspension Active.**`,
         flags: [64],
@@ -556,7 +664,10 @@ client.on("interactionCreate", async (interaction) => {
 
     if (commandName === "resume") {
       player.resume(interaction.guild.id);
-      const E_RESUME = interaction.guild.emojis.cache.find(e => e.name === "time")?.toString() || "▶️";
+      const E_RESUME =
+        interaction.guild.emojis.cache
+          .find((e) => e.name === "time")
+          ?.toString() || "▶️";
       await interaction.reply({
         content: `### ${E_RESUME} **Transmission Resumed.**`,
         flags: [64],
@@ -577,19 +688,30 @@ client.on("interactionCreate", async (interaction) => {
         embeds: [embed],
         flags: [MessageFlags.Ephemeral],
       });
-      setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
+      setTimeout(
+        () => interaction.deleteReply().catch(() => {}),
+        config.timeouts.queueReply,
+      );
       return;
     }
 
     if (commandName === "queue") {
       const list = player.getQueueList(interaction.guild.id);
-      const E_ANNO = interaction.guild.emojis.cache.find(e => e.name === "anno")?.toString() || "📜";
-      const E_FIRE = interaction.guild.emojis.cache.find(e => e.name === "purple_fire")?.toString() || "🔥";
+      const E_ANNO =
+        interaction.guild.emojis.cache
+          .find((e) => e.name === "anno")
+          ?.toString() || "📜";
+      const E_FIRE =
+        interaction.guild.emojis.cache
+          .find((e) => e.name === "purple_fire")
+          ?.toString() || "🔥";
 
       if (list.length === 0) {
         const emptyEmbed = new EmbedBuilder()
-          .setColor("#6c5ce7")
-          .setDescription(`### ${E_FIRE} **Queue: Offline**\n> *No targets currently in registry.*`);
+          .setColor("#a29bfe")
+          .setDescription(
+            `### ${E_FIRE} **Queue: Offline**\n> *No targets currently in registry.*`,
+          );
 
         await interaction.reply({
           embeds: [emptyEmbed],
@@ -600,23 +722,34 @@ client.on("interactionCreate", async (interaction) => {
       }
 
       const queueEmbed = new EmbedBuilder()
-        .setColor("#6c5ce7")
-        .setAuthor({ name: "MaveL Operation Queue", iconURL: client.user.displayAvatarURL() })
-        .setDescription(`### ${E_ANNO} **Synchronized Targets**\n` + list.join("\n"))
+        .setColor("#a29bfe")
+        .setAuthor({
+          name: "MaveL Operation Queue",
+          iconURL: client.user.displayAvatarURL(),
+        })
+        .setDescription(
+          `### ${E_ANNO} **Synchronized Targets**\n` + list.join("\n"),
+        )
         .setFooter({ text: `Hub | Pending Operations: ${list.length}` });
 
       await interaction.reply({
         embeds: [queueEmbed],
         flags: [64],
       });
-      setTimeout(() => interaction.deleteReply().catch(() => {}), 30000);
+      setTimeout(
+        () => interaction.deleteReply().catch(() => {}),
+        config.timeouts.embedReply,
+      );
       return;
     }
 
     if (commandName === "shuffle") {
       const mode = interaction.options.getString("mode");
       player.toggleShuffle(interaction.guild.id, mode);
-      const E_SHUFFLE = interaction.guild.emojis.cache.find(e => e.name === "diamond")?.toString() || "🔀";
+      const E_SHUFFLE =
+        interaction.guild.emojis.cache
+          .find((e) => e.name === "diamond")
+          ?.toString() || "🔀";
       await interaction.reply({
         content: `### ${E_SHUFFLE} **Shuffle mode set to: ${mode.toUpperCase()}**`,
         flags: [64],
@@ -628,13 +761,18 @@ client.on("interactionCreate", async (interaction) => {
     if (commandName === "repeat") {
       const mode = interaction.options.getString("mode");
       player.setRepeat(interaction.guild.id, mode);
-      const E_REPEAT = interaction.guild.emojis.cache.find(e => e.name === "rocket")?.toString() || "🔁";
+      const E_REPEAT =
+        interaction.guild.emojis.cache
+          .find((e) => e.name === "rocket")
+          ?.toString() || "🔁";
 
       const state = player.queues.get(interaction.guild.id);
       if (state && state.lastNowPlayingMsg) {
         const updatedEmbed = player.getNowPlayingEmbed(interaction.guild.id);
         if (updatedEmbed) {
-          state.lastNowPlayingMsg.edit({ embeds: [updatedEmbed] }).catch(() => {});
+          state.lastNowPlayingMsg
+            .edit({ embeds: [updatedEmbed] })
+            .catch(() => {});
         }
       }
 
@@ -648,7 +786,10 @@ client.on("interactionCreate", async (interaction) => {
 
     if (commandName === "clear") {
       player.clear(interaction.guild.id);
-      const E_CLEAR = interaction.guild.emojis.cache.find(e => e.name === "lea")?.toString() || "🗑️";
+      const E_CLEAR =
+        interaction.guild.emojis.cache
+          .find((e) => e.name === "lea")
+          ?.toString() || "🗑️";
       await interaction.reply({
         content: `### ${E_CLEAR} **Registry wiped. Queue Offline.**`,
         flags: [64],
@@ -660,7 +801,10 @@ client.on("interactionCreate", async (interaction) => {
     if (commandName === "remove") {
       const num = interaction.options.getInteger("number");
       const removed = player.remove(interaction.guild.id, num);
-      const E_CLEAR = interaction.guild.emojis.cache.find(e => e.name === "lea")?.toString() || "🗑️";
+      const E_CLEAR =
+        interaction.guild.emojis.cache
+          .find((e) => e.name === "lea")
+          ?.toString() || "🗑️";
       if (!removed) {
         await interaction.reply({
           content: `### ${E_CLEAR} **Target not found at position #${num}.**`,
@@ -680,7 +824,10 @@ client.on("interactionCreate", async (interaction) => {
     if (commandName === "skipto") {
       const num = interaction.options.getInteger("number");
       const success = player.skipto(interaction.guild.id, num);
-      const E_NEXT = interaction.guild.emojis.cache.find(e => e.name === "blue_arrow_right")?.toString() || "⏭️";
+      const E_NEXT =
+        interaction.guild.emojis.cache
+          .find((e) => e.name === "blue_arrow_right")
+          ?.toString() || "⏭️";
       if (!success) {
         await interaction.reply({
           content: `### ${E_NEXT} **Tactical error: Track #${num} nonexistent.**`,
@@ -732,7 +879,7 @@ client.on("interactionCreate", async (interaction) => {
 
         if (names.length === 0) {
           const emptyEmbed = new EmbedBuilder()
-            .setColor("#6c5ce7")
+            .setColor("#a29bfe")
             .setDescription(
               `### ${FIRE} **No Playlists**\n> *You haven't saved any playlists yet.*`,
             );
@@ -754,7 +901,7 @@ client.on("interactionCreate", async (interaction) => {
             ?.toString() || "•";
 
         const listEmbed = new EmbedBuilder()
-          .setColor("#6c5ce7")
+          .setColor("#a29bfe")
           .setDescription(
             `### ${LEA} **Saved Playlists**\n` +
               names
@@ -795,7 +942,7 @@ client.on("interactionCreate", async (interaction) => {
           total > 20 ? `\n*...and ${total - 20} more tracks.*` : "";
 
         const viewEmbed = new EmbedBuilder()
-          .setColor("#6c5ce7")
+          .setColor("#a29bfe")
           .setTitle(`Playlist: ${name}`)
           .setDescription(`${tracks}${suffix}`)
           .setFooter({ text: `Total: ${total} tracks` });
@@ -877,7 +1024,10 @@ client.on("interactionCreate", async (interaction) => {
             content: `### ${PING_RED} **Tunnel Reset Failed**\n*Error: ${e.message}*`,
           });
         }
-        setTimeout(() => interaction.deleteReply().catch(() => {}), 45000);
+        setTimeout(
+          () => interaction.deleteReply().catch(() => {}),
+          config.timeouts.searchReply,
+        );
         return;
       }
     }
@@ -919,7 +1069,10 @@ client.on("interactionCreate", async (interaction) => {
         await interaction.editReply({
           content: `*Lyrics for ${query}:*\n\n${lyrics}`,
         });
-        setTimeout(() => interaction.deleteReply().catch(() => {}), 180000);
+        setTimeout(
+          () => interaction.deleteReply().catch(() => {}),
+          config.timeouts.setupReply,
+        );
       }
       return;
     }
@@ -951,7 +1104,7 @@ client.on("interactionCreate", async (interaction) => {
           ?.toString() || "•";
 
       const moveEmbed = new EmbedBuilder()
-        .setColor("#6c5ce7")
+        .setColor("#d63031")
         .setTitle("*Endpoint Migration Protocol*")
         .setImage(botBanner)
         .setDescription(
@@ -960,7 +1113,8 @@ client.on("interactionCreate", async (interaction) => {
             `${PC} [Induct MaveL Hub to another server](${inviteUrl})\n\n` +
             `**Post-Arrival Checklist:**\n` +
             `${ARROW} *Run **\`/emoji needs\`** to sync visual assets.*\n` +
-            `${ARROW} *Run **\`/setup\`** to activate the operational system.*`,
+            `${ARROW} *Run **\`/setup\`** to activate the operational system.*\n` +
+            `${ARROW} *Run **\`/cookies\`** to synchronize authentication datasets.*`,
         )
         .setFooter({ text: "MaveL Deployment Module" });
 
@@ -1011,10 +1165,9 @@ client.on("interactionCreate", async (interaction) => {
           flags: [MessageFlags.Ephemeral],
         });
       }
-
       try {
-        const { searchCache } = require("./handlers/music/index");
-        const cached = searchCache.get(interaction.values[0]);
+        const { searchCache: musicCache } = require("./handlers/music/index");
+        const cached = musicCache.get(interaction.values[0]);
         const playUrl = cached
           ? cached.url
           : interaction.values[0].split("|")[0];
@@ -1028,6 +1181,7 @@ client.on("interactionCreate", async (interaction) => {
             components: [],
           })
           .catch(() => {});
+
         return await musicHandler(interaction, {
           url: playUrl,
           title: rawTitle,
@@ -1135,7 +1289,8 @@ client.on("interactionCreate", async (interaction) => {
         if (!state) return;
 
         const guildEmojis = await interaction.guild.emojis.fetch();
-        const E_SHUFFLE = guildEmojis.find(e => e.name === "diamond")?.toString() || "🔀";
+        const E_SHUFFLE =
+          guildEmojis.find((e) => e.name === "diamond")?.toString() || "🔀";
 
         if (state.queue.length === 0) {
           return await interaction.reply({
@@ -1163,7 +1318,8 @@ client.on("interactionCreate", async (interaction) => {
         if (!state) return;
 
         const guildEmojis = await interaction.guild.emojis.fetch();
-        const E_REPEAT = guildEmojis.find(e => e.name === "rocket")?.toString() || "🔁";
+        const E_REPEAT =
+          guildEmojis.find((e) => e.name === "rocket")?.toString() || "🔁";
 
         const cycle = { off: "one", one: "all", all: "off" };
         const nextMode = cycle[state.repeatMode || "off"];
@@ -1183,9 +1339,10 @@ client.on("interactionCreate", async (interaction) => {
 
       if (value === "queue") {
         const list = player.getQueueList(guildId);
-        
+
         const guildEmojis = await interaction.guild.emojis.fetch();
-        const E_ANNO = guildEmojis.find(e => e.name === "anno")?.toString() || "📜";
+        const E_ANNO =
+          guildEmojis.find((e) => e.name === "anno")?.toString() || "📜";
 
         if (list.length === 0) {
           return await interaction.reply({
@@ -1215,7 +1372,9 @@ client.on("interactionCreate", async (interaction) => {
       if (value === "skip") {
         const state = player.queues.get(guildId);
         const guildEmojis = await interaction.guild.emojis.fetch();
-        const E_NEXT = guildEmojis.find(e => e.name === "blue_arrow_right")?.toString() || "⏭️";
+        const E_NEXT =
+          guildEmojis.find((e) => e.name === "blue_arrow_right")?.toString() ||
+          "⏭️";
 
         if (state && state.queue.length === 0 && state.repeatMode === "off") {
           return await interaction.reply({
@@ -1234,7 +1393,8 @@ client.on("interactionCreate", async (interaction) => {
       if (value === "stop") {
         player.stop(guildId);
         const guildEmojis = await interaction.guild.emojis.fetch();
-        const E_STOP = guildEmojis.find(e => e.name === "ping_red")?.toString() || "⏹️";
+        const E_STOP =
+          guildEmojis.find((e) => e.name === "ping_red")?.toString() || "⏹️";
 
         await interaction.update({ components: [] }).catch(() => {});
         return await interaction.followUp({
@@ -1247,6 +1407,20 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.customId === "sync_emojis") {
       return await emojiHandler.syncMissingEmojis(interaction);
     }
+  }
+});
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("[UNHANDLED-REJECTION]", reason?.message || reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("[UNCAUGHT-EXCEPTION]", error.message);
+  if (
+    error.code === "InteractionNotReplied" ||
+    error.code === "InteractionAlreadyReplied"
+  ) {
+    return;
   }
 });
 

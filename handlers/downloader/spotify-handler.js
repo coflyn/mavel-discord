@@ -16,7 +16,7 @@ async function runSpotifyFlow(target, url, options = {}) {
 
     const getStatusEmbed = (status, details) => {
         return new EmbedBuilder()
-            .setColor("#6c5ce7")
+            .setColor("#00b894")
             .setDescription(`### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`);
     };
 
@@ -87,7 +87,7 @@ async function runSpotifyFlow(target, url, options = {}) {
         const NOTIF = getEmoji("notif", "🔔");
 
         const foundEmbed = new EmbedBuilder()
-            .setColor("#6c5ce7")
+            .setColor("#00b894")
             .setTitle(`${NOTIF} **Spotify Signal Secured**`)
             .setThumbnail(thumbnail)
             .setDescription(

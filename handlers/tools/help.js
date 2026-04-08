@@ -2,7 +2,7 @@ const { EmbedBuilder, MessageFlags } = require("discord.js");
 
 module.exports = async function helpHandler(interaction) {
   if (interaction.deferReply && (interaction.isChatInputCommand?.() || interaction.isButton?.() || interaction.isStringSelectMenu?.())) {
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(e => console.error("[HELP-DEFER]", e.message));
   }
 
   const guild = interaction.guild || interaction.client.guilds.cache.first();
@@ -27,7 +27,7 @@ module.exports = async function helpHandler(interaction) {
   const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
   const embed = new EmbedBuilder()
-    .setColor("#6c5ce7")
+    .setColor("#fdcb6e")
     .setAuthor({
       name: "MaveL Operation Guide",
       iconURL: interaction.client.user.displayAvatarURL(),
@@ -87,6 +87,7 @@ module.exports = async function helpHandler(interaction) {
           `${ARROW} **/hibernate** / **/wakeup** ${LOCK} — *Operational Standby*\n` +
           `${ARROW} **/purge** / **/backup** ${LOCK} — *Asset & Registry care*\n` +
           `${ARROW} **/logs** ${LOCK} — *Extract last operational logs*\n` +
+          `${ARROW} **/cookies** ${LOCK} — *Update session datasets*\n` +
           `${ARROW} **/ping** — *Monitor latency and status*`,
         inline: false,
       },
@@ -98,10 +99,15 @@ module.exports = async function helpHandler(interaction) {
     .setTimestamp();
 
   if (interaction.editReply && (interaction.isChatInputCommand?.() || interaction.isButton?.() || interaction.isStringSelectMenu?.())) {
-    await interaction.editReply({
-      embeds: [embed],
-    });
-    setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
+    try {
+      await interaction.editReply({
+        embeds: [embed],
+      });
+      setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
+    } catch (e) {
+      await interaction.reply({ embeds: [embed], flags: [MessageFlags.Ephemeral] }).catch(() => {});
+      setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
+    }
   } else if (interaction.reply) {
     await interaction.reply({ embeds: [embed] }).catch(() => {});
   }

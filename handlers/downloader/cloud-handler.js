@@ -27,7 +27,7 @@ async function runCloudFlow(target, url) {
 
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#636e72")
       .setDescription(
         `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
       );
@@ -139,7 +139,7 @@ async function runCloudFlow(target, url) {
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#636e72")
       .setTitle(`${NOTIF} **Storage Signal Secured**`)
       .setDescription(
         `### ${CHEST} *Resource Hub Identified*\n` +

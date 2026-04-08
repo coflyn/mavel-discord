@@ -38,4 +38,14 @@ module.exports = {
     processing: "**Processing...**\n\n_Please wait..._",
     error: "**Error**\n\n_Something went wrong. Check logs._",
   },
+
+  timeouts: {
+    quickReply: 5000,
+    queueReply: 15000,
+    embedReply: 30000,
+    helpReply: 60000,
+    searchReply: 45000,
+    setupReply: 180000,
+    downloadStatus: 300000,
+  },
 };

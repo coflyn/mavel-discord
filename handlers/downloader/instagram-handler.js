@@ -25,7 +25,7 @@ async function runInstagramFlow(target, url, options = {}) {
 
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#e17055")
       .setDescription(
         `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
       );
@@ -105,10 +105,10 @@ async function runInstagramFlow(target, url, options = {}) {
     const { getCookiesArgs, getYtDlp } = require("../../utils/dlp-helpers");
     const cookies = getCookiesArgs().join(" ");
 
-    const ytCheck = await new Promise((resolve) => {
+    const ytCheckData = await new Promise((resolve) => {
       const timeout = setTimeout(() => resolve(null), 8000);
       exec(
-        `${getYtDlp()} ${cookies} --simulate --get-url --add-header "Referer:https://www.instagram.com/" "${ytTarget}"`,
+        `${getYtDlp()} ${cookies} --simulate --print "%(url)s|%(_type)s" --add-header "Referer:https://www.instagram.com/" "${ytTarget}"`,
         (err, stdout) => {
           clearTimeout(timeout);
           const out = stdout?.trim();
@@ -119,16 +119,19 @@ async function runInstagramFlow(target, url, options = {}) {
       );
     });
 
+    console.log(`[INSTA-FLOW] Phase 1 Raw: ${ytCheckData}`);
+    const [ytUrl, ytType] = (ytCheckData || "").split("|");
+    const isYtPlaylist = ytType?.toLowerCase().includes("playlist");
+
     if (
-      ytCheck &&
-      (ytCheck.includes(".mp4") ||
-        ytCheck.includes(".m3u8") ||
-        ytCheck.includes("video"))
+      ytUrl &&
+      !isYtPlaylist &&
+      (ytUrl.includes(".mp4") || ytUrl.includes(".m3u8"))
     ) {
-      console.log("[INSTA-FLOW] Phase 1 Success: Video found via yt-dlp.");
-      mediaUrl = ytCheck;
+      console.log("[INSTA-FLOW] Phase 1 Success: Video metadata confirmed.");
       isVideo = true;
       scrapeSuccess = true;
+      discoveryPath = "YT-DLP";
 
       try {
         const meta = await new Promise((resolve) => {
@@ -255,9 +258,9 @@ async function runInstagramFlow(target, url, options = {}) {
           await page
             .waitForSelector("video", { timeout: 10000 })
             .catch(() => {});
-          await page.waitForTimeout(2000);
+          await new Promise((r) => setTimeout(r, 2000));
 
-          const pageData = await page.evaluate(() => {
+          const pageData = await page.evaluate(async () => {
             const og = (p) =>
               document.querySelector(`meta[property="${p}"]`)?.content || "";
 
@@ -328,6 +331,26 @@ async function runInstagramFlow(target, url, options = {}) {
               }
             } catch (e) {}
 
+            try {
+              for (let i = 0; i < 15; i++) {
+                const nextBtn = document.querySelector(
+                  'button[aria-label="Next"], button._afxw, button._al46',
+                );
+                if (!nextBtn || nextBtn.offsetParent === null) break;
+                nextBtn.click();
+                await new Promise((r) => setTimeout(r, 800));
+              }
+            } catch (e) {}
+
+            const carouselImgs = Array.from(
+              document.querySelectorAll(
+                "ul li img, div._aagv img, img[srcset]",
+              ),
+            ).map((img) => img.src);
+            const allFoundImgs = [
+              ...new Set(uniqueImgs.concat(carouselImgs)),
+            ].filter((s) => s && s.startsWith("http"));
+
             return {
               video:
                 video || (internalVideos.length > 0 ? internalVideos[0] : ""),
@@ -337,7 +360,7 @@ async function runInstagramFlow(target, url, options = {}) {
               text,
               description,
               placeholder: placeholderFound,
-              allImages: uniqueImgs.slice(0, 20),
+              allImages: allFoundImgs.slice(0, 25),
               allVideos: [...new Set(allVideos.concat(internalVideos))],
             };
           });
@@ -355,13 +378,18 @@ async function runInstagramFlow(target, url, options = {}) {
 
             const hasImages = pageData.allImages.length > 0;
             const hasVideos = pageData.video || pageData.allVideos.length > 0;
-
-            if ((isVideo || hasVideos) && hasImages && !isReel) {
+            if (hasVideos && pageData.allImages.length > 1) {
               isMix = true;
               isVideo = true;
-              mediaUrl = mediaUrl || pageData.video || pageData.allVideos[0];
-              allImages = hasImages ? pageData.allImages : [pageData.image];
-              discoveryPath += " + Browser (Mix Assets)";
+              mediaUrl = pageData.video || pageData.allVideos[0];
+              allImages = pageData.allImages;
+              discoveryPath += " + Browser (Mix Gallery)";
+            } else if (pageData.allImages.length > 1) {
+              isMix = false;
+              isVideo = false;
+              allImages = pageData.allImages;
+              mediaUrl = allImages[0];
+              discoveryPath += " + Browser (Gallery)";
             } else if ((isReel || isVideo) && hasVideos) {
               isVideo = true;
               mediaUrl = pageData.video || pageData.allVideos[0] || mediaUrl;
@@ -375,15 +403,11 @@ async function runInstagramFlow(target, url, options = {}) {
             ) {
               isVideo = true;
               mediaUrl = pageData.video;
-              discoveryPath += " + Browser (Direct Video)";
-            } else if (hasImages && !isVideo) {
+              discoveryPath += " + Browser (Video Link)";
+            } else {
               isVideo = false;
-              mediaUrl = pageData.image;
-              discoveryPath += " + Browser (Gallery/Photo)";
-            } else if (!isVideo) {
-              isVideo = !!pageData.video;
-              mediaUrl = pageData.video || pageData.image;
-              discoveryPath += " + Browser (Auto)";
+              mediaUrl = pageData.image || pageData.allImages[0];
+              discoveryPath += " + Browser (Visual Extraction)";
             }
 
             if (!isVideo) {
@@ -405,6 +429,14 @@ async function runInstagramFlow(target, url, options = {}) {
     }
 
     if (!scrapeSuccess) {
+      await editResponse({
+        embeds: [
+          getStatusEmbed(
+            "Extraction Failed",
+            "Could not capture media resources from this link. Platform may be restricted or content is private.",
+          ),
+        ],
+      });
       return null;
     }
 
@@ -426,12 +458,12 @@ async function runInstagramFlow(target, url, options = {}) {
       thumbnail,
       platform: finalPlatform,
       userId: target.user ? target.user.id : target.author?.id || "unknown",
-      isGallery: !isVideo && allImages.length > 1,
+      isGallery: allImages.length > 1,
       hasVideo: isVideo,
       isVideo,
       isMix,
       discovery: discoveryPath,
-      directUrl: mediaUrl,
+      directUrl: isVideo && discoveryPath === "YT-DLP" ? null : mediaUrl,
       allImages,
     };
     saveDB(db);
@@ -448,7 +480,7 @@ async function runInstagramFlow(target, url, options = {}) {
     };
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#e17055")
       .setTitle(`${NOTIF} **IG Frequency Identified**`)
       .setDescription(
         `### ${LEA} **Asset Decrypted**\n` +

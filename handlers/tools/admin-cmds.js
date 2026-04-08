@@ -11,11 +11,20 @@ const { exec } = require("child_process");
 const settingsPath = path.join(__dirname, "../../database/settings.json");
 
 module.exports = async function adminCmdsHandler(interaction) {
-  const { commandName } = interaction;
-
-  if (interaction.deferReply && commandName !== "scan") {
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+  if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+    return await (interaction.deferred
+      ? interaction.editReply({
+          content:
+            "*Error: Administrative decryption required. Your current clearance is insufficient.*",
+        })
+      : interaction.reply({
+          content:
+            "*Error: Administrative decryption required. Your current clearance is insufficient.*",
+          flags: [MessageFlags.Ephemeral],
+        }));
   }
+
+  const { commandName } = interaction;
 
   if (commandName === "hibernate") {
     return await toggleHibernate(interaction, true);
@@ -55,33 +64,66 @@ async function toggleHibernate(interaction, status) {
     interaction.guild.emojis.cache.find((e) => e.name === "lock")?.toString() ||
     "🔒";
   const POWER =
-    interaction.guild.emojis.cache.find((e) => e.name === "ping_red")?.toString() ||
-    "🔴";
+    interaction.guild.emojis.cache
+      .find((e) => e.name === "ping_red")
+      ?.toString() || "🔴";
 
-  await (interaction.deferred ? interaction.editReply({
-    content: `### ${status ? LOCK : POWER} **System State Updated**\n*Core hibernation protocol: **${status ? "ACTIVATED" : "DEACTIVATED"}***`,
-  }) : interaction.reply({
-    content: `### ${status ? LOCK : POWER} **System State Updated**\n*Core hibernation protocol: **${status ? "ACTIVATED" : "DEACTIVATED"}***`,
-    flags: [MessageFlags.Ephemeral],
-  }));
+  await (interaction.deferred
+    ? interaction.editReply({
+        content: `### ${status ? LOCK : POWER} **System State Updated**\n*Core hibernation protocol: **${status ? "ACTIVATED" : "DEACTIVATED"}***`,
+      })
+    : interaction.reply({
+        content: `### ${status ? LOCK : POWER} **System State Updated**\n*Core hibernation protocol: **${status ? "ACTIVATED" : "DEACTIVATED"}***`,
+        flags: [MessageFlags.Ephemeral],
+      }));
 }
 
 async function handlePurge(interaction) {
-  const tempDir = path.join(__dirname, "../../temp");
-  if (!fs.existsSync(tempDir)) {
-    return await interaction.reply({
-      content: "*No temporary artifacts detected in the sector.*",
-      flags: [MessageFlags.Ephemeral],
-    });
-  }
-
-  const files = fs.readdirSync(tempDir);
-  let count = 0;
-
+  const target = interaction.options.getString("target");
   const FIRE =
     interaction.guild.emojis.cache
       .find((e) => e.name === "purple_fire")
       ?.toString() || "🔥";
+
+  if (target === "logs") {
+    const logPath = path.join(__dirname, "../../bot.log");
+    if (!fs.existsSync(logPath)) {
+      return await (interaction.deferred
+        ? interaction.editReply({
+            content: "*No transcript files detected in the registry.*",
+          })
+        : interaction.reply({
+            content: "*No transcript files detected in the registry.*",
+            flags: [MessageFlags.Ephemeral],
+          }));
+    }
+
+    fs.writeFileSync(logPath, "");
+
+    return await (interaction.deferred
+      ? interaction.editReply({
+          content: `### ${FIRE} **Purge Protocol Complete**\n*The Operational Registry transcript (**bot.log**) has been truncated and cleared.*`,
+        })
+      : interaction.reply({
+          content: `### ${FIRE} **Purge Protocol Complete**\n*The Operational Registry transcript (**bot.log**) has been truncated and cleared.*`,
+          flags: [MessageFlags.Ephemeral],
+        }));
+  }
+
+  const tempDir = path.join(__dirname, "../../temp");
+  if (!fs.existsSync(tempDir)) {
+    return await (interaction.deferred
+      ? interaction.editReply({
+          content: "*No temporary artifacts detected in the sector.*",
+        })
+      : interaction.reply({
+          content: "*No temporary artifacts detected in the sector.*",
+          flags: [MessageFlags.Ephemeral],
+        }));
+  }
+
+  const files = fs.readdirSync(tempDir);
+  let count = 0;
 
   files.forEach((file) => {
     try {
@@ -92,12 +134,14 @@ async function handlePurge(interaction) {
     } catch (e) {}
   });
 
-  await (interaction.deferred ? interaction.editReply({
-    content: `### ${FIRE} **Purge Protocol Complete**\n*Decommissioned and deleted **${count}** temporary assets from the sector.*`,
-  }) : interaction.reply({
-    content: `### ${FIRE} **Purge Protocol Complete**\n*Decommissioned and deleted **${count}** temporary assets from the sector.*`,
-    flags: [MessageFlags.Ephemeral],
-  }));
+  await (interaction.deferred
+    ? interaction.editReply({
+        content: `### ${FIRE} **Purge Protocol Complete**\n*Decommissioned and deleted **${count}** temporary assets from the sector.*`,
+      })
+    : interaction.reply({
+        content: `### ${FIRE} **Purge Protocol Complete**\n*Decommissioned and deleted **${count}** temporary assets from the sector.*`,
+        flags: [MessageFlags.Ephemeral],
+      }));
   setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
 }
 
@@ -123,14 +167,16 @@ async function handleBackup(interaction) {
     interaction.guild.emojis.cache.find((e) => e.name === "lea")?.toString() ||
     "✅";
 
-  await (interaction.deferred ? interaction.editReply({
-    content: `### ${LEA} **Registry Backup Successful**\n*The MaveL Operational Registry has been synchronized and dispatched to this sector. Archive Trace: \`backup-${timestamp}\`*`,
-    files: attachments,
-  }) : interaction.reply({
-    content: `### ${LEA} **Registry Backup Successful**\n*The MaveL Operational Registry has been synchronized and dispatched to this sector. Archive Trace: \`backup-${timestamp}\`*`,
-    files: attachments,
-    flags: [MessageFlags.Ephemeral],
-  }));
+  await (interaction.deferred
+    ? interaction.editReply({
+        content: `### ${LEA} **Registry Backup Successful**\n*The MaveL Operational Registry has been synchronized and dispatched to this sector. Archive Trace: \`backup-${timestamp}\`*`,
+        files: attachments,
+      })
+    : interaction.reply({
+        content: `### ${LEA} **Registry Backup Successful**\n*The MaveL Operational Registry has been synchronized and dispatched to this sector. Archive Trace: \`backup-${timestamp}\`*`,
+        files: attachments,
+        flags: [MessageFlags.Ephemeral],
+      }));
   setTimeout(() => interaction.deleteReply().catch(() => {}), 180000);
 }
 
@@ -176,7 +222,7 @@ async function handleScan(interaction) {
       .find((e) => e.name === "arrow")
       ?.toString() || "•";
   const embed = new EmbedBuilder()
-    .setColor("#6c5ce7")
+    .setColor("#d63031")
     .setTitle(`${NOTIF} **Network Integrity Scan**`)
     .setDescription(
       results.join("\n") +
@@ -205,11 +251,13 @@ async function handleLogs(interaction) {
     interaction.guild.emojis.cache.find((e) => e.name === "pc")?.toString() ||
     "💻";
 
-  await (interaction.deferred ? interaction.editReply({
-    content: `### ${PC} **Terminal Transcript (Last 15 Lines)**\n\`\`\`text\n${logs || "Registry empty."}\n\`\`\``,
-  }) : interaction.reply({
-    content: `### ${PC} **Terminal Transcript (Last 15 Lines)**\n\`\`\`text\n${logs || "Registry empty."}\n\`\`\``,
-    flags: [MessageFlags.Ephemeral],
-  }));
+  await (interaction.deferred
+    ? interaction.editReply({
+        content: `### ${PC} **Terminal Transcript (Last 15 Lines)**\n\`\`\`text\n${logs || "Registry empty."}\n\`\`\``,
+      })
+    : interaction.reply({
+        content: `### ${PC} **Terminal Transcript (Last 15 Lines)**\n\`\`\`text\n${logs || "Registry empty."}\n\`\`\``,
+        flags: [MessageFlags.Ephemeral],
+      }));
   setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
 }

@@ -337,6 +337,9 @@ const commands = [
   new SlashCommandBuilder()
     .setName("logs")
     .setDescription("Extract and view the last 15 operational logs"),
+  new SlashCommandBuilder()
+    .setName("cookies")
+    .setDescription("Synchronize and update session authentication datasets"),
 ].map((command) => command.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(config.botToken);

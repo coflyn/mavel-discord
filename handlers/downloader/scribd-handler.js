@@ -21,7 +21,7 @@ async function runScribdFlow(target, url, options = {}) {
 
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#636e72")
       .setDescription(
         `### ${ARCHIVE} **${status}**\n${ARROW} **Details:** *${details}*`,
       );
@@ -151,7 +151,25 @@ async function runScribdFlow(target, url, options = {}) {
       const pageElement = pages.nth(i);
 
       await pageElement.scrollIntoViewIfNeeded();
-      await page.waitForTimeout(1500);
+
+      await page.waitForTimeout(3000);
+
+      try {
+        await page.waitForFunction(
+          (idx) => {
+            const p = document.querySelectorAll(".outer_page")[idx];
+            if (!p) return false;
+            const img = p.querySelector("img");
+            return img && img.complete && img.naturalWidth > 0;
+          },
+          i,
+          { timeout: 10000 },
+        );
+      } catch (e) {
+        console.warn(
+          `[SCRIBD-WAIT] Page ${i + 1} might not be fully loaded. Capturing anyway.`,
+        );
+      }
 
       const screenshotPath = path.join(
         tempDir,
@@ -182,7 +200,7 @@ async function runScribdFlow(target, url, options = {}) {
 
     const LEA = getEmoji("lea", "✅");
     const foundEmbed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#636e72")
       .setTitle(`${ARCHIVE} **Scribd Document Intercepted**`)
       .setDescription(
         `### ${LEA} **HD Archival Ready**\n` +

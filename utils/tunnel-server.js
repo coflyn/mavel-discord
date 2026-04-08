@@ -19,9 +19,7 @@ function launchCloudflared(port, resolve) {
   cfProcess = spawn("/opt/homebrew/bin/cloudflared", [
     "tunnel",
     "--url",
-    `http://localhost:${port}`,
-    "--protocol",
-    "http2",
+    `http://127.0.0.1:${port}`,
     "--no-autoupdate",
   ]);
 
@@ -52,7 +50,10 @@ async function startTunnel(port = 3033) {
   const tempPath = path.join(__dirname, "../temp");
   if (!fs.existsSync(tempPath)) fs.mkdirSync(tempPath, { recursive: true });
 
-  app.use("/v", express.static(tempPath));
+  app.use("/v", (req, res, next) => {
+    res.setHeader("Content-Disposition", "attachment");
+    next();
+  }, express.static(tempPath));
 
   app.get("/health", (req, res) => {
     res.json({ status: "OK", uptime: process.uptime() });

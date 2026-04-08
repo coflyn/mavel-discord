@@ -33,7 +33,7 @@ async function runSlideshareFlow(target, url, options = {}) {
 
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#636e72")
       .setDescription(
         `### ${ARCHIVE} **${status}**\n${ARROW} **Details:** *${details}*`,
       );
@@ -66,21 +66,24 @@ async function runSlideshareFlow(target, url, options = {}) {
 
     await page.evaluate(async () => {
       const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-      for (let i = 0; i < 5; i++) {
-        window.scrollTo(0, (document.body.scrollHeight / 5) * (i + 1));
-        await delay(500);
+      const iterations = 10;
+      for (let i = 0; i < iterations; i++) {
+        window.scrollTo(0, (document.body.scrollHeight / iterations) * (i + 1));
+        await delay(1000);
       }
     });
 
     const imageUrlsRaw = await page.evaluate(() => {
       const imgs = Array.from(
-        document.querySelectorAll('img[class*="VerticalSlideImage"]'),
+        document.querySelectorAll(
+          'img[class*="VerticalSlideImage"], img[data-full], .slide-image',
+        ),
       );
       return imgs.map(
         (img) =>
-          img.getAttribute("src") ||
           img.getAttribute("data-full") ||
-          img.getAttribute("data-normal"),
+          img.getAttribute("data-normal") ||
+          img.getAttribute("src"),
       );
     });
 
@@ -106,7 +109,7 @@ async function runSlideshareFlow(target, url, options = {}) {
       embeds: [
         getStatusEmbed(
           "Asset Siphon Active",
-          `Downloading ${filteredUrls.length} HD Slides...`,
+          `Downloading ${filteredUrls.length} HD Slides (with Retry Safety)...`,
         ),
       ],
     });
@@ -118,28 +121,40 @@ async function runSlideshareFlow(target, url, options = {}) {
         `slideshare_hd_${jobId}_${i + 1}.jpg`,
       );
 
-      try {
-        const res = await axios.get(assetUrl, {
-          responseType: "arraybuffer",
-          timeout: 10000,
-        });
-        fs.writeFileSync(localPath, res.data);
-        localPaths.push(localPath);
-      } catch (e) {
+      let success = false;
+      let attempts = 0;
+      const MAX_ATTEMPTS = 3;
+
+      while (!success && attempts < MAX_ATTEMPTS) {
+        attempts++;
         try {
-          const fallbackUrl = assetUrl.replace("-2048.jpg", "-1024.jpg");
-          const res = await axios.get(fallbackUrl, {
+          const res = await axios.get(assetUrl, {
             responseType: "arraybuffer",
-            timeout: 10000,
+            timeout: 15000,
           });
           fs.writeFileSync(localPath, res.data);
           localPaths.push(localPath);
-        } catch (err) {
-          // Skip
+          success = true;
+        } catch (e) {
+          if (attempts >= MAX_ATTEMPTS) {
+            try {
+              const fallbackUrl = assetUrl.replace("-2048.jpg", "-1024.jpg");
+              const res = await axios.get(fallbackUrl, {
+                responseType: "arraybuffer",
+                timeout: 15000,
+              });
+              fs.writeFileSync(localPath, res.data);
+              localPaths.push(localPath);
+              success = true;
+            } catch (err) {
+              console.error(
+                `[SLIDESHARE-DL] Failed slide ${i + 1} after ${attempts} tries: ${e.message}`,
+              );
+            }
+          } else {
+            await new Promise((r) => setTimeout(r, 2000));
+          }
         }
-      }
-
-      if ((i + 1) % 10 === 0) {
       }
     }
 

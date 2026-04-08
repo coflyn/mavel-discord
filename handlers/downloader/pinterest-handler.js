@@ -33,7 +33,7 @@ async function runPinterestFlow(target, url, options = {}) {
 
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#e17055")
       .setDescription(
         `### ${ARCHIVE} **${status}**\n${ARROW} **Details:** *${details}*`,
       );

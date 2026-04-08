@@ -19,7 +19,7 @@ async function runThreadsFlow(target, url, options = {}) {
 
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#e17055")
       .setDescription(
         `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
       );
@@ -174,7 +174,7 @@ async function runThreadsFlow(target, url, options = {}) {
 
     if (!videoUrl && !imageUrl) {
       const errorEmbed = new EmbedBuilder()
-        .setColor("#6c5ce7")
+        .setColor("#e17055")
         .setTitle("🔒 Extraction Access Denied")
         .setDescription(
           `*Platforms security protocols have blocked unauthorized retrieval: ${lastError || "Signal Lost"}*`,
@@ -217,7 +217,7 @@ async function runThreadsFlow(target, url, options = {}) {
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#e17055")
       .setTitle(`${NOTIF} **Threads Handshake Secured**`)
       .setThumbnail(imageUrl || "")
       .setDescription(

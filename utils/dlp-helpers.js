@@ -67,16 +67,9 @@ function getCookiesArgs(platform = "") {
   const args = [];
 
   if (process.env.SKIP_LOCAL_COOKIES !== "true") {
+    const globalPath = path.join(__dirname, "../cookies.txt");
     let cookiesPath = "";
-    if (platform) {
-      const platPath = path.join(__dirname, `../${platform}_cookies.txt`);
-      if (fs.existsSync(platPath)) cookiesPath = platPath;
-    }
-
-    if (!cookiesPath) {
-      const globalPath = path.join(__dirname, "../cookies.txt");
-      if (fs.existsSync(globalPath)) cookiesPath = globalPath;
-    }
+    if (fs.existsSync(globalPath)) cookiesPath = globalPath;
 
     if (cookiesPath) {
       args.push("--cookies", cookiesPath);
@@ -121,6 +114,10 @@ function getVpsArgs() {
   return args;
 }
 
+function getCookiesPath() {
+  return path.join(__dirname, "../cookies.txt");
+}
+
 module.exports = {
   getYtDlp,
   autoUpdateYtDlp,
@@ -128,5 +125,6 @@ module.exports = {
   getDlpEnv,
   getJsRuntimeArgs,
   getCookiesArgs,
+  getCookiesPath,
   getVpsArgs,
 };

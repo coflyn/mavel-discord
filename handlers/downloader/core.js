@@ -24,6 +24,10 @@ const { runThreadsFlow } = require("./threads-handler");
 const { runFacebookFlow } = require("./facebook-handler");
 const { runScribdFlow } = require("./scribd-handler");
 const { runInstagramFlow } = require("./instagram-handler");
+const { runBandcampFlow } = require("./bandcamp-handler");
+const { runSoundcloudFlow } = require("./soundcloud-handler");
+const { runYoutubeFlow } = require("./youtube-handler");
+const { runYtmFlow } = require("./ytm-handler");
 
 const musicKeywords = [
   "music.youtube.com",
@@ -135,6 +139,36 @@ async function runYtDlpFlow(target, url, options = {}) {
     }
     return;
   }
+  if (url.includes("bandcamp.com")) {
+    const jobResult = await runBandcampFlow(target, url, { statusMsg });
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(
+        target,
+        jobResult.jobId,
+        jobResult.isAlbum ? "twgallery" : "mp3",
+        { statusMsg: jobResult.statusMsg },
+      );
+    }
+    return;
+  }
+  if (url.includes("music.youtube.com")) {
+    const jobResult = await runYtmFlow(target, url, { statusMsg });
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(target, jobResult.jobId, "mp3", {
+        statusMsg: jobResult.statusMsg,
+      });
+    }
+    return;
+  }
+  if (url.includes("youtube.com") || url.includes("youtu.be")) {
+    const jobResult = await runYoutubeFlow(target, url, { statusMsg });
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(target, jobResult.jobId, "mp4", {
+        statusMsg: jobResult.statusMsg,
+      });
+    }
+    return;
+  }
   if (
     url.includes("mediafire.com") ||
     url.includes("drive.google.com") ||
@@ -147,17 +181,22 @@ async function runYtDlpFlow(target, url, options = {}) {
   if (finalUrl.includes("instagram.com")) {
     const jobResult = await runInstagramFlow(target, finalUrl, { statusMsg });
     if (jobResult && jobResult.jobId) {
-       return await startDownload(
-         target,
-         jobResult.jobId,
-         jobResult.isMix || jobResult.isGallery ? "twgallery" : (jobResult.isVideo ? "mp4" : "photo"),
-         {
-           statusMsg: jobResult.statusMsg,
-         },
-       );
+      return await startDownload(
+        target,
+        jobResult.jobId,
+        jobResult.isMix || jobResult.isGallery
+          ? "twgallery"
+          : jobResult.isVideo
+            ? "mp4"
+            : "photo",
+        {
+          statusMsg: jobResult.statusMsg,
+        },
+      );
     }
+    return null;
   }
- 
+
   if (
     finalUrl.includes("twitter.com") ||
     finalUrl.includes("x.com") ||
@@ -166,26 +205,37 @@ async function runYtDlpFlow(target, url, options = {}) {
   ) {
     const jobResult = await runTwitterFlow(target, finalUrl, { statusMsg });
     if (jobResult && jobResult.jobId) {
-       return await startDownload(
-         target,
-         jobResult.jobId,
-         jobResult.isGallery ? "twgallery" : (jobResult.isVideo ? "mp4" : "photo"),
-         {
-           statusMsg: jobResult.statusMsg,
-         },
-       );
+      return await startDownload(
+        target,
+        jobResult.jobId,
+        jobResult.isGallery ? "twgallery" : jobResult.isVideo ? "mp4" : "photo",
+        {
+          statusMsg: jobResult.statusMsg,
+        },
+      );
     }
+    return null;
   }
 
   if (finalUrl.includes("threads.net") || finalUrl.includes("threads.com")) {
     const jobResult = await runThreadsFlow(target, finalUrl, { statusMsg });
-    if (!jobResult) return;
+    if (!jobResult) return null;
     if (jobResult.jobId && jobResult.jobId !== null) {
       return await startDownload(target, jobResult.jobId, "mp4", {
         statusMsg: jobResult.statusMsg,
       });
     }
-    return;
+    return null;
+  }
+
+  if (finalUrl.includes("soundcloud.com")) {
+    const jobResult = await runSoundcloudFlow(target, finalUrl, { statusMsg });
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(target, jobResult.jobId, "mp3", {
+        statusMsg: jobResult.statusMsg,
+      });
+    }
+    return null;
   }
 
   if (finalUrl.includes("pinterest.com") || finalUrl.includes("pin.it")) {
@@ -359,204 +409,217 @@ async function runYtDlpFlow(target, url, options = {}) {
   });
 
   metadataProcess.on("close", async (code) => {
-    clearTimeout(metadataTimeout);
-    let finalTitle = options.title || "Untitled";
-    let finalPlatform = "Generic";
-    let views = "0";
-    let likes = "0";
-    let comments = "0";
-    let shares = "0";
-    let duration = "";
-    let uploader = "";
-    let isGallery = false;
+    try {
+      clearTimeout(metadataTimeout);
+      let finalTitle = options.title || "Untitled";
+      let finalPlatform = "Generic";
+      let views = "0";
+      let likes = "0";
+      let comments = "0";
+      let shares = "0";
+      let duration = "";
+      let uploader = "";
+      let isGallery = false;
 
-    let jobId = Math.random().toString(36).substring(2, 10);
-    const db = loadDB();
+      let jobId = Math.random().toString(36).substring(2, 10);
+      const db = loadDB();
 
-    db.jobs[jobId] = {
-      url: finalUrl,
-      timestamp: Date.now(),
-      title: "",
-      stats: { likes, views, comments, shares, duration, uploader },
-      thumbnail: "",
-      platform: "Generic",
-      userId: target.user ? target.user.id : target.author.id,
-      isGallery: false,
-      hasVideo: true,
-      extractor: "Generic",
-      directUrl: null,
-    };
+      db.jobs[jobId] = {
+        url: finalUrl,
+        timestamp: Date.now(),
+        title: "",
+        stats: { likes, views, comments, shares, duration, uploader },
+        thumbnail: "",
+        platform: "Generic",
+        userId: target.user ? target.user.id : target.author.id,
+        isGallery: false,
+        hasVideo: true,
+        extractor: "Generic",
+        directUrl: null,
+      };
 
-    if (code !== 0 || !metadata.trim()) {
-      if (url.includes("instagram.com")) {
-        await editResponse({
-          embeds: [
-            getStatusEmbed(
-              "Instagram Identified",
-              "Resource parameters locked. Commencing retrieval phase...",
-            ),
-          ],
-        });
+      if (code !== 0 || !metadata.trim()) {
+        if (url.includes("instagram.com")) {
+          await editResponse({
+            embeds: [
+              getStatusEmbed(
+                "Instagram Identified",
+                "Resource parameters locked. Commencing retrieval phase...",
+              ),
+            ],
+          });
 
-        finalPlatform = "INSTAGRAM";
-        db.jobs[jobId].platform = "INSTAGRAM";
-        db.jobs[jobId].extractor = "instagram";
+          finalPlatform = "INSTAGRAM";
+          db.jobs[jobId].platform = "INSTAGRAM";
+          db.jobs[jobId].extractor = "instagram";
+        } else {
+          const cleanError = errorLog
+            .replace(/\[\w+\]/g, "")
+            .replace(/ERROR:/g, "")
+            .trim()
+            .split("\n")[0]
+            .substring(0, 150);
+
+          const isX = url.includes("x.com") || url.includes("twitter.com");
+          const xError =
+            isX &&
+            (cleanError.includes("No video") ||
+              cleanError.includes("not found"));
+
+          return await editResponse({
+            embeds: [
+              getStatusEmbed(
+                isX ? "X/Twitter Identification" : "Download Failed",
+                xError
+                  ? "No video found in this tweet. If this is an Image post, it's currently not supported by the video extractor."
+                  : cleanError || "Platform not supported or invalid link.",
+              ),
+            ],
+          });
+        }
       } else {
-        const cleanError = errorLog
-          .replace(/\[\w+\]/g, "")
-          .replace(/ERROR:/g, "")
-          .trim()
-          .split("\n")[0]
-          .substring(0, 150);
+        try {
+          const json = JSON.parse(metadata.trim().split("\n")[0]);
+          const hasVideo = json.formats?.some(
+            (f) => f.vcodec !== "none" && f.vcodec !== undefined,
+          );
+          const isTikTok = json.webpage_url?.includes("tiktok.com");
 
-        const isX = url.includes("x.com") || url.includes("twitter.com");
-        const xError =
-          isX &&
-          (cleanError.includes("No video") || cleanError.includes("not found"));
+          finalTitle =
+            finalTitle === "Untitled" || !finalTitle
+              ? json.title || "Untitled"
+              : finalTitle;
+          finalPlatform = json.extractor || "Generic";
+          views = json.view_count || "0";
+          likes = json.like_count || "0";
+          comments = json.comment_count || "0";
+          shares = json.repost_count || "0";
+          const durationSec = json.duration || 0;
+          duration =
+            durationSec > 0
+              ? `${Math.floor(durationSec / 60)}:${String(Math.floor(durationSec % 60)).padStart(2, "0")}`
+              : "";
+          uploader = json.uploader || "";
+          const thumbnail = json.thumbnail || "";
 
-        return await editResponse({
-          embeds: [
-            getStatusEmbed(
-              isX ? "X/Twitter Identification" : "Download Failed",
-              xError
-                ? "No video found in this tweet. If this is an Image post, it's currently not supported by the video extractor."
-                : cleanError || "Platform not supported or invalid link.",
-            ),
-          ],
-        });
+          isGallery =
+            json._type === "playlist" ||
+            (json.entries && json.entries.length > 0) ||
+            (isTikTok && !hasVideo);
+
+          db.jobs[jobId] = {
+            ...db.jobs[jobId],
+            stats: { likes, views, comments, shares, duration, uploader },
+            thumbnail,
+            platform: finalPlatform,
+            isGallery,
+            hasVideo,
+            extractor: finalPlatform,
+            directUrl: json.url || null,
+          };
+        } catch (e) {
+          console.error("[JSON-PARSE] Error:", e.message);
+        }
       }
-    } else {
-      try {
-        const json = JSON.parse(metadata.trim().split("\n")[0]);
-        const hasVideo = json.formats?.some(
-          (f) => f.vcodec !== "none" && f.vcodec !== undefined,
+
+      const cleanTitle = finalTitle.replace(
+        /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F018}-\u{1F270}\u{1F170}-\u{1F251}]/gu,
+        "",
+      );
+      const safeTitle = cleanTitle.trim().substring(0, 100) || "Video";
+      db.jobs[jobId].title = safeTitle;
+      saveDB(db);
+
+      const job = db.jobs[jobId];
+      const hasVideo = job?.hasVideo;
+
+      if (options.type && (options.type === "mp3" || !isGallery)) {
+        return await startDownload(
+          target,
+          jobId,
+          options.type,
+          options.resolution,
+          statusMsg,
         );
-        const isTikTok = json.webpage_url?.includes("tiktok.com");
-
-        finalTitle =
-          finalTitle === "Untitled" || !finalTitle
-            ? json.title || "Untitled"
-            : finalTitle;
-        finalPlatform = json.extractor || "Generic";
-        views = json.view_count || "0";
-        likes = json.like_count || "0";
-        comments = json.comment_count || "0";
-        shares = json.repost_count || "0";
-        const durationSec = json.duration || 0;
-        duration =
-          durationSec > 0
-            ? `${Math.floor(durationSec / 60)}:${String(Math.floor(durationSec % 60)).padStart(2, "0")}`
-            : "";
-        uploader = json.uploader || "";
-        const thumbnail = json.thumbnail || "";
-
-        isGallery =
-          json._type === "playlist" ||
-          (json.entries && json.entries.length > 0) ||
-          (isTikTok && !hasVideo);
-
-        db.jobs[jobId] = {
-          ...db.jobs[jobId],
-          stats: { likes, views, comments, shares, duration, uploader },
-          thumbnail,
-          platform: finalPlatform,
-          isGallery,
-          hasVideo,
-          extractor: finalPlatform,
-          directUrl: json.url || null,
-        };
-      } catch (e) {
-        console.error("[JSON-PARSE] Error:", e.message);
       }
-    }
 
-    const cleanTitle = finalTitle.replace(
-      /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F018}-\u{1F270}\u{1F170}-\u{1F251}]/gu,
-      "",
-    );
-    const safeTitle = cleanTitle.trim().substring(0, 100) || "Video";
-    db.jobs[jobId].title = safeTitle;
-    saveDB(db);
+      const botUser = await target.client.user.fetch();
+      const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
-    const job = db.jobs[jobId];
-    const hasVideo = job?.hasVideo;
+      const foundEmbed = new EmbedBuilder()
+        .setColor("#6c5ce7")
+        .setTitle(`${FIRE} **Media Research Found**`)
+        .setImage(botBanner)
+        .setDescription(
+          `### ✅ **Resource Identified**\n` +
+            `${ARROW} **Topic:** *${safeTitle}*\n` +
+            `${ARROW} **Platform:** *${finalPlatform.toUpperCase()}*\n\n` +
+            `**${formatNumber(likes)}** *Likes*  •  **${formatNumber(comments)}** *Comments*  •  **${formatNumber(views)}** *Views*`,
+        )
+        .setFooter({
+          text: "Select Format to Initialize Download",
+          iconURL: target.client.user.displayAvatarURL(),
+        });
 
-    if (options.type && (options.type === "mp3" || !isGallery)) {
-      return await startDownload(
-        target,
-        jobId,
-        options.type,
-        options.resolution,
-        statusMsg,
-      );
-    }
-
-    const botUser = await target.client.user.fetch();
-    const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
-
-    const foundEmbed = new EmbedBuilder()
-      .setColor("#6c5ce7")
-      .setTitle(`${FIRE} **Media Research Found**`)
-      .setImage(botBanner)
-      .setDescription(
-        `### ✅ **Resource Identified**\n` +
-          `${ARROW} **Topic:** *${safeTitle}*\n` +
-          `${ARROW} **Platform:** *${finalPlatform.toUpperCase()}*\n\n` +
-          `**${formatNumber(likes)}** *Likes*  •  **${formatNumber(comments)}** *Comments*  •  **${formatNumber(views)}** *Views*`,
-      )
-      .setFooter({
-        text: "Select Format to Initialize Download",
-        iconURL: target.client.user.displayAvatarURL(),
-      });
-
-    const row = new ActionRowBuilder();
-    if (isGallery) {
-      row.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`dl_gallery_${jobId}`)
-          .setLabel("GALLERY (PHOTOS)")
-          .setStyle(ButtonStyle.Primary),
-        new ButtonBuilder()
-          .setCustomId(`dl_mp3_${jobId}`)
-          .setLabel("AUDIO (MP3)")
-          .setStyle(ButtonStyle.Success),
-      );
-    } else {
-      const isAudioOnly = url.includes("soundcloud.com") || !hasVideo;
-      if (!isAudioOnly) {
+      const row = new ActionRowBuilder();
+      if (isGallery) {
         row.addComponents(
           new ButtonBuilder()
-            .setCustomId(`dl_mp4_${jobId}`)
-            .setLabel("VIDEO (MP4)")
+            .setCustomId(`dl_gallery_${jobId}`)
+            .setLabel("GALLERY (PHOTOS)")
             .setStyle(ButtonStyle.Primary),
+          new ButtonBuilder()
+            .setCustomId(`dl_mp3_${jobId}`)
+            .setLabel("AUDIO (MP3)")
+            .setStyle(ButtonStyle.Success),
+        );
+      } else {
+        const isAudioOnly = url.includes("soundcloud.com") || !hasVideo;
+        if (!isAudioOnly) {
+          row.addComponents(
+            new ButtonBuilder()
+              .setCustomId(`dl_mp4_${jobId}`)
+              .setLabel("VIDEO (MP4)")
+              .setStyle(ButtonStyle.Primary),
+          );
+        }
+        row.addComponents(
+          new ButtonBuilder()
+            .setCustomId(`dl_mp3_${jobId}`)
+            .setLabel("AUDIO (MP3)")
+            .setStyle(ButtonStyle.Success),
         );
       }
-      row.addComponents(
-        new ButtonBuilder()
-          .setCustomId(`dl_mp3_${jobId}`)
-          .setLabel("AUDIO (MP3)")
-          .setStyle(ButtonStyle.Success),
-      );
+
+      const isMusic = musicKeywords.some((keyword) => url.includes(keyword));
+      const isTikTok = url.includes("tiktok.com");
+      const shouldDirect = !isTikTok || !isCommand || isMusic;
+
+      if (shouldDirect && options.type) {
+        const finalFormat =
+          options.type === "mp3" || isMusic
+            ? "mp3"
+            : isGallery
+              ? "gallery"
+              : "mp4";
+        return await startDownload(target, jobId, finalFormat, { statusMsg });
+      }
+
+      await editResponse({
+        embeds: [foundEmbed],
+        components: [row],
+      });
+    } catch (e) {
+      console.error("[CORE-CLOSE] Callback error:", e.message);
+      await editResponse({
+        embeds: [
+          getStatusEmbed(
+            "Processing Error",
+            e.message || "An unexpected error occurred.",
+          ),
+        ],
+      }).catch(() => {});
     }
-
-    const isMusic = musicKeywords.some((keyword) => url.includes(keyword));
-    const isTikTok = url.includes("tiktok.com");
-    const shouldDirect = !isTikTok || !isCommand || isMusic;
-
-    if (shouldDirect && options.type) {
-      const finalFormat =
-        options.type === "mp3" || isMusic
-          ? "mp3"
-          : isGallery
-            ? "gallery"
-            : "mp4";
-      return await startDownload(target, jobId, finalFormat, { statusMsg });
-    }
-
-    await editResponse({
-      embeds: [foundEmbed],
-      components: [row],
-    });
   });
 }
 

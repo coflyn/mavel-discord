@@ -31,7 +31,7 @@ async function runTwitterFlow(target, url, options = {}) {
 
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#e17055")
       .setDescription(
         `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
       );
@@ -121,7 +121,6 @@ async function runTwitterFlow(target, url, options = {}) {
         isVideo = true;
         scrapeSuccess = true;
 
-        // Fetch metadata for high-fidelity phase
         const meta = await new Promise((resolve) => {
           const mCmd = `${getYtDlp()} ${cookies} --simulate --print "%(uploader)s|%(title)s|%(thumbnail)s|%(duration)s" "${ytTarget}"`;
           exec(mCmd, (err, stdout) => resolve(stdout?.trim() || "|||"));
@@ -312,7 +311,7 @@ async function runTwitterFlow(target, url, options = {}) {
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#e17055")
       .setTitle(`${NOTIF} **X Signal Captured**`)
       .setDescription(
         `### ${LEA} **Transmission Identified**\n` +

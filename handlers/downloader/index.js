@@ -28,14 +28,26 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
     if (!linkMatch) return;
     url = linkMatch[0];
 
-    const musicKeywords = ["music.youtube.com", "spotify.com", "soundcloud.com", "bandcamp.com"];
-    const isMusic = musicKeywords.some(keyword => url.includes(keyword));
+    const musicKeywords = [
+      "music.youtube.com",
+      "spotify.com",
+      "soundcloud.com",
+      "bandcamp.com",
+    ];
+    const isMusic = musicKeywords.some((keyword) => url.includes(keyword));
 
     type = isMusic ? "mp3" : "mp4";
     resolution = "720";
   }
-  if (target.deferReply && (target.isChatInputCommand?.() || target.isButton?.() || target.isStringSelectMenu?.())) {
-    await target.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+  if (
+    target.deferReply &&
+    (target.isChatInputCommand?.() ||
+      target.isButton?.() ||
+      target.isStringSelectMenu?.())
+  ) {
+    await target
+      .deferReply({ flags: [MessageFlags.Ephemeral] })
+      .catch(() => {});
   }
 
   if (!url) {
@@ -80,7 +92,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
         },
         {
           name: `${DOTS} **Acoustic & Music**`,
-          value: `${ARROW} *YouTube Music, SoundCloud, Spotify*`,
+          value: `${ARROW} *YouTube Music, SoundCloud, Spotify, Bandcamp*`,
           inline: false,
         },
         {
@@ -100,7 +112,12 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
       })
       .setTimestamp();
 
-    if (target.editReply && (target.isChatInputCommand?.() || target.isButton?.() || target.isStringSelectMenu?.())) {
+    if (
+      target.editReply &&
+      (target.isChatInputCommand?.() ||
+        target.isButton?.() ||
+        target.isStringSelectMenu?.())
+    ) {
       const reply = await target.editReply({
         embeds: [embed],
       });
@@ -110,15 +127,16 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
       return;
     }
     if (target.reply) {
-      await target.reply({
-        embeds: [embed],
-        flags: [MessageFlags.Ephemeral],
-      }).catch(() => {});
+      await target
+        .reply({
+          embeds: [embed],
+          flags: [MessageFlags.Ephemeral],
+        })
+        .catch(() => {});
       return;
     }
     return;
   }
-
 
   await runYtDlpFlow(target, url, { type, resolution, title });
 };

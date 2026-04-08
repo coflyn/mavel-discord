@@ -22,6 +22,39 @@ const {
 } = require("./core-helpers");
 const config = require("../../config");
 const { getAssetUrl } = require("../../utils/tunnel-server");
+const EC = require("../../utils/embed-colors");
+
+const getPlatformColor = (platform) => {
+  if (!platform) return EC.CORE;
+  const p = platform.toLowerCase();
+  if (
+    [
+      "tiktok",
+      "instagram",
+      "x / twitter",
+      "twitter",
+      "facebook",
+      "threads",
+      "pinterest",
+    ].some((s) => p.includes(s))
+  )
+    return EC.SOCIAL;
+  if (
+    ["spotify", "youtube", "ytm", "soundcloud", "bandcamp"].some((s) =>
+      p.includes(s),
+    )
+  )
+    return EC.MUSIC_DL;
+  if (["scribd", "slideshare"].some((s) => p.includes(s))) return EC.DOCUMENT;
+  if (p.includes("pixiv")) return EC.ARTWORK;
+  if (
+    ["mega", "mediafire", "gdrive", "google drive", "cloud"].some((s) =>
+      p.includes(s),
+    )
+  )
+    return EC.DOCUMENT;
+  return EC.CORE;
+};
 const axios = require("axios");
 const NodeID3 = require("node-id3");
 
@@ -118,9 +151,11 @@ async function startDownload(interaction, jobId, format, options = {}) {
       ["check", "verified", "blue_check"].includes(e.name.toLowerCase()),
     ) || "✅";
 
+  const platformColor = getPlatformColor(job?.platform || options.platform);
+
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor(platformColor)
       .setDescription(
         `### ${FIRE} **${status}**\n${ARROW} **Resource:** *${title || "Scanning..."}*\n${ARROW} **Details:** *${details}*`,
       );
@@ -137,18 +172,28 @@ async function startDownload(interaction, jobId, format, options = {}) {
     components: [],
   });
 
+  const platformName = job?.platform || options.platform || "Media";
+  if (interaction.client.setTempStatus) {
+    interaction.client.setTempStatus(
+      `Downloading ${platformName}...`,
+      3,
+      45000,
+    );
+  }
+
   downloadQueue.add(async () => {
     const tempDir = path.join(__dirname, "../../temp");
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
     const sanitizedTitle =
       (title || "media")
-        .replace(/[^\p{L}\p{N}\s-]/gu, "")
+        .replace(/[^\x00-\x7F]/g, "")
+        .replace(/[^\w\s-]/gi, "")
         .trim()
         .replace(/\s+/g, "_")
         .substring(0, 60) || `media_${jobId || Date.now()}`;
 
-    const outputBase = path.join(tempDir, `${sanitizedTitle}_${Date.now()}`);
+    const outputBase = path.join(tempDir, `mave_${jobId || Date.now()}`);
 
     try {
       await editLocal({
@@ -158,7 +203,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
       const updateProgress = createProgressUpdater(interaction, title);
 
       if (format === "twgallery") {
-        const urls = job?.twUrls || job?.imageUrls || [];
+        const urls = job?.twUrls || job?.imageUrls || job?.allImages || [];
         if (urls.length === 0) throw new Error("No assets captured.");
 
         const platformName = job?.platform || options.platform || "X / Twitter";
@@ -206,15 +251,27 @@ async function startDownload(interaction, jobId, format, options = {}) {
           platformName,
         );
         const shouldBundle = photoPaths.length > 5 || isDocumentPlatform;
-
         let pdfPath = null;
         let attachments = [];
 
+        const sizeGall = photoPaths.reduce(
+          (acc, p) => acc + (fs.existsSync(p) ? fs.statSync(p).size : 0),
+          0,
+        );
+
         if (shouldBundle) {
-          pdfPath = await bundleImagesToPdf(photoPaths);
-          attachments.push(
-            new AttachmentBuilder(pdfPath, { name: `${sanitizedTitle}.pdf` }),
+          const rawPdf = await bundleImagesToPdf(photoPaths);
+          photoPaths.forEach((p) => p && fs.existsSync(p) && fs.unlinkSync(p));
+
+          pdfPath = path.join(
+            tempDir,
+            `${sanitizedTitle}_${jobId || Date.now()}.pdf`,
           );
+          if (fs.existsSync(rawPdf)) fs.renameSync(rawPdf, pdfPath);
+
+          attachments = [
+            new AttachmentBuilder(pdfPath, { name: `${sanitizedTitle}.pdf` }),
+          ];
         } else {
           attachments = photoPaths.map((p, idx) => {
             const ext = p.split(".").pop();
@@ -225,7 +282,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         }
 
         const doneEmbed = new EmbedBuilder()
-          .setColor("#6c5ce7")
+          .setColor(platformColor)
           .setAuthor({
             name: "MaveL Operation Hub",
             iconURL: interaction.client.user.displayAvatarURL(),
@@ -262,6 +319,49 @@ async function startDownload(interaction, jobId, format, options = {}) {
             })(),
         );
 
+        doneEmbed.setFooter({
+          text: `MaveL Downloader (Total: ${formatSize(sizeGall)}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
+          iconURL: interaction.client.user.displayAvatarURL(),
+        });
+
+        const totalSize =
+          sizeGall +
+          (pdfPath && fs.existsSync(pdfPath) ? fs.statSync(pdfPath).size : 0);
+        const limitMB = 8;
+
+        if (totalSize > limitMB * 1024 * 1024) {
+          const mainFile = pdfPath || photoPaths[0];
+          const publicUrl = getAssetUrl(path.basename(mainFile));
+          if (publicUrl) {
+            const DIAMOND =
+              interaction.guild?.emojis.cache
+                .find((e) => e.name === "diamond")
+                ?.toString() || "💎";
+            const PING_GREEN =
+              interaction.guild?.emojis.cache
+                .find((e) => e.name === "ping_green")
+                ?.toString() || "🟢";
+            doneEmbed.setDescription(
+              (userMention ? `${userMention}\n\n` : "") +
+                `### ${DIAMOND} **Gallery Bundle Too Large**\n` +
+                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
+                `${ARROW} **[${PING_GREEN} CLICK TO DOWNLOAD BUNDLE](${publicUrl})**\n\n` +
+                `*Local storage link expires in 10 minutes.*`,
+            );
+            doneEmbed.setImage(null);
+            await interaction.channel.send({ embeds: [doneEmbed] });
+            await cleanupStatus();
+            if (interaction.deleteReply)
+              await interaction.deleteReply().catch(() => {});
+
+            setTimeout(() => {
+              if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+            }, 600000);
+            return;
+          }
+        }
+
         const finalMsg = await interaction.channel.send({
           embeds: [doneEmbed],
           files: attachments,
@@ -269,19 +369,10 @@ async function startDownload(interaction, jobId, format, options = {}) {
         await finalMsg.react(CHECK).catch(() => {});
 
         await cleanupStatus();
+        if (interaction.client.clearTempStatus)
+          interaction.client.clearTempStatus();
 
         photoPaths.forEach((p) => fs.existsSync(p) && fs.unlinkSync(p));
-        urls.forEach((p) => {
-          const isLocalHd =
-            typeof p === "string" &&
-            (p.includes("_hd_") ||
-              p.includes("scribd_") ||
-              p.includes("slideshare_") ||
-              p.includes("pinterest_"));
-          if (isLocalHd && fs.existsSync(p)) {
-            fs.unlinkSync(p);
-          }
-        });
         if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
         if (interaction.deleteReply)
           await interaction.deleteReply().catch(() => {});
@@ -296,9 +387,20 @@ async function startDownload(interaction, jobId, format, options = {}) {
         for (let i = 0; i < urls.length; i++) {
           const photoUrl = urls[i];
           const photoPath = path.join(tempDir, `tk_${jobId}_${i}.jpg`);
+
+          await editLocal({
+            embeds: [
+              getStatusEmbed(
+                "Downloading",
+                `Retrieving image ${i + 1} of ${urls.length}...`,
+              ),
+            ],
+          });
+
           const photoRes = await axios.get(photoUrl, {
             responseType: "arraybuffer",
             headers: { Referer: "https://www.tikwm.com/" },
+            timeout: 20000,
           });
           fs.writeFileSync(photoPath, photoRes.data);
           photoPaths.push(photoPath);
@@ -308,14 +410,27 @@ async function startDownload(interaction, jobId, format, options = {}) {
         let pdfPath = null;
         let attachments = [];
 
+        const sizeGallTK = photoPaths.reduce(
+          (acc, p) => acc + (fs.existsSync(p) ? fs.statSync(p).size : 0),
+          0,
+        );
+
         if (shouldBundle) {
           await editLocal({
-            content: `${CHEST} **Bundling pages into PDF document...**`,
+            content: "",
           });
-          pdfPath = await bundleImagesToPdf(photoPaths);
-          attachments.push(
-            new AttachmentBuilder(pdfPath, { name: `${sanitizedTitle}.pdf` }),
+          const rawPdf = await bundleImagesToPdf(photoPaths);
+          photoPaths.forEach((p) => p && fs.existsSync(p) && fs.unlinkSync(p));
+          
+          pdfPath = path.join(
+            tempDir,
+            `${sanitizedTitle}_${jobId || Date.now()}.pdf`,
           );
+          if (fs.existsSync(rawPdf)) fs.renameSync(rawPdf, pdfPath);
+          
+          attachments = [
+            new AttachmentBuilder(pdfPath, { name: `${sanitizedTitle}.pdf` }),
+          ];
         } else {
           attachments = photoPaths.map(
             (p, idx) =>
@@ -326,7 +441,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         }
 
         const doneEmbed = new EmbedBuilder()
-          .setColor("#6c5ce7")
+          .setColor(platformColor)
           .setAuthor({
             name: "MaveL Operation Hub",
             iconURL: interaction.client.user.displayAvatarURL(),
@@ -355,9 +470,47 @@ async function startDownload(interaction, jobId, format, options = {}) {
               })(),
           )
           .setFooter({
-            text: `MaveL Downloader (Total: ${formatSize(photoPaths.reduce((acc, p) => acc + fs.statSync(p).size, 0))}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
+            text: `MaveL Downloader (Total: ${formatSize(sizeGallTK)}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
             iconURL: interaction.client.user.displayAvatarURL(),
           });
+
+        const totalSize =
+          sizeGallTK +
+          (pdfPath && fs.existsSync(pdfPath) ? fs.statSync(pdfPath).size : 0);
+        const limitMB = 8;
+
+        if (totalSize > limitMB * 1024 * 1024) {
+          const mainFile = pdfPath || photoPaths[0];
+          const publicUrl = getAssetUrl(path.basename(mainFile));
+          if (publicUrl) {
+            const DIAMOND =
+              interaction.guild?.emojis.cache
+                .find((e) => e.name === "diamond")
+                ?.toString() || "💎";
+            const PING_GREEN =
+              interaction.guild?.emojis.cache
+                .find((e) => e.name === "ping_green")
+                ?.toString() || "🟢";
+            doneEmbed.setDescription(
+              (userMention ? `${userMention}\n\n` : "") +
+                `### ${DIAMOND} **Gallery Bundle Too Large**\n` +
+                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
+                `${ARROW} **[${PING_GREEN} CLICK TO DOWNLOAD BUNDLE](${publicUrl})**\n\n` +
+                `*Local storage link expires in 10 minutes.*`,
+            );
+            doneEmbed.setImage(null);
+            await interaction.channel.send({ embeds: [doneEmbed] });
+            await cleanupStatus();
+            if (interaction.deleteReply)
+              await interaction.deleteReply().catch(() => {});
+
+            setTimeout(() => {
+              if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+            }, 600000);
+            return;
+          }
+        }
 
         const finalMsg = await interaction.channel.send({
           embeds: [doneEmbed],
@@ -380,7 +533,8 @@ async function startDownload(interaction, jobId, format, options = {}) {
         format === "tkmp3" ||
         job?.extractor === "threads-scrape" ||
         (job?.extractor === "fx-scrape" && !foundUrl?.includes("twimg.com")) ||
-        (job?.extractor === "facebook-scrape" && !foundUrl?.includes("fbcdn.net"))
+        (job?.extractor === "facebook-scrape" &&
+          !foundUrl?.includes("fbcdn.net"))
       ) {
         const directUrl = foundUrl;
         if (!directUrl) throw new Error("Source stream lost.");
@@ -392,10 +546,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
           tempDir,
           `meta_${jobId || "direct"}.${ext}`,
         );
-
-        await editLocal({
-          content: `${TIME} **Fetching Meta Media Resource...**`,
-        });
 
         try {
           const res = await axios.get(directUrl, {
@@ -426,33 +576,43 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
         if (fs.existsSync(outputFile) && fs.statSync(outputFile).size > 10000) {
           const stats = fs.statSync(outputFile);
-          const limitMB = 25; // Keep it safe for Discord
-          
+          const limitMB = 25;
+
           if (stats.size > limitMB * 1024 * 1024) {
-             const publicUrl = getAssetUrl(path.basename(outputFile));
-             if (publicUrl) {
-                const guild = interaction.guild;
-                const DIAMOND = guild.emojis.cache.find(e => e.name === "diamond")?.toString() || "💎";
-                const doneEmbed = new EmbedBuilder()
-                  .setColor("#6c5ce7")
-                  .setAuthor({ name: "MaveL Operation Hub", iconURL: interaction.client.user.displayAvatarURL() })
-                  .setTitle(`${NOTIF} **Media Link Ready**`)
-                  .setThumbnail(job?.thumbnail || "")
-                  .setImage(botBanner)
-                  .setDescription(
-                    (userMention ? `${userMention}\n\n` : "") +
+            const publicUrl = getAssetUrl(path.basename(outputFile));
+            if (publicUrl) {
+              const guild = interaction.guild;
+              const DIAMOND =
+                guild.emojis.cache
+                  .find((e) => e.name === "diamond")
+                  ?.toString() || "💎";
+              const doneEmbed = new EmbedBuilder()
+                .setColor(platformColor)
+                .setAuthor({
+                  name: "MaveL Operation Hub",
+                  iconURL: interaction.client.user.displayAvatarURL(),
+                })
+                .setTitle(`${NOTIF} **Media Link Ready**`)
+                .setThumbnail(job?.thumbnail || "")
+                .setImage(botBanner)
+                .setDescription(
+                  (userMention ? `${userMention}\n\n` : "") +
                     `### ${DIAMOND} **File Too Large for Discord**\n` +
                     `${ARROW} **Resource:** *${title}*\n` +
                     `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
                     `${ARROW} **[DOWNLOAD HD VIDEO](${publicUrl})**\n\n` +
-                    `*Local host link expires in 10 minutes.*`
-                  );
-                await interaction.channel.send({ embeds: [doneEmbed] });
-                await cleanupStatus();
+                    `*Local host link expires in 10 minutes.*`,
+                );
+              await interaction.channel.send({ embeds: [doneEmbed] });
+              await cleanupStatus();
+              if (interaction.deleteReply)
+                await interaction.deleteReply().catch(() => {});
+
+              setTimeout(() => {
                 if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
-                if (interaction.deleteReply) await interaction.deleteReply().catch(() => {});
-                return;
-             }
+              }, 600000);
+              return;
+            }
           }
 
           const attachment = new AttachmentBuilder(outputFile, {
@@ -460,7 +620,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           });
 
           const doneEmbed = new EmbedBuilder()
-            .setColor("#6c5ce7")
+            .setColor(platformColor)
             .setAuthor({
               name: "MaveL Operation Hub",
               iconURL: interaction.client.user.displayAvatarURL(),
@@ -517,10 +677,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
           job?.title || `cloud_${jobId || "direct"}.bin`,
         );
 
-        await editLocal({
-          content: `${TIME} **Fetching ${platform} document...**`,
-        });
-
         if (platform === "MEGA") {
           const { File } = require("megajs");
           const file = File.fromURL(url);
@@ -547,7 +703,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const guild = interaction.guild;
 
         const doneEmbed = new EmbedBuilder()
-          .setColor("#6c5ce7")
+          .setColor(EC.DOCUMENT)
           .setAuthor({
             name: "MaveL Operation Hub",
             iconURL: interaction.client.user.displayAvatarURL(),
@@ -567,6 +723,36 @@ async function startDownload(interaction, jobId, format, options = {}) {
             text: `MaveL Downloader (${formatSize(fs.statSync(outputFile).size)}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
             iconURL: interaction.client.user.displayAvatarURL(),
           });
+
+        const stats = fs.statSync(outputFile);
+        const limitMB = 25;
+
+        if (stats.size > limitMB * 1024 * 1024) {
+          const publicUrl = getAssetUrl(path.basename(outputFile));
+          if (publicUrl) {
+            const DIAMOND =
+              interaction.guild?.emojis.cache
+                .find((e) => e.name === "diamond")
+                ?.toString() || "💎";
+            doneEmbed.setDescription(
+              (userMention ? `${userMention}\n\n` : "") +
+                `### ${DIAMOND} **Cloud Resource Too Large**\n` +
+                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
+                `${ARROW} **[DOWNLOAD CLOUD ASSET](${publicUrl})**\n\n` +
+                `*Local storage link expires in 10 minutes.*`,
+            );
+            await interaction.channel.send({ embeds: [doneEmbed] });
+            await cleanupStatus();
+            if (interaction.deleteReply)
+              await interaction.deleteReply().catch(() => {});
+
+            setTimeout(() => {
+              if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
+            }, 600000);
+            return;
+          }
+        }
 
         if (fs.existsSync(outputFile) && fs.statSync(outputFile).size > 10000) {
           const finalMsg = await interaction.channel.send({
@@ -589,7 +775,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const outputFile = path.join(tempDir, `spotify_${jobId}.mp3`);
 
         await editLocal({
-          content: `${TIME} **Matching audio signal via search matrix...**`,
+          content: "",
         });
 
         const spArgs = [
@@ -603,16 +789,15 @@ async function startDownload(interaction, jobId, format, options = {}) {
           outputFile,
           ...getJsRuntimeArgs(),
           ...getCookiesArgs(
-                job?.platform?.toLowerCase().includes("twitter") ||
-                  job?.platform?.toLowerCase().includes("x / twitter")
-                  ? "twitter"
-                  : job?.platform?.toLowerCase().includes("facebook")
-                    ? "facebook"
-                    : job?.platform?.toLowerCase().includes("instagram")
-                      ? "instagram"
-                      : "",
-              )
-,
+            job?.platform?.toLowerCase().includes("twitter") ||
+              job?.platform?.toLowerCase().includes("x / twitter")
+              ? "twitter"
+              : job?.platform?.toLowerCase().includes("facebook")
+                ? "facebook"
+                : job?.platform?.toLowerCase().includes("instagram")
+                  ? "instagram"
+                  : "",
+          ),
           ...getVpsArgs(),
         ];
 
@@ -629,7 +814,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const guild = interaction.guild;
 
         const doneEmbed = new EmbedBuilder()
-          .setColor("#6c5ce7")
+          .setColor(EC.MUSIC_DL)
           .setAuthor({
             name: "MaveL Operation Hub",
             iconURL: interaction.client.user.displayAvatarURL(),
@@ -650,6 +835,40 @@ async function startDownload(interaction, jobId, format, options = {}) {
             text: `MaveL Downloader (${formatSize(fs.statSync(outputFile).size)}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
             iconURL: interaction.client.user.displayAvatarURL(),
           });
+
+        const stats = fs.statSync(outputFile);
+        const limitMB = 25;
+
+        if (stats.size > limitMB * 1024 * 1024) {
+          const publicUrl = getAssetUrl(path.basename(outputFile));
+          if (publicUrl) {
+            const DIAMOND =
+              interaction.guild?.emojis.cache
+                .find((e) => e.name === "diamond")
+                ?.toString() || "💎";
+            const PING_GREEN =
+              interaction.guild?.emojis.cache
+                .find((e) => e.name === "ping_green")
+                ?.toString() || "🟢";
+            doneEmbed.setDescription(
+              (userMention ? `${userMention}\n\n` : "") +
+                `### ${DIAMOND} **Audio File Too Large**\n` +
+                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
+                `${ARROW} **[${PING_GREEN} DOWNLOAD MUSIC](${publicUrl})**\n\n` +
+                `*Local storage link expires in 10 minutes.*`,
+            );
+            await interaction.channel.send({ embeds: [doneEmbed] });
+            await cleanupStatus();
+            if (interaction.deleteReply)
+              await interaction.deleteReply().catch(() => {});
+
+            setTimeout(() => {
+              if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
+            }, 600000);
+            return;
+          }
+        }
 
         if (fs.existsSync(outputFile) && fs.statSync(outputFile).size > 10000) {
           const finalMsg = await interaction.channel.send({
@@ -675,12 +894,24 @@ async function startDownload(interaction, jobId, format, options = {}) {
         for (let i = 0; i < urls.length; i++) {
           const photoUrl = urls[i];
           const photoPath = path.join(tempDir, `pixiv_${jobId}_${i}.jpg`);
+
+          await editLocal({
+            embeds: [
+              getStatusEmbed(
+                "Downloading",
+                `Retrieving page ${i + 1} of ${urls.length}...`,
+              ),
+            ],
+          });
+
           const photoRes = await axios.get(photoUrl, {
             responseType: "arraybuffer",
             headers: {
               "User-Agent":
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+              Referer: "https://www.pixiv.net/",
             },
+            timeout: 30000,
           });
           fs.writeFileSync(photoPath, photoRes.data);
           photoPaths.push(photoPath);
@@ -690,14 +921,27 @@ async function startDownload(interaction, jobId, format, options = {}) {
         let pdfPath = null;
         let attachments = [];
 
+        const totalSizeSize = photoPaths.reduce(
+          (acc, p) => acc + (fs.existsSync(p) ? fs.statSync(p).size : 0),
+          0,
+        );
+
         if (shouldBundle) {
           await editLocal({
             content: `${CHEST} **Bundling pages into PDF document...**`,
           });
-          pdfPath = await bundleImagesToPdf(photoPaths);
-          attachments.push(
-            new AttachmentBuilder(pdfPath, { name: `${sanitizedTitle}.pdf` }),
+          const rawPdf = await bundleImagesToPdf(photoPaths);
+          photoPaths.forEach((p) => p && fs.existsSync(p) && fs.unlinkSync(p));
+
+          pdfPath = path.join(
+            tempDir,
+            `${sanitizedTitle}_${jobId || Date.now()}.pdf`,
           );
+          if (fs.existsSync(rawPdf)) fs.renameSync(rawPdf, pdfPath);
+
+          attachments = [
+            new AttachmentBuilder(pdfPath, { name: `${sanitizedTitle}.pdf` }),
+          ];
         } else {
           attachments = photoPaths.map(
             (p, idx) =>
@@ -708,7 +952,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         }
 
         const doneEmbed = new EmbedBuilder()
-          .setColor("#6c5ce7")
+          .setColor(EC.ARTWORK)
           .setAuthor({
             name: "MaveL Operation Hub",
             iconURL: interaction.client.user.displayAvatarURL(),
@@ -726,9 +970,51 @@ async function startDownload(interaction, jobId, format, options = {}) {
               `${ARROW} **Link:** [Source Hub](<${url}>)`,
           )
           .setFooter({
-            text: `MaveL Downloader (Total: ${formatSize(photoPaths.reduce((acc, p) => acc + fs.statSync(p).size, 0))}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
+            text: `MaveL Downloader (Total: ${formatSize(totalSizeSize)}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
             iconURL: interaction.client.user.displayAvatarURL(),
           });
+
+        const totalSize =
+          pdfPath && fs.existsSync(pdfPath)
+            ? fs.statSync(pdfPath).size
+            : totalSizeSize;
+
+        const limitMB = 8;
+
+        if (totalSize > limitMB * 1024 * 1024) {
+          const mainFile = pdfPath || photoPaths[0];
+          const publicUrl = getAssetUrl(path.basename(mainFile));
+
+          if (publicUrl) {
+            const DIAMOND =
+              interaction.guild?.emojis.cache
+                .find((e) => e.name === "diamond")
+                ?.toString() || "💎";
+            const PING_GREEN =
+              interaction.guild?.emojis.cache
+                .find((e) => e.name === "ping_green")
+                ?.toString() || "🟢";
+            doneEmbed.setDescription(
+              (userMention ? `${userMention}\n\n` : "") +
+                `### ${DIAMOND} **Pixiv Gallery Too Large**\n` +
+                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
+                `${ARROW} **[${PING_GREEN} CLICK TO DOWNLOAD BUNDLE](${publicUrl})**\n\n` +
+                `*Local storage link expires in 10 minutes.*`,
+            );
+            doneEmbed.setImage(null);
+
+            await interaction.channel.send({ embeds: [doneEmbed] });
+            await cleanupStatus();
+            if (interaction.deleteReply)
+              await interaction.deleteReply().catch(() => {});
+
+            setTimeout(() => {
+              if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+            }, 600000);
+            return;
+          }
+        }
 
         const finalMsg = await interaction.channel.send({
           embeds: [doneEmbed],
@@ -749,14 +1035,18 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const outputFile = path.join(tempDir, `pixiv_${jobId}.mp4`);
 
         await editLocal({
-          content: `${TIME} **Downloading Pixiv Animation...**`,
+          embeds: [
+            getStatusEmbed("Downloading", "Retrieving animation stream..."),
+          ],
         });
         const videoRes = await axios.get(directUrl, {
           responseType: "arraybuffer",
           headers: {
             "User-Agent":
               "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            Referer: "https://www.pixiv.net/",
           },
+          timeout: 60000,
         });
         fs.writeFileSync(outputFile, videoRes.data);
 
@@ -767,7 +1057,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const guild = interaction.guild;
 
         const doneEmbed = new EmbedBuilder()
-          .setColor("#6c5ce7")
+          .setColor(EC.ARTWORK)
           .setAuthor({
             name: "MaveL Operation Hub",
             iconURL: interaction.client.user.displayAvatarURL(),
@@ -787,6 +1077,36 @@ async function startDownload(interaction, jobId, format, options = {}) {
             iconURL: interaction.client.user.displayAvatarURL(),
           });
 
+        const stats = fs.statSync(outputFile);
+        const limitMB = 25;
+
+        if (stats.size > limitMB * 1024 * 1024) {
+          const publicUrl = getAssetUrl(path.basename(outputFile));
+          if (publicUrl) {
+            const DIAMOND =
+              interaction.guild?.emojis.cache
+                .find((e) => e.name === "diamond")
+                ?.toString() || "💎";
+            doneEmbed.setDescription(
+              (userMention ? `${userMention}\n\n` : "") +
+                `### ${DIAMOND} **Pixiv Animation Too Large**\n` +
+                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
+                `${ARROW} **[DOWNLOAD UGOIRA VIDEO](${publicUrl})**\n\n` +
+                `*Local storage link expires in 10 minutes.*`,
+            );
+            await interaction.channel.send({ embeds: [doneEmbed] });
+            await cleanupStatus();
+            if (interaction.deleteReply)
+              await interaction.deleteReply().catch(() => {});
+
+            setTimeout(() => {
+              if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
+            }, 600000);
+            return;
+          }
+        }
+
         const finalMsg = await interaction.channel.send({
           embeds: [doneEmbed],
           files: [attachment],
@@ -799,21 +1119,19 @@ async function startDownload(interaction, jobId, format, options = {}) {
       }
 
       if (format === "gallery") {
-        await editLocal({ content: "*Fetching photos...*" });
         const galleryArgs = [
           "--dump-json",
           ...getJsRuntimeArgs(),
           ...getCookiesArgs(
-                job?.platform?.toLowerCase().includes("twitter") ||
-                  job?.platform?.toLowerCase().includes("x / twitter")
-                  ? "twitter"
-                  : job?.platform?.toLowerCase().includes("facebook")
-                    ? "facebook"
-                    : job?.platform?.toLowerCase().includes("instagram")
-                      ? "instagram"
-                      : "",
-              )
-,
+            job?.platform?.toLowerCase().includes("twitter") ||
+              job?.platform?.toLowerCase().includes("x / twitter")
+              ? "twitter"
+              : job?.platform?.toLowerCase().includes("facebook")
+                ? "facebook"
+                : job?.platform?.toLowerCase().includes("instagram")
+                  ? "instagram"
+                  : "",
+          ),
           ...getVpsArgs(),
           url,
         ];
@@ -839,7 +1157,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         if (entries.length === 0) throw new Error("No photos found.");
 
         await editLocal({
-          content: `*Downloading ${entries.length} photos...*`,
+          content: "",
         });
         const photoPaths = [];
         for (let i = 0; i < entries.length; i++) {
@@ -859,7 +1177,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
           if (fs.existsSync(photoPath)) photoPaths.push(photoPath);
         }
 
-        await editLocal({ content: "*Downloading background audio...*" });
         const audioPath = path.join(tempDir, `audio_${sanitizedTitle}.mp3`);
         const dlAudio = spawn(
           getYtDlp(),
@@ -871,16 +1188,15 @@ async function startDownload(interaction, jobId, format, options = {}) {
             "mp3",
             ...getJsRuntimeArgs(),
             ...getCookiesArgs(
-                job?.platform?.toLowerCase().includes("twitter") ||
-                  job?.platform?.toLowerCase().includes("x / twitter")
-                  ? "twitter"
-                  : job?.platform?.toLowerCase().includes("facebook")
-                    ? "facebook"
-                    : job?.platform?.toLowerCase().includes("instagram")
-                      ? "instagram"
-                      : "",
-              )
-,
+              job?.platform?.toLowerCase().includes("twitter") ||
+                job?.platform?.toLowerCase().includes("x / twitter")
+                ? "twitter"
+                : job?.platform?.toLowerCase().includes("facebook")
+                  ? "facebook"
+                  : job?.platform?.toLowerCase().includes("instagram")
+                    ? "instagram"
+                    : "",
+            ),
             ...getVpsArgs(),
             "-o",
             audioPath,
@@ -911,7 +1227,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           "✅";
 
         const doneEmbed = new EmbedBuilder()
-          .setColor("#6c5ce7")
+          .setColor(platformColor)
           .setAuthor({
             name: "MaveL Operation Hub",
             iconURL: interaction.client.user.displayAvatarURL(),
@@ -943,6 +1259,43 @@ async function startDownload(interaction, jobId, format, options = {}) {
             iconURL: interaction.client.user.displayAvatarURL(),
           });
 
+        const totalSize =
+          photoPaths.reduce(
+            (acc, p) => acc + (fs.existsSync(p) ? fs.statSync(p).size : 0),
+            0,
+          ) + (fs.existsSync(audioPath) ? fs.statSync(audioPath).size : 0);
+        const limitMB = 25;
+
+        if (totalSize > limitMB * 1024 * 1024) {
+          const publicUrl = getAssetUrl(
+            path.basename(photoPaths[0] || audioPath),
+          );
+          if (publicUrl) {
+            const DIAMOND =
+              interaction.guild?.emojis.cache
+                .find((e) => e.name === "diamond")
+                ?.toString() || "💎";
+            doneEmbed.setDescription(
+              (userMention ? `${userMention}\n\n` : "") +
+                `### ${DIAMOND} **Social Gallery Too Large**\n` +
+                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
+                `${ARROW} **[DOWNLOAD GALLERY ASSETS](${publicUrl})**\n\n` +
+                `*Local storage link expires in 10 minutes.*`,
+            );
+            await interaction.channel.send({ embeds: [doneEmbed] });
+            await cleanupStatus();
+            if (interaction.deleteReply)
+              await interaction.deleteReply().catch(() => {});
+
+            setTimeout(() => {
+              photoPaths.forEach((p) => fs.existsSync(p) && fs.unlinkSync(p));
+              if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
+            }, 600000);
+            return;
+          }
+        }
+
         const finalMsg = await interaction.channel.send({
           embeds: [doneEmbed],
           files: attachments,
@@ -950,12 +1303,10 @@ async function startDownload(interaction, jobId, format, options = {}) {
         await finalMsg.react(CHECK).catch(() => {});
 
         const msg = interaction.message || interaction;
-        if (msg.reactions) await msg.reactions.removeAll().catch(() => {});
         await finalMsg.react(checkEmoji).catch(() => {});
 
         photoPaths.forEach((p) => fs.unlinkSync(p));
         if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
-        await editLocal({ content: "Done." }).catch(() => {});
         if (interaction.deleteReply)
           await interaction.deleteReply().catch(() => {});
         else if (statusMsg && statusMsg.delete)
@@ -964,8 +1315,11 @@ async function startDownload(interaction, jobId, format, options = {}) {
       }
 
       const outputFile =
-        format === "photo" ? `${outputBase}.jpg` : 
-        (format === "mp4" ? `${outputBase}.mp4` : `${outputBase}.mp3`);
+        format === "photo"
+          ? `${outputBase}.jpg`
+          : format === "mp4"
+            ? `${outputBase}.mp4`
+            : `${outputBase}.mp3`;
       const ua =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
       const referer = url.includes("tiktok.com")
@@ -976,36 +1330,33 @@ async function startDownload(interaction, jobId, format, options = {}) {
             ? "https://x.com/"
             : "https://www.google.com/";
 
-      const cleanTitleMatch = (job?.title || options.title || "")
-        .replace(/\[Album\]/g, "")
-        .trim();
+      const cleanTitleMatch = false;
 
       const dlArgs =
         format === "mp4"
           ? [
               "-f",
-              job?.directUrl || url.includes("instagram.com")
+              job?.directUrl
                 ? "best[ext=mp4]/best"
                 : `bv*[height<=${resolution}]+ba/b[height<=${resolution}] / best[height<=${resolution}] / best`,
               "--no-playlist",
-              cleanTitleMatch && !job?.directUrl ? "--match-title" : null,
-              cleanTitleMatch && !job?.directUrl
+              cleanTitleMatch &&
+              !job?.directUrl &&
+              !url.includes("youtube") &&
+              !url.includes("youtu.be")
+                ? "--match-title"
+                : null,
+              cleanTitleMatch &&
+              !job?.directUrl &&
+              !url.includes("youtube") &&
+              !url.includes("youtu.be")
                 ? `(?i)${cleanTitleMatch.split(" - ").pop()}`
                 : null,
               "--newline",
               "--embed-metadata",
               "--embed-thumbnail",
               ...getJsRuntimeArgs(),
-              ...getCookiesArgs(
-                job?.platform?.toLowerCase().includes("twitter") ||
-                  job?.platform?.toLowerCase().includes("x / twitter")
-                  ? "twitter"
-                  : job?.platform?.toLowerCase().includes("facebook")
-                    ? "facebook"
-                    : job?.platform?.toLowerCase().includes("instagram")
-                      ? "instagram"
-                      : "",
-              ),
+              ...getCookiesArgs(),
               ...getVpsArgs(),
               "--user-agent",
               ua,
@@ -1017,9 +1368,12 @@ async function startDownload(interaction, jobId, format, options = {}) {
               "Sec-Fetch-Site:same-origin",
               "--add-header",
               "Sec-Fetch-Dest:document",
+              "--merge-output-format",
+              "mp4",
               "-o",
               outputFile,
-              (url.includes("twitter.com") || url.includes("x.com")) && !job?.directUrl
+              (url.includes("twitter.com") || url.includes("x.com")) &&
+              !job?.directUrl
                 ? url
                 : job?.directUrl || url,
             ].filter(Boolean)
@@ -1030,24 +1384,23 @@ async function startDownload(interaction, jobId, format, options = {}) {
               "--audio-format",
               "mp3",
               "--no-playlist",
-              cleanTitleMatch && !job?.directUrl ? "--match-title" : null,
-              cleanTitleMatch && !job?.directUrl
+              cleanTitleMatch &&
+              !job?.directUrl &&
+              !url.includes("youtube") &&
+              !url.includes("youtu.be")
+                ? "--match-title"
+                : null,
+              cleanTitleMatch &&
+              !job?.directUrl &&
+              !url.includes("youtube") &&
+              !url.includes("youtu.be")
                 ? `(?i)${cleanTitleMatch.split(" - ").pop()}`
                 : null,
               "--newline",
               "--embed-metadata",
               "--embed-thumbnail",
               ...getJsRuntimeArgs(),
-              ...getCookiesArgs(
-                job?.platform?.toLowerCase().includes("twitter") ||
-                  job?.platform?.toLowerCase().includes("x / twitter")
-                  ? "twitter"
-                  : job?.platform?.toLowerCase().includes("facebook")
-                    ? "facebook"
-                    : job?.platform?.toLowerCase().includes("instagram")
-                      ? "instagram"
-                      : "",
-              ),
+              ...getCookiesArgs(),
               ...getVpsArgs(),
               "--user-agent",
               ua,
@@ -1061,7 +1414,8 @@ async function startDownload(interaction, jobId, format, options = {}) {
               "Sec-Fetch-Dest:document",
               "-o",
               outputFile,
-              (url.includes("twitter.com") || url.includes("x.com")) && !job?.directUrl
+              (url.includes("twitter.com") || url.includes("x.com")) &&
+              !job?.directUrl
                 ? url
                 : job?.directUrl || url,
             ].filter(Boolean);
@@ -1075,14 +1429,24 @@ async function startDownload(interaction, jobId, format, options = {}) {
         "twitter",
         "x",
       ];
-      const isSkipPlatform = skipAxiosPlatforms.some((p) =>
-        job?.platform?.toLowerCase().includes(p)
-      ) && job?.hasVideo;
+      const isSkipPlatform =
+        skipAxiosPlatforms.some((p) =>
+          job?.platform?.toLowerCase().includes(p),
+        ) &&
+        job?.hasVideo &&
+        !(job?.platform?.toLowerCase().includes("instagram") && job?.directUrl);
+
+      let stdoutOutput = "";
+      let stderrOutput = "";
 
       const directUrl = job?.directUrl || options.url;
-      if (job?.directUrl && (format === "mp4" || format === "photo") && !isSkipPlatform) {
+      if (
+        job?.directUrl &&
+        (format === "mp4" || format === "photo") &&
+        !isSkipPlatform
+      ) {
         await editLocal({
-          content: `${TIME} **Extracting high-fidelity stream...**`,
+          content: "",
         });
         try {
           const response = await axios({
@@ -1116,15 +1480,15 @@ async function startDownload(interaction, jobId, format, options = {}) {
         }
       } else {
         await editLocal({
-          content: `${TIME} **Engaging advanced media retrieval engine...**`,
+          content: "",
         });
         const downloadProcess = spawn(getYtDlp(), dlArgs, {
           env: getDlpEnv(),
         });
 
-        let stderrOutput = "";
-
-        downloadProcess.stdout.on("data", (data) => {});
+        downloadProcess.stdout.on("data", (data) => {
+          stdoutOutput += data.toString();
+        });
 
         downloadProcess.stderr.on("data", (data) => {
           stderrOutput += data.toString();
@@ -1158,6 +1522,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         }
       }
 
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       let finalFile = outputFile;
       const baseNameMatch = path.basename(outputBase);
       const materializedFile = fs
@@ -1167,6 +1532,11 @@ async function startDownload(interaction, jobId, format, options = {}) {
       if (materializedFile) {
         finalFile = path.join(tempDir, materializedFile);
       } else if (!fs.existsSync(finalFile)) {
+        console.error(
+          `[MATERIALIZATION-FAIL] Base: ${baseNameMatch} File: ${finalFile}`,
+        );
+        console.error(`[STDOUT]: ${stdoutOutput}`);
+        console.error(`[STDERR]: ${stderrOutput}`);
         throw new Error(
           "Target file failed to materialize. The platform may have restricted access from our current network node.",
         );
@@ -1209,7 +1579,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           };
 
           const linkEmbed = new EmbedBuilder()
-            .setColor("#6c5ce7")
+            .setColor(platformColor)
             .setAuthor({
               name: "MaveL Operation Hub",
               iconURL: interaction.client.user.displayAvatarURL(),
@@ -1309,7 +1679,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           .replace(/\s+/g, " ")
           .substring(0, 100) || `media_${jobId || Date.now()}`;
 
-      const finalExt = format === "photo" ? "jpg" : (isAudio ? "mp3" : "mp4");
+      const finalExt = format === "photo" ? "jpg" : isAudio ? "mp3" : "mp4";
       const attachment = new AttachmentBuilder(finalFile, {
         name: `${cleanBase}.${finalExt}`,
       });
@@ -1327,7 +1697,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
       };
 
       const doneEmbed = new EmbedBuilder()
-        .setColor("#6c5ce7")
+        .setColor(platformColor)
         .setAuthor({
           name: "MaveL Operation Hub",
           iconURL: interaction.client.user.displayAvatarURL(),
@@ -1339,7 +1709,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           (userMention ? `${userMention}\n\n` : "") +
             `${LEA} **Content Delivered**\n` +
             `${ARROW} **Resource:** *${title}*\n` +
-            `${ARROW} **Type:** *${job?.isMix ? "Mixed Content" : (job?.isVideo ? "Video/Reel" : (job?.isGallery ? "Gallery" : "Photo"))}*\n` +
+            `${ARROW} **Type:** *${job?.isMix ? "Mixed Content" : job?.isVideo ? "Video/Reel" : job?.isGallery ? "Gallery" : "Photo"}*\n` +
             `${ARROW} **Platform:** *${format === "mp3" ? "Audio (MPEG-3)" : format === "photo" ? "Photo (JPG)" : job?.isGallery ? "Gallery (Batch)" : "Video (MP4)"}*\n` +
             `${ARROW} **Source:** *${job?.platform || options.platform || uploader || "---"}*\n` +
             `${ARROW} **Length:** *${formatDuration(duration)}*\n` +
@@ -1372,14 +1742,13 @@ async function startDownload(interaction, jobId, format, options = {}) {
       }
 
       const msg = interaction.message || interaction;
-      if (msg.reactions) await msg.reactions.removeAll().catch(() => {});
       await finalMsg.react(CHECK).catch(() => {});
 
       const userTag =
         (interaction.user || interaction.author || {}).tag || "Unknown User";
       await sendAdminLog(interaction.client, {
         title: "Download Success",
-        color: 0x6c5ce7,
+        color: parseInt(platformColor.replace("#", ""), 16),
         message: `Delivered.`,
         user: userTag,
         platform: job?.platform || options.platform || "Platform",
@@ -1387,11 +1756,17 @@ async function startDownload(interaction, jobId, format, options = {}) {
         size: sizeMB,
       });
 
-      await editLocal({ content: "Done." }).catch(() => {});
+      if (interaction.client.clearTempStatus)
+        interaction.client.clearTempStatus();
       await cleanupStatus();
       if (fs.existsSync(finalFile)) fs.unlinkSync(finalFile);
     } catch (e) {
-      console.error("[DOWNLOADER-ERROR] Error:", e.message);
+      console.error("[DOWNLOADER-ERROR] Critical Failure:", e);
+      if (e.message.includes("413") || e.message.includes("large")) {
+        console.error(
+          "[DOWNLOADER-ERROR] Detected payload size issue during SEND phase.",
+        );
+      }
       await editLocal({ content: `*Download failed: ${e.message}*` }).catch(
         () => {},
       );
@@ -1399,12 +1774,14 @@ async function startDownload(interaction, jobId, format, options = {}) {
         (interaction.user || interaction.author || {}).tag || "Unknown User";
       await sendAdminLog(interaction.client, {
         title: "Download Failed",
-        color: 0x6c5ce7,
+        color: parseInt(EC.ERROR.replace("#", ""), 16),
         message: e.message,
         user: userTag,
         platform: job?.platform || options.platform || "Platform",
         url: url,
       });
+      if (interaction.client.clearTempStatus)
+        interaction.client.clearTempStatus();
     }
   });
 }

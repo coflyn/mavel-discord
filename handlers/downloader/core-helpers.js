@@ -83,7 +83,7 @@ function createProgressUpdater(target, title) {
 
     const guild = target.guild || target.client?.guilds?.cache.first();
     if (guild && !cachedEmojis) {
-      cachedEmojis = await guild.emojis.fetch().catch(() => null);
+      cachedEmojis = await target.client.getGuildEmojis?.(guild.id) || await guild.emojis.fetch().catch(() => null);
     }
 
     const getEmoji = (name, fallback) => {
@@ -167,7 +167,7 @@ async function sendAdminLog(client, data) {
     if (!channel) return;
 
     const guild = client.guilds.cache.first();
-    const guildEmojis = guild ? await guild.emojis.fetch() : null;
+    const guildEmojis = guild ? (await client.getGuildEmojis?.(guild.id) || await guild.emojis.fetch()) : null;
     const getEmoji = (name, fallback) => {
       const emoji = guildEmojis?.find((e) => e.name === name);
       return emoji ? emoji.toString() : fallback;

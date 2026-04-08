@@ -26,7 +26,7 @@ async function runPixivFlow(target, url, options = {}) {
 
   const getStatusEmbed = (status, details) => {
     return new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#fd79a8")
       .setDescription(
         `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
       );
@@ -132,7 +132,7 @@ async function runPixivFlow(target, url, options = {}) {
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor("#fd79a8")
       .setTitle(`${NOTIF} **Pixiv Metadata Secured**`)
       .setThumbnail(thumbnail)
       .setDescription(
