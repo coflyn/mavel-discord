@@ -31,18 +31,16 @@ async function runPinterestFlow(target, url, options = {}) {
   const ARCHIVE = getEmoji("camera", "📷");
   const NOTIF = getEmoji("notif", "🔔");
 
-  const getStatusEmbed = (status, details) => {
+  const getStatusEmbed = (status, info) => {
     return new EmbedBuilder()
       .setColor("#e17055")
       .setDescription(
-        `### ${ARCHIVE} **${status}**\n${ARROW} **Details:** *${details}*`,
+        `### ${ARCHIVE} **${status}**\n${ARROW} **Info:** *${info}*`,
       );
   };
 
   await editResponse({
-    embeds: [
-      getStatusEmbed("Initiating Siphon", "Scanning Pinterest Pin Metadata..."),
-    ],
+    embeds: [getStatusEmbed("Pinterest", "Getting Pinterest Pin info...")],
   });
 
   try {
@@ -149,7 +147,7 @@ async function runPinterestFlow(target, url, options = {}) {
     }
 
     if (!finalMediaUrl) {
-      throw new Error("Could not extract Pin or media asset.");
+      throw new Error("Could not find Pin or media file.");
     }
 
     const tempDir = path.join(__dirname, "../../temp");
@@ -185,8 +183,8 @@ async function runPinterestFlow(target, url, options = {}) {
     await editResponse({
       embeds: [
         getStatusEmbed(
-          "Siphoning HD Image/GIF",
-          "Downloading Original High-Fidelity Asset...",
+          "Downloading HD Image/GIF",
+          "Downloading Original High Quality File...",
         ),
       ],
     });

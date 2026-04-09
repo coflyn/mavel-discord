@@ -39,8 +39,8 @@ async function runCloudFlow(target, url) {
       ? "GDrive"
       : "MEGA";
   const initialEmbed = getStatusEmbed(
-    `${platform} Storage Hub`,
-    "Secure link check in progress...",
+    `${platform} Cloud Storage`,
+    "Looking for the link...",
   );
 
   if (target.replied || target.deferred) {
@@ -75,7 +75,7 @@ async function runCloudFlow(target, url) {
   };
 
   try {
-    let title = "Resource Hub File";
+    let title = "Cloud File";
     let directUrl = null;
     let jobId = Math.random().toString(36).substring(2, 10);
     let size = "---";
@@ -140,16 +140,16 @@ async function runCloudFlow(target, url) {
 
     const foundEmbed = new EmbedBuilder()
       .setColor("#636e72")
-      .setTitle(`${NOTIF} **Storage Signal Secured**`)
+      .setTitle(`${NOTIF} **File Found**`)
       .setDescription(
-        `### ${CHEST} *Resource Hub Identified*\n` +
-          `${ARROW} **Topic:** *${title}*\n` +
-          `${ARROW} **Node:** *${platform}*\n` +
+        `### ${CHEST} *Link Found*\n` +
+          `${ARROW} **File:** *${title}*\n` +
+          `${ARROW} **Cloud:** *${platform}*\n` +
           `${ARROW} **Size:** *${size}*\n\n` +
-          `*Detected via Cloud Scraper Engine*`,
+          `*Found via MaveL Cloud*`,
       )
       .setFooter({
-        text: "MaveL Cloud Resolver",
+        text: "MaveL Cloud",
         iconURL: target.client.user.displayAvatarURL(),
       });
 
@@ -166,7 +166,7 @@ async function runCloudFlow(target, url) {
     await editResponse({
       embeds: [
         getStatusEmbed(
-          "Cloud Hub Extraction Failed",
+          "Cloud Download Failed",
           e.message || "Access blocked or link dead.",
         ),
       ],

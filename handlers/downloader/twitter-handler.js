@@ -29,18 +29,15 @@ async function runTwitterFlow(target, url, options = {}) {
   const ARROW = getEmoji("arrow", "•");
   const FIRE = getEmoji("purple_fire", "🔥");
 
-  const getStatusEmbed = (status, details) => {
+  const getStatusEmbed = (status, info) => {
     return new EmbedBuilder()
       .setColor("#e17055")
       .setDescription(
-        `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
+        `### ${FIRE} **${status}**\n${ARROW} **Info:** *${info}*`,
       );
   };
 
-  const initialEmbed = getStatusEmbed(
-    "X / Twitter Hub",
-    "Refining signal frequency...",
-  );
+  const initialEmbed = getStatusEmbed("X / Twitter", "Searching for media...");
 
   if (!statusMsg) {
     if (target.replied || target.deferred) {
@@ -312,13 +309,13 @@ async function runTwitterFlow(target, url, options = {}) {
 
     const foundEmbed = new EmbedBuilder()
       .setColor("#e17055")
-      .setTitle(`${NOTIF} **X Signal Captured**`)
+      .setTitle(`${NOTIF} **X Post Found**`)
       .setDescription(
-        `### ${LEA} **Transmission Identified**\n` +
+        `### ${LEA} **Media Found**\n` +
           `${ARROW} **Author:** *${author}*\n` +
           `${ARROW} **Content:** *${title.length > 50 ? title.substring(0, 47) + "..." : title}*\n` +
-          `${ARROW} **Type:** *X ${isVideo ? "Video/GIF" : "Image"}*\n\n` +
-          `*Signal strength optimal. Commencing high-fidelity retrieval.*`,
+          `${ARROW} **Type:** *X Video*\n\n` +
+          `*Everything is ready. Starting the download...*`,
       );
 
     if (thumbnail && thumbnail.startsWith("http")) {

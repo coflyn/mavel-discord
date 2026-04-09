@@ -15,7 +15,7 @@ const path = require("path");
 module.exports = async function cookiesHandler(interaction) {
   if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
     return interaction.reply({
-      content: "*Unauthorized. Administrative override required.*",
+      content: "*Admin permission needed to use this command.*",
       flags: [MessageFlags.Ephemeral],
     });
   }
@@ -36,8 +36,8 @@ module.exports = async function cookiesHandler(interaction) {
     const filePath = path.join(__dirname, "../../cookies.txt");
     const exists = fs.existsSync(filePath);
     let status = exists
-      ? `${STATUS} **Operational**`
-      : `❌ **Registry Missing**`;
+      ? `${STATUS} **Active**`
+      : `❌ **Cookies not found**`;
     let stats = "---";
 
     if (exists) {
@@ -50,55 +50,55 @@ module.exports = async function cookiesHandler(interaction) {
         hour: "2-digit",
         minute: "2-digit",
       });
-      stats = `\`${size} KB\` / *Synchronized at ${mtime}*`;
+      stats = `\`${size} KB\` / *Updated at ${mtime}*`;
     }
 
     return new EmbedBuilder()
       .setColor("#d63031")
       .setAuthor({
-        name: "MaveL System Administration",
+        name: "MaveL Bot Settings",
         iconURL: interaction.client.user.displayAvatarURL(),
       })
-      .setTitle(`${LOCK} **Secure Unified Session Registry**`)
+      .setTitle(`${LOCK} **Cookies & Settings**`)
       .setDescription(
-        `### ${DOCS} **Registry Overview**\n` +
-          `*Centralized authentication dataset for high-fidelity media extraction across the operational matrix.*`,
+        `### ${DOCS} **Status Overview**\n` +
+          `*Settings for accessing restricted content on various platforms like YouTube, Instagram, and TikTok.*`,
       )
       .addFields(
         {
-          name: `${SYNC} **Operational Signal**`,
+          name: `${SYNC} **System Status**`,
           value: `${ARROW} ${status}`,
           inline: true,
         },
         {
-          name: `${NOTIF} **Resource Endpoint**`,
+          name: `${NOTIF} **Download Source**`,
           value: `${ARROW} \`cookies.txt\``,
           inline: true,
         },
         {
-          name: `${DOCS} **Registry Instructions**`,
-          value: `*Login to TikTok, Instagram, Twitter/X, Youtube, SoundCloud and Facebook. Use a 'Cookie Editor' extension to export in **Netscape format**, then merge them here to bypass restricted content.*`,
+          name: `${DOCS} **Help & Instructions**`,
+          value: `*Login to the sites you want, use a 'Cookie Editor' to export in **Netscape format**, then paste them here to download restricted videos.*`,
           inline: false,
         },
         {
-          name: `${ARROW} **Payload Statistics**`,
+          name: `${ARROW} **Cookie File Info**`,
           value: `> ${stats}`,
           inline: false,
         },
       )
       .setFooter({
-        text: "Use the control interface below to manage session datasets.",
+        text: "Use the buttons below to update your settings.",
       });
   };
 
   const rowButtons = new ActionRowBuilder().addComponents(
     new ButtonBuilder()
       .setCustomId("cookies_update_btn")
-      .setLabel("Update Master Dataset")
+      .setLabel("Update Cookies")
       .setStyle(ButtonStyle.Primary),
     new ButtonBuilder()
       .setCustomId("cookies_done")
-      .setLabel("Finalize & Secure")
+      .setLabel("Save & Update")
       .setStyle(ButtonStyle.Success),
   );
 
@@ -118,7 +118,7 @@ module.exports = async function cookiesHandler(interaction) {
     if (i.customId === "cookies_done") {
       await i
         .update({
-          content: "*Master registry synchronized. Session data secured.*",
+          content: "*Cookies saved successfully and system updated.*",
           components: [],
           embeds: [],
         })
@@ -129,7 +129,7 @@ module.exports = async function cookiesHandler(interaction) {
     if (i.customId === "cookies_update_btn") {
       const modal = new ModalBuilder()
         .setCustomId("cookies_modal_master")
-        .setTitle("Update Master Session Archive");
+        .setTitle("Update Cookies");
 
       const cookieInput = new TextInputBuilder()
         .setCustomId("cookie_data")
@@ -218,7 +218,7 @@ module.exports = async function cookiesHandler(interaction) {
 
           await submission
             .editReply({
-              content: `✅ **cookies.txt** *successfully synchronized and merged (${validNewCount} records updated).*`,
+              content: `✅ **cookies.txt** *updated and merged successfully (${validNewCount} cookies added).*`,
             })
             .catch(() => {});
 
@@ -230,7 +230,7 @@ module.exports = async function cookiesHandler(interaction) {
         } catch (err) {
           await submission
             .editReply({
-              content: `❌ **Failed to merge registry:** *${err.message}*`,
+              content: `❌ **Failed to update cookies:** *${err.message}*`,
             })
             .catch(() => {});
         }

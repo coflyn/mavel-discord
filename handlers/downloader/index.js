@@ -74,10 +74,10 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
         name: "MaveL Downloader System",
         iconURL: target.client.user.displayAvatarURL(),
       })
-      .setTitle(`${ANNO} **Supported Platform Engine**`)
+      .setTitle(`${ANNO} **Supported Websites**`)
       .setImage(botBanner)
       .setDescription(
-        `*Universal dataset parser capable of processing visual & audio streams across the web.*`,
+        `*A simple tool to download photos, videos, and music from across the web.*`,
       )
       .addFields(
         {
@@ -91,7 +91,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
           inline: false,
         },
         {
-          name: `${DOTS} **Acoustic & Music**`,
+          name: `${DOTS} **Music**`,
           value: `${ARROW} *YouTube Music, SoundCloud, Spotify, Bandcamp*`,
           inline: false,
         },
@@ -101,7 +101,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
           inline: false,
         },
         {
-          name: `${FIRE} **Archival & Docs**`,
+          name: `${FIRE} **PDF & Documents**`,
           value: `${ARROW} *Scribd, Slideshare*`,
           inline: false,
         },

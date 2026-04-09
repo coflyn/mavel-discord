@@ -26,8 +26,8 @@ async function runThreadsFlow(target, url, options = {}) {
   };
 
   const initialEmbed = getStatusEmbed(
-    "Threads Signal Matrix",
-    "Decoding encrypted feed...",
+    "Threads",
+    "Getting post info...",
   );
 
   if (!statusMsg) {
@@ -101,11 +101,11 @@ async function runThreadsFlow(target, url, options = {}) {
         if (res.data.includes("login_page") || res.data.includes("/login/")) {
           if (i === 0) {
             lastError =
-              "Target localized behind security firewall. Retrying with bot UA.";
+              "Link is protected by security. Retrying...";
             continue;
           }
           throw new Error(
-            "Target localized behind security firewall. Login required.",
+            "Link is protected by security. Login required.",
           );
         }
 
@@ -175,9 +175,9 @@ async function runThreadsFlow(target, url, options = {}) {
     if (!videoUrl && !imageUrl) {
       const errorEmbed = new EmbedBuilder()
         .setColor("#e17055")
-        .setTitle("🔒 Extraction Access Denied")
+        .setTitle("🔒 Download Failed")
         .setDescription(
-          `*Platforms security protocols have blocked unauthorized retrieval: ${lastError || "Signal Lost"}*`,
+          `*Security settings blocked the download: ${lastError || "Connection Lost"}*`,
         );
       await editResponse({ embeds: [errorEmbed] });
       return { jobId: null, statusMsg };
@@ -218,14 +218,14 @@ async function runThreadsFlow(target, url, options = {}) {
 
     const foundEmbed = new EmbedBuilder()
       .setColor("#e17055")
-      .setTitle(`${NOTIF} **Threads Handshake Secured**`)
+      .setTitle(`${NOTIF} **Threads Post Found**`)
       .setThumbnail(imageUrl || "")
       .setDescription(
-        `### ${LEA} **Media Source Retrieved**\n` +
-          `${ARROW} **Resource:** *${displayTitle}*\n` +
-          `${ARROW} **Type:** *${videoUrl ? "Video Stream" : "Static Insight"}*\n` +
+        `### ${LEA} **Media Found**\n` +
+          `${ARROW} **Title:** *${displayTitle}*\n` +
+          `${ARROW} **Type:** *${videoUrl ? "Video" : "Photo"}*\n` +
           `${ARROW} **Author:** *${author || "Threads User"}*\n\n` +
-          `*Signal strength optimal. Initiating retrieval...*`,
+          `*Everything is ready. Starting the download...*`,
       );
 
     const resMsg = await editResponse({ embeds: [foundEmbed] });

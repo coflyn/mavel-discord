@@ -46,8 +46,8 @@ async function runSoundcloudFlow(target, url, options = {}) {
   };
 
   const initialEmbed = getStatusEmbed(
-    "SoundCloud Acoustic Nexus",
-    "Intercepting high-fidelity audio stream...",
+    "SoundCloud Music",
+    "Searching for song...",
   );
 
   if (!statusMsg) {
@@ -127,7 +127,7 @@ async function runSoundcloudFlow(target, url, options = {}) {
 
       if (isPreview) {
         console.log(
-          "[SC-FLOW] Warning: Detected restricted preview stream. Activating Deep Siphon...",
+          "[SC-FLOW] Warning: Restricted song found. Trying again...",
         );
       } else if (mediaUrl) {
         scrapeSuccess = true;
@@ -237,21 +237,21 @@ async function runSoundcloudFlow(target, url, options = {}) {
     const foundEmbed = new EmbedBuilder()
       .setColor(isLocked ? "#fab1a0" : "#00b894")
       .setTitle(
-        `${NOTIF} **${isLocked ? "SoundCloud Premium Restricted" : "SoundCloud Stream Siphoned"}**`,
+        `${NOTIF} **${isLocked ? "SoundCloud Preview Only" : "SoundCloud Song Ready"}**`,
       )
       .setThumbnail(thumbnail)
       .setDescription(
-        `### ${LEA} **${isLocked ? "Acoustic Preview Captured" : "Acoustic Signal Captured"}**\n` +
+        `### ${LEA} **${isLocked ? "Preview Found" : "Song Found"}**\n` +
           `${ARROW} **Title:** *${title}*\n` +
           `${ARROW} **Artist:** *${artist}*\n` +
           `${ARROW} **Plays:** *${stats.plays}*\n` +
           `${ARROW} **Length:** *${stats.duration}*\n\n` +
           (isLocked
             ? `> [!WARNING]\n> This track is strictly restricted by **SoundCloud Go+** (Premium). Only the 30-second preview was accessible from the server.`
-            : `*Signal strength optimal. Proceeding to high-fidelity discharge...*`),
+            : `*Everything is ready. Starting the download...*`),
       )
       .setFooter({
-        text: "MaveL Acoustic Resolver",
+        text: "MaveL Music",
         iconURL: target.client.user.displayAvatarURL(),
       });
 
@@ -262,8 +262,8 @@ async function runSoundcloudFlow(target, url, options = {}) {
     await editResponse({
       embeds: [
         getStatusEmbed(
-          "Signal Lost",
-          e.message || "Could not retrieve audio asset.",
+          "Download Failed",
+          e.message || "Could not retrieve the song.",
         ),
       ],
     });

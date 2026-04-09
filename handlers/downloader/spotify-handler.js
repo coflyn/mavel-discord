@@ -20,7 +20,7 @@ async function runSpotifyFlow(target, url, options = {}) {
             .setDescription(`### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`);
     };
 
-    const initialEmbed = getStatusEmbed("Spotify Meta-Matching", "Synchronizing with YouTube database...");
+    const initialEmbed = getStatusEmbed("Spotify Search", "Looking up track on YouTube...");
 
     if (!statusMsg) {
         if (target.replied || target.deferred) {
@@ -88,17 +88,17 @@ async function runSpotifyFlow(target, url, options = {}) {
 
         const foundEmbed = new EmbedBuilder()
             .setColor("#00b894")
-            .setTitle(`${NOTIF} **Spotify Signal Secured**`)
+            .setTitle(`${NOTIF} **Spotify Link Found**`)
             .setThumbnail(thumbnail)
             .setDescription(
-                `### ${LEA} *Resource Identified*\n` +
+                `### ${LEA} *Link Found*\n` +
                 `${ARROW} **Track:** *${trackName}*\n` +
                 `${ARROW} **Artist:** *${artist}*\n` +
-                `${ARROW} **Type:** *Matched Digital Record*\n\n` +
-                `*Metadata successfully matched for high-fidelity extraction.*`
+                `${ARROW} **Type:** *Song Info*\n\n` +
+                `*Song found and ready to download.*`
             )
             .setFooter({
-                text: "MaveL Spotify Resolver",
+                text: "MaveL Spotify Extractor",
                 iconURL: target.client.user.displayAvatarURL()
             });
 
@@ -108,7 +108,7 @@ async function runSpotifyFlow(target, url, options = {}) {
     } catch (e) {
         console.error("[SPOTIFY-FLOW] Error:", e.message);
         await editResponse({
-            embeds: [getStatusEmbed("Spotify Sync Failed", "Could not fetch metadata from Spotify servers.")]
+            embeds: [getStatusEmbed("Spotify Error", "Could not get info from Spotify servers.")]
         });
     }
 }

@@ -198,12 +198,12 @@ async function handleInfo(interaction) {
 
   const embed = new EmbedBuilder()
     .setColor("#e17055")
-    .setTitle("*Emoji Intelligence Report*")
+    .setTitle("*Emoji List*")
     .setDescription(
-      `${ARROW} *Target ID: \`${emojiId}\`*\n${ARROW} *Type: ${isAnimated ? "Animated" : "Static"}*\n\n[Download High-Res Asset](${finalUrl})`,
+      `${ARROW} *Emoji ID: \`${emojiId}\`*\n${ARROW} *Type: ${isAnimated ? "Animated" : "Static"}*\n\n[Download Emoji](${finalUrl})`,
     )
     .setThumbnail(finalUrl)
-    .setFooter({ text: "MaveL Asset Identifier" });
+    .setFooter({ text: "MaveL Emoji System" });
 
   const res = await (interaction.deferred ? interaction.editReply({
     embeds: [embed],
@@ -247,14 +247,14 @@ async function handleList(interaction) {
     const chunks = list.match(/[\s\S]{1,3900}/g);
     await interaction.reply({
       content:
-        "*Synchronizing asset list (Excessive data detected, splitting logs)...*",
+        "*Loading emoji list (Too many emojis, splitting messages)...*",
       flags: [MessageFlags.Ephemeral],
     });
 
     for (const chunk of chunks) {
       const embed = new EmbedBuilder()
         .setColor("#e17055")
-        .setTitle("*Server Asset Registry*")
+        .setTitle("*Server Emoji List*")
         .setDescription(chunk);
       const res = await interaction.followUp({
         embeds: [embed],
@@ -272,9 +272,9 @@ async function handleList(interaction) {
   } else {
     const embed = new EmbedBuilder()
       .setColor("#e17055")
-      .setTitle("*Server Asset Registry*")
+      .setTitle("*Server Emoji List*")
       .setDescription(list)
-      .setFooter({ text: `Total Assets: ${emojis.size}` });
+      .setFooter({ text: `Total Emojis: ${emojis.size}` });
 
     const sent = await (interaction.deferred ? interaction.editReply({
       embeds: [embed],
@@ -317,7 +317,7 @@ async function handleNeeds(interaction) {
 
   const embed = new EmbedBuilder()
     .setColor("#e17055")
-    .setTitle("*System Emoji Diagnostics*")
+    .setTitle("*MaveL Emojis*")
     .setDescription(
       REQUIRED_EMOJIS.map((req) => {
         const exists = guildEmojis.some((e) => e.name === req.name);
@@ -329,7 +329,7 @@ async function handleNeeds(interaction) {
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("sync_emojis")
-        .setLabel(`Synchronize Assets (${missing.length} missing)`)
+        .setLabel(`Add Missing Emojis (${missing.length})`)
         .setStyle(ButtonStyle.Primary),
     );
 
@@ -344,10 +344,10 @@ async function handleNeeds(interaction) {
   } else {
     return (interaction.deferred ? interaction.editReply({
       embeds: [embed],
-      content: "*All required system assets are currently synchronized.*",
+      content: "*All required emojis are already added and ready.*",
     }) : interaction.reply({
       embeds: [embed],
-      content: "*All required system assets are currently synchronized.*",
+      content: "*All required emojis are already added and ready.*",
       flags: [MessageFlags.Ephemeral],
     }));
   }
@@ -378,7 +378,7 @@ module.exports.syncMissingEmojis = async function (interaction) {
       new EmbedBuilder()
         .setColor("#e17055")
         .setDescription(
-          `### ⏳ **Synthesizing Assets...**\n*Please wait while MaveL retrieves **${missing.length}** sector data units.*`,
+          `### ⏳ **Getting Emojis...**\n*Please wait while MaveL adds the missing emojis.*`,
         ),
     ],
     components: [],
@@ -415,9 +415,9 @@ module.exports.syncMissingEmojis = async function (interaction) {
 
   const embed = new EmbedBuilder()
     .setColor("#e17055")
-    .setTitle("*Asset Synchronization Report*")
+    .setTitle("*Emoji Setup Finished*")
     .setDescription(
-      `### ${successCount > 0 ? PING_GREEN : PING_RED} **Sync Complete**\n*Successfully synthesized **${successCount}** assets.*\n*Failed to retrieve **${failCount}** assets.*`,
+      `### ${successCount > 0 ? PING_GREEN : PING_RED} **Update Complete**\n*Successfully added **${successCount}** emojis.*\n*Failed to get **${failCount}** emojis.*`,
     );
 
   await interaction.editReply({

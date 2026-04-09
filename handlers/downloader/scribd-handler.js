@@ -19,17 +19,17 @@ async function runScribdFlow(target, url, options = {}) {
   const ARCHIVE = getEmoji("camera", "📷");
   const LOADING = getEmoji("loading_pulse", "⚙️");
 
-  const getStatusEmbed = (status, details) => {
+  const getStatusEmbed = (status, info) => {
     return new EmbedBuilder()
       .setColor("#636e72")
       .setDescription(
-        `### ${ARCHIVE} **${status}**\n${ARROW} **Details:** *${details}*`,
+        `### ${ARCHIVE} **${status}**\n${ARROW} **Info:** *${info}*`,
       );
   };
 
   const initialEmbed = getStatusEmbed(
-    "Archival Request Initiated",
-    "Launching HD Browser Engine...",
+    "Processing Scribd Link",
+    "Opening browser...",
   );
 
   if (!statusMsg) {
@@ -64,7 +64,7 @@ async function runScribdFlow(target, url, options = {}) {
     const docIdMatch = url.match(/document\/(\d+)/);
     if (!docIdMatch) throw new Error("Could not extract a valid Document ID.");
     const documentId = docIdMatch[1];
-    const embedUrl = `https://www.scribd.com/embeds/${documentId}/content?start_page=1&view_mode=scroll`;
+    const embedUrl = `https:3www.scribd.com/embeds/${documentId}/content?start_page=1&view_mode=scroll`;
 
     browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
@@ -94,10 +94,7 @@ async function runScribdFlow(target, url, options = {}) {
 
     await editResponse({
       embeds: [
-        getStatusEmbed(
-          "Intercepting Signal",
-          "Decrypting Document Metadata...",
-        ),
+        getStatusEmbed("Getting File Info...", "Getting document info..."),
       ],
     });
 
@@ -141,8 +138,8 @@ async function runScribdFlow(target, url, options = {}) {
     await editResponse({
       embeds: [
         getStatusEmbed(
-          "Archival in Progress",
-          `Capturing ${pageCount} High-Fidelity Pages...`,
+          "Downloading Document",
+          `Getting ${pageCount} High Quality Pages...`,
         ),
       ],
     });
@@ -187,7 +184,7 @@ async function runScribdFlow(target, url, options = {}) {
       url,
       timestamp: Date.now(),
       title: docTitle,
-      stats: { pages: pageCount, type: "HD PDF Archival" },
+      stats: { pages: pageCount, type: "High Quality PDF" },
       thumbnail:
         target.client?.user?.displayAvatarURL() ||
         "https://www.scribd.com/favicon.ico",
@@ -201,13 +198,13 @@ async function runScribdFlow(target, url, options = {}) {
     const LEA = getEmoji("lea", "✅");
     const foundEmbed = new EmbedBuilder()
       .setColor("#636e72")
-      .setTitle(`${ARCHIVE} **Scribd Document Intercepted**`)
+      .setTitle(`${ARCHIVE} **Scribd Document Found**`)
       .setDescription(
-        `### ${LEA} **HD Archival Ready**\n` +
+        `### ${LEA} **File Ready**\n` +
           `${ARROW} **Title:** *${docTitle}*\n` +
-          `${ARROW} **Pages Detected:** *${pageCount}*\n` +
+          `${ARROW} **Total Pages:** *${pageCount}*\n` +
           `${ARROW} **Quality:** *Ultra-HD (2.0x Scaled)*\n\n` +
-          `*Finalizing PDF reconstruction via high-fidelity pipeline...*`,
+          `*Creating your PDF with high quality...*`,
       );
 
     const resMsg = await editResponse({ embeds: [foundEmbed] });
@@ -216,7 +213,7 @@ async function runScribdFlow(target, url, options = {}) {
     if (browser) await browser.close();
     console.error("[SCRIBD-FLOW] Error:", e.message);
     await editResponse({
-      embeds: [getStatusEmbed("Archival Failed", e.message)],
+      embeds: [getStatusEmbed("Download Failed", e.message)],
     }).catch(() => {});
     return null;
   }

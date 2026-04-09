@@ -102,9 +102,9 @@ function createProgressUpdater(target, title) {
     const embed = new EmbedBuilder()
       .setColor("#6c5ce7")
       .setDescription(
-        `### ${FIRE} **Processing active...**\n` +
-          `${ARROW} **Resource:** *${title}*\n` +
-          `${ARROW} **Metrics:** *${speed || "---"}*  •  *${eta || "---"}*\n\n` +
+        `### ${FIRE} **Download in progress...**\n` +
+          `${ARROW} **Title:** *${title}*\n` +
+          `${ARROW} **Speed:** *${speed || "---"}*  •  *${eta || "---"}*\n\n` +
           `**${bar}**  *${percent.toFixed(1)}%*`,
       );
 
@@ -187,37 +187,37 @@ async function sendAdminLog(client, data) {
     const logEmbed = new EmbedBuilder()
       .setColor("#6c5ce7")
       .setAuthor({
-        name: "MaveL System Logger",
+        name: "MaveL Log",
         iconURL: client.user.displayAvatarURL(),
       })
-      .setTitle(`${FIRE} **System Operation Log**`)
+      .setTitle(`${FIRE} **Activity Log**`)
       .setImage(botBanner)
       .setDescription(
-        `### ${ROCKET} **Operation Overview**\n` +
+        `### ${ROCKET} **Summary**\n` +
           `${ARROW} **Status:** \`${data.title || "Log Entry"}\`\n` +
           `${ARROW} **Details:** *${data.message || "No activity reported."}*`,
       )
       .addFields(
         {
-          name: `${LEA} **User Context**`,
-          value: `${ARROW} ${data.user || "System/Auto"}`,
+          name: `${LEA} **User**`,
+          value: `${ARROW} ${data.user || "System"}`,
           inline: true,
         },
         {
-          name: `${ONLINE} **Data Engine**`,
-          value: `${ARROW} ${(data.platform || "Generic").toUpperCase()}`,
+          name: `${ONLINE} **Platform**`,
+          value: `${ARROW} ${(data.platform || "Direct").toUpperCase()}`,
           inline: true,
         },
       )
       .setFooter({
-        text: "MaveL Diagnostics",
+        text: "MaveL Status",
         iconURL: client.user.displayAvatarURL(),
       })
       .setTimestamp();
 
     if (data.url) {
       logEmbed.addFields({
-        name: `${NOTIF} **Resource Link**`,
+        name: `${NOTIF} **Media Link**`,
         value: `[Click to View](${data.url})`,
         inline: false,
       });
@@ -225,7 +225,7 @@ async function sendAdminLog(client, data) {
 
     if (data.size) {
       logEmbed.addFields({
-        name: `${CHEST} **Metadata Size**`,
+        name: `${CHEST} **File Size**`,
         value: `\`${data.size} MB\``,
         inline: true,
       });

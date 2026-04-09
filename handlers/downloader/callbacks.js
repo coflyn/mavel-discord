@@ -82,7 +82,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
   }
 
   const url = job ? job.url : options.url;
-  const title = job ? job.title : options.title || "External Resource";
+  const title = job ? job.title : options.title || "External File";
   const userMention = job?.userId ? `<@${job.userId}>` : "";
 
   const statusContent = `*Queued (${format.toUpperCase()}${format === "mp4" ? ` ${resolution}p` : ""})...*`;
@@ -157,7 +157,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
     return new EmbedBuilder()
       .setColor(platformColor)
       .setDescription(
-        `### ${FIRE} **${status}**\n${ARROW} **Resource:** *${title || "Scanning..."}*\n${ARROW} **Details:** *${details}*`,
+        `### ${FIRE} **${status}**\n${ARROW} **File:** *${title || "Searching..."}*\n${ARROW} **Info:** *${details}*`,
       );
   };
 
@@ -197,14 +197,14 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
     try {
       await editLocal({
-        embeds: [getStatusEmbed("Downloading", "Initializing stream...")],
+        embeds: [getStatusEmbed("Downloading", "Setting up download...")],
       });
 
       const updateProgress = createProgressUpdater(interaction, title);
 
       if (format === "twgallery") {
         const urls = job?.twUrls || job?.imageUrls || job?.allImages || [];
-        if (urls.length === 0) throw new Error("No assets captured.");
+        if (urls.length === 0) throw new Error("No files found.");
 
         const platformName = job?.platform || options.platform || "X / Twitter";
         const progressPrefix = platformName;
@@ -284,10 +284,10 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const doneEmbed = new EmbedBuilder()
           .setColor(platformColor)
           .setAuthor({
-            name: "MaveL Operation Hub",
+            name: "MaveL Downloads",
             iconURL: interaction.client.user.displayAvatarURL(),
           })
-          .setTitle(`${NOTIF} **Media Transfer Success**`)
+          .setTitle(`${NOTIF} **Media Ready!**`)
           .setImage(botBanner);
 
         if (
@@ -301,11 +301,11 @@ async function startDownload(interaction, jobId, format, options = {}) {
         doneEmbed.setDescription(
           (userMention ? `${userMention}\n\n` : "") +
             `${LEA} **Content Delivered**\n` +
-            `${ARROW} **Resource:** *${title}*\n` +
-            `${ARROW} **Platform:** *${shouldBundle ? (isDocumentPlatform ? "Archival PDF" : "Gallery Bundle") : "Direct Assets"}*\n` +
+            `${ARROW} **Title:** *${title}*\n` +
+            `${ARROW} **Platform:** *${shouldBundle ? (isDocumentPlatform ? "PDF File" : "Image Gallery") : "Direct Downloads"}*\n` +
             `${ARROW} **Source:** *${platformName}*\n` +
-            `${ARROW} **Files:** *${urls.length} Images/Assets*\n` +
-            `${ARROW} **Link:** [Source Hub](<${url}>)\n\n` +
+            `${ARROW} **Files:** *${urls.length} Images*\n` +
+            `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
             (() => {
               const s = job?.stats || {};
               const parts = [];
@@ -344,7 +344,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `### ${DIAMOND} **Gallery Bundle Too Large**\n` +
-                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
                 `${ARROW} **[${PING_GREEN} CLICK TO DOWNLOAD BUNDLE](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
@@ -392,7 +392,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             embeds: [
               getStatusEmbed(
                 "Downloading",
-                `Retrieving image ${i + 1} of ${urls.length}...`,
+                `Getting photo ${i + 1} of ${urls.length}...`,
               ),
             ],
           });
@@ -443,20 +443,20 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const doneEmbed = new EmbedBuilder()
           .setColor(platformColor)
           .setAuthor({
-            name: "MaveL Operation Hub",
+            name: "MaveL Downloads",
             iconURL: interaction.client.user.displayAvatarURL(),
           })
-          .setTitle(`${NOTIF} **Media Transfer Success**`)
+          .setTitle(`${NOTIF} **Media Ready!**`)
           .setThumbnail(job?.thumbnail || "")
           .setImage(botBanner)
           .setDescription(
             (userMention ? `${userMention}\n\n` : "") +
               `${LEA} **Content Delivered**\n` +
-              `${ARROW} **Resource:** *${title}*\n` +
+              `${ARROW} **Title:** *${title}*\n` +
               `${ARROW} **Platform:** *TikTok (${shouldBundle ? "PDF Bundle" : "Direct Photos"})*\n` +
               `${ARROW} **Source:** *${job?.platform || options.platform || "TikTok"}*\n` +
               `${ARROW} **Pages:** *${urls.length} Photos*\n` +
-              `${ARROW} **Link:** [Source Hub](<${url}>)\n\n` +
+              `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
               (() => {
                 const s = job?.stats || {};
                 const parts = [];
@@ -494,7 +494,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `### ${DIAMOND} **Gallery Bundle Too Large**\n` +
-                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
                 `${ARROW} **[${PING_GREEN} CLICK TO DOWNLOAD BUNDLE](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
@@ -589,7 +589,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
               const doneEmbed = new EmbedBuilder()
                 .setColor(platformColor)
                 .setAuthor({
-                  name: "MaveL Operation Hub",
+                  name: "MaveL Downloads",
                   iconURL: interaction.client.user.displayAvatarURL(),
                 })
                 .setTitle(`${NOTIF} **Media Link Ready**`)
@@ -598,7 +598,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 .setDescription(
                   (userMention ? `${userMention}\n\n` : "") +
                     `### ${DIAMOND} **File Too Large for Discord**\n` +
-                    `${ARROW} **Resource:** *${title}*\n` +
+                    `${ARROW} **Title:** *${title}*\n` +
                     `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
                     `${ARROW} **[DOWNLOAD HD VIDEO](${publicUrl})**\n\n` +
                     `*Local host link expires in 10 minutes.*`,
@@ -622,20 +622,20 @@ async function startDownload(interaction, jobId, format, options = {}) {
           const doneEmbed = new EmbedBuilder()
             .setColor(platformColor)
             .setAuthor({
-              name: "MaveL Operation Hub",
+              name: "MaveL Downloads",
               iconURL: interaction.client.user.displayAvatarURL(),
             })
-            .setTitle(`${NOTIF} **Media Transfer Success**`)
+            .setTitle(`${NOTIF} **Media Ready!**`)
             .setThumbnail(job?.thumbnail || "")
             .setImage(botBanner)
             .setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `${LEA} **Content Delivered**\n` +
-                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Platform:** *${job?.hasVideo ? "Video Stream" : "Static Image"}*\n` +
                 `${ARROW} **Source:** *${job?.platform || options.platform || "X / Twitter"}*\n` +
                 `${ARROW} **Length:** *${job?.stats?.duration || "---"}*\n` +
-                `${ARROW} **Link:** [Source Hub](<${url}>)\n\n` +
+                `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 (() => {
                   const s = job?.stats || {};
                   const parts = [];
@@ -705,19 +705,19 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const doneEmbed = new EmbedBuilder()
           .setColor(EC.DOCUMENT)
           .setAuthor({
-            name: "MaveL Operation Hub",
+            name: "MaveL Downloads",
             iconURL: interaction.client.user.displayAvatarURL(),
           })
-          .setTitle(`${NOTIF} **Media Transfer Success**`)
+          .setTitle(`${NOTIF} **Media Ready!**`)
           .setImage(botBanner)
           .setDescription(
             (userMention ? `${userMention}\n\n` : "") +
-              `${LEA} **Vault Object Retrieved**\n` +
-              `${ARROW} **Resource:** *${job?.title || options.title || "External Resource"}*\n` +
+              `${LEA} **File Found Successfully**\n` +
+              `${ARROW} **Title:** *${job?.title || options.title || "External File"}*\n` +
               `${ARROW} **Platform:** *Cloud Document*\n` +
               `${ARROW} **Source:** *${platform}*\n` +
               `${ARROW} **Length:** *---*\n` +
-              `${ARROW} **Link:** [Source Hub](<${url}>)`,
+              `${ARROW} **Link:** [Original Link](<${url}>)`,
           )
           .setFooter({
             text: `MaveL Downloader (${formatSize(fs.statSync(outputFile).size)}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
@@ -736,10 +736,10 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 ?.toString() || "💎";
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
-                `### ${DIAMOND} **Cloud Resource Too Large**\n` +
-                `${ARROW} **Resource:** *${title}*\n` +
+                `### ${DIAMOND} **Cloud File Too Large**\n` +
+                `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
-                `${ARROW} **[DOWNLOAD CLOUD ASSET](${publicUrl})**\n\n` +
+                `${ARROW} **[DOWNLOAD FILE](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
             );
             await interaction.channel.send({ embeds: [doneEmbed] });
@@ -805,7 +805,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         await new Promise((r) => spProc.on("close", r));
 
         if (!fs.existsSync(outputFile))
-          throw new Error("Audio signal failed to materialize.");
+          throw new Error("Could not find the song.");
 
         const attachment = new AttachmentBuilder(outputFile, {
           name: `${sanitizedTitle}.mp3`,
@@ -816,20 +816,20 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const doneEmbed = new EmbedBuilder()
           .setColor(EC.MUSIC_DL)
           .setAuthor({
-            name: "MaveL Operation Hub",
+            name: "MaveL Downloads",
             iconURL: interaction.client.user.displayAvatarURL(),
           })
-          .setTitle(`${NOTIF} **Media Transfer Success**`)
+          .setTitle(`${NOTIF} **Media Ready!**`)
           .setThumbnail(job?.thumbnail || "")
           .setImage(botBanner)
           .setDescription(
             (userMention ? `${userMention}\n\n` : "") +
               `${LEA} **Content Delivered**\n` +
-              `${ARROW} **Resource:** *${title}*\n` +
+              `${ARROW} **Title:** *${title}*\n` +
               `${ARROW} **Platform:** *High-Fidelity Audio*\n` +
               `${ARROW} **Source:** *Spotify (Resolved)*\n` +
               `${ARROW} **Length:** *Track*\n` +
-              `${ARROW} **Link:** [Source Hub](<${url}>)`,
+              `${ARROW} **Link:** [Original Link](<${url}>)`,
           )
           .setFooter({
             text: `MaveL Downloader (${formatSize(fs.statSync(outputFile).size)}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
@@ -853,7 +853,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `### ${DIAMOND} **Audio File Too Large**\n` +
-                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
                 `${ARROW} **[${PING_GREEN} DOWNLOAD MUSIC](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
@@ -899,7 +899,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             embeds: [
               getStatusEmbed(
                 "Downloading",
-                `Retrieving page ${i + 1} of ${urls.length}...`,
+                `Getting page ${i + 1} of ${urls.length}...`,
               ),
             ],
           });
@@ -954,20 +954,20 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const doneEmbed = new EmbedBuilder()
           .setColor(EC.ARTWORK)
           .setAuthor({
-            name: "MaveL Operation Hub",
+            name: "MaveL Downloads",
             iconURL: interaction.client.user.displayAvatarURL(),
           })
-          .setTitle(`${NOTIF} **Media Transfer Success**`)
+          .setTitle(`${NOTIF} **Media Ready!**`)
           .setThumbnail(job?.thumbnail || "")
           .setImage(botBanner)
           .setDescription(
             (userMention ? `${userMention}\n\n` : "") +
               `${LEA} **Content Delivered**\n` +
-              `${ARROW} **Resource:** *${title}*\n` +
+              `${ARROW} **Title:** *${title}*\n` +
               `${ARROW} **Platform:** *Pixiv (${shouldBundle ? "PDF Bundle" : "Direct Photos"})*\n` +
               `${ARROW} **Source:** *Pixiv (Archive)*\n` +
               `${ARROW} **Pages:** *${urls.length} Compiled*\n` +
-              `${ARROW} **Link:** [Source Hub](<${url}>)`,
+              `${ARROW} **Link:** [Original Link](<${url}>)`,
           )
           .setFooter({
             text: `MaveL Downloader (Total: ${formatSize(totalSizeSize)}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
@@ -997,7 +997,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `### ${DIAMOND} **Pixiv Gallery Too Large**\n` +
-                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
                 `${ARROW} **[${PING_GREEN} CLICK TO DOWNLOAD BUNDLE](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
@@ -1036,7 +1036,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
         await editLocal({
           embeds: [
-            getStatusEmbed("Downloading", "Retrieving animation stream..."),
+            getStatusEmbed("Downloading", "Getting the video..."),
           ],
         });
         const videoRes = await axios.get(directUrl, {
@@ -1059,14 +1059,14 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const doneEmbed = new EmbedBuilder()
           .setColor(EC.ARTWORK)
           .setAuthor({
-            name: "MaveL Operation Hub",
+            name: "MaveL Downloads",
             iconURL: interaction.client.user.displayAvatarURL(),
           })
-          .setTitle(`${NOTIF} **Media Transfer Success**`)
+          .setTitle(`${NOTIF} **Media Ready!**`)
           .setImage(botBanner)
           .setDescription(
             `${LEA} **Content Delivered**\n` +
-              `${ARROW} **Resource:** *${title}*\n` +
+              `${ARROW} **Title:** *${title}*\n` +
               `${ARROW} **Platform:** *Pixiv Animation*\n` +
               `${ARROW} **Source:** *Pixiv (Ugoira)*\n` +
               `${ARROW} **Length:** *Animated*\n` +
@@ -1090,7 +1090,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `### ${DIAMOND} **Pixiv Animation Too Large**\n` +
-                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
                 `${ARROW} **[DOWNLOAD UGOIRA VIDEO](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
@@ -1229,20 +1229,20 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const doneEmbed = new EmbedBuilder()
           .setColor(platformColor)
           .setAuthor({
-            name: "MaveL Operation Hub",
+            name: "MaveL Downloads",
             iconURL: interaction.client.user.displayAvatarURL(),
           })
-          .setTitle(`${NOTIF} **Media Transfer Success**`)
+          .setTitle(`${NOTIF} **Media Ready!**`)
           .setThumbnail(job?.thumbnail || "")
           .setImage(botBanner)
           .setDescription(
             (userMention ? `${userMention}\n\n` : "") +
               `${LEA} **Content Delivered**\n` +
-              `${ARROW} **Resource:** *${title}*\n` +
+              `${ARROW} **Title:** *${title}*\n` +
               `${ARROW} **Platform:** *Gallery Album*\n` +
               `${ARROW} **Source:** *${uploader || "System"}*\n` +
               `${ARROW} **Length:** *---*\n` +
-              `${ARROW} **Link:** [Source Hub](<${url}>)\n\n` +
+              `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
               (() => {
                 const parts = [];
                 const l = formatNumber(likes || 0);
@@ -1278,7 +1278,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `### ${DIAMOND} **Social Gallery Too Large**\n` +
-                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
                 `${ARROW} **[DOWNLOAD GALLERY ASSETS](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
@@ -1538,7 +1538,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         console.error(`[STDOUT]: ${stdoutOutput}`);
         console.error(`[STDERR]: ${stderrOutput}`);
         throw new Error(
-          "Target file failed to materialize. The platform may have restricted access from our current network node.",
+          "Could not download the file. The website might be blocking us right now. Try again later!",
         );
       }
 
@@ -1581,7 +1581,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           const linkEmbed = new EmbedBuilder()
             .setColor(platformColor)
             .setAuthor({
-              name: "MaveL Operation Hub",
+              name: "MaveL Downloads",
               iconURL: interaction.client.user.displayAvatarURL(),
             })
             .setTitle(`${NOTIF} **Media Link Ready**`)
@@ -1590,11 +1590,11 @@ async function startDownload(interaction, jobId, format, options = {}) {
             .setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `### ${DIAMOND} **File Too Large for Discord**\n` +
-                `${ARROW} **Resource:** *${title}*\n` +
+                `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Size:** *${sizeMB}*\n` +
                 `${ARROW} **Source:** *${job?.platform || options.platform || uploader || "---"}*\n` +
                 `${ARROW} **Length:** *${formatDuration(duration)}*\n` +
-                `${ARROW} **Link:** [Source Hub](<${url}>)\n\n` +
+                `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 `${ARROW} **[DOWNLOAD HD VIDEO](${publicUrl})**\n\n` +
                 `*Click the link above to download directly from local host. Link expires in **10 minutes**.*\n\n` +
                 (() => {
@@ -1625,7 +1625,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
           return;
         }
-        throw new Error(`Exceeds ${limitMB}MB (${sizeMB}).`);
+        throw new Error(`File is too large (over ${limitMB}MB).`);
       }
 
       const { likes, comments, shares, views, duration, uploader } =
@@ -1650,9 +1650,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
             .trim(),
           artist: (uploader && uploader !== job?.platform
             ? uploader
-            : job?.platform || "MaveL Engine"
+            : job?.platform || "MaveL"
           ).split(" (")[0],
-          album: job?.platform || "MaveL Archive",
+          album: "MaveL Downloads",
         };
 
         if (job?.thumbnail) {
@@ -1664,7 +1664,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             tags.image = {
               mime: "image/jpeg",
               type: { id: 3, name: "front cover" },
-              description: "MaveL Metadata",
+              description: "MaveL Info",
               imageBuffer: Buffer.from(thumbRes.data),
             };
           } catch (e) {}
@@ -1699,21 +1699,21 @@ async function startDownload(interaction, jobId, format, options = {}) {
       const doneEmbed = new EmbedBuilder()
         .setColor(platformColor)
         .setAuthor({
-          name: "MaveL Operation Hub",
+          name: "MaveL Downloads",
           iconURL: interaction.client.user.displayAvatarURL(),
         })
-        .setTitle(`${NOTIF} **Media Transfer Success**`)
+        .setTitle(`${NOTIF} **Media Ready!**`)
         .setThumbnail(job?.thumbnail || "")
         .setImage(botBanner)
         .setDescription(
           (userMention ? `${userMention}\n\n` : "") +
             `${LEA} **Content Delivered**\n` +
-            `${ARROW} **Resource:** *${title}*\n` +
+            `${ARROW} **Title:** *${title}*\n` +
             `${ARROW} **Type:** *${job?.isMix ? "Mixed Content" : job?.isVideo ? "Video/Reel" : job?.isGallery ? "Gallery" : "Photo"}*\n` +
             `${ARROW} **Platform:** *${format === "mp3" ? "Audio (MPEG-3)" : format === "photo" ? "Photo (JPG)" : job?.isGallery ? "Gallery (Batch)" : "Video (MP4)"}*\n` +
             `${ARROW} **Source:** *${job?.platform || options.platform || uploader || "---"}*\n` +
             `${ARROW} **Length:** *${formatDuration(duration)}*\n` +
-            `${ARROW} **Link:** [Source Hub](<${url}>)\n\n` +
+            `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
             (() => {
               const parts = [];
               const l = formatNumber(likes || 0);

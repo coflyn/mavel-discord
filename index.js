@@ -53,6 +53,7 @@ const setupHandler = require("./handlers/tools/setup");
 const diagnosticsHandler = require("./handlers/tools/diagnostics");
 const cookiesHandler = require("./handlers/tools/cookies");
 const adminCmdsHandler = require("./handlers/tools/admin-cmds");
+const harvestHandler = require("./handlers/tools/harvest");
 const { startTunnel, resetTunnel } = require("./utils/tunnel-server");
 
 const logPath = path.join(__dirname, "bot.log");
@@ -120,17 +121,17 @@ client.once("ready", async () => {
   const cookieCheck = checkCookiesStatus();
   if (config.logsChannelId) {
     await sendAdminLog(client, {
-      title: "MaveL System Status",
+      title: "MaveL Status",
       color: cookieCheck.color,
-      message: `*Engine updated. Cookies Status: ${cookieCheck.status}${cookieCheck.exists ? ` (${cookieCheck.daysOld} days old)` : ""}.*`,
+      message: `*System updated. Cookies: ${cookieCheck.status}${cookieCheck.exists ? ` (${cookieCheck.daysOld} days old)` : ""}.*`,
     });
   }
 
   const activities = [
-    { name: "Operational assets", type: 3 },
-    { name: "Pulse Monitor", type: 0 },
-    { name: "Synchronized bases", type: 3 },
-    { name: "Personnel analytics", type: 3 },
+    { name: "Music & Downloads", type: 3 },
+    { name: "Your requests", type: 3 },
+    { name: "Connected servers", type: 3 },
+    { name: "Active users", type: 3 },
     { name: "/help | @MaveL", type: 3 },
   ];
   let i = 0;
@@ -139,12 +140,12 @@ client.once("ready", async () => {
     const activity = activities[i % activities.length];
     let name = activity.name;
 
-    if (name === "personnel analytics") {
+    if (name === "Active users") {
       const users = client.users.cache.size || 0;
-      name = `${users} personnel analytics`;
-    } else if (name === "synchronized bases") {
+      name = `${users} users`;
+    } else if (name === "Connected servers") {
       const guilds = client.guilds.cache.size || 0;
-      name = `${guilds} synchronized bases`;
+      name = `${guilds} servers`;
     }
 
     client.user.setActivity(name, { type: activity.type });
@@ -193,17 +194,17 @@ client.on("guildCreate", async (guild) => {
 
     const welcomeEmbed = new EmbedBuilder()
       .setColor("#6c5ce7")
-      .setTitle(`${ANNO} **Operational Matrix Initialized**`)
+      .setTitle(`${ANNO} **MaveL is Ready!**`)
       .setImage(botBanner)
       .setDescription(
-        `### ${LINK} **MaveL Hub Induction Successful**\n` +
-          `*Connection link with sector **${guild.name}** has been established. To complete the operational integration, please execute the required protocols below:*\n\n` +
-          `${ARROW} **Step 1:** Run **\`/emoji needs\`** to synchronize visual assets.\n` +
-          `${ARROW} **Step 2:** Run **\`/setup\`** to activate the operational core.\n` +
-          `${ARROW} **Step 3:** Run **\`/cookies\`** to synchronize authentication datasets.\n\n` +
-          `*Status: Waiting for administrative authorization...*`,
+        `### ${LINK} **Successfully Joined!**\n` +
+          `*MaveL is now connected to **${guild.name}**. To start using all features, please follow these steps:*\n\n` +
+          `${ARROW} **Step 1:** Run **\`/emoji needs\`** to sync custom emojis.\n` +
+          `${ARROW} **Step 2:** Run **\`/setup\`** to configure the bot.\n` +
+          `${ARROW} **Step 3:** Run **\`/cookies\`** to enable premium downloads.\n\n` +
+          `*Status: Waiting for Admin setup...*`,
       )
-      .setFooter({ text: "MaveL Deployment System" })
+      .setFooter({ text: "MaveL System" })
       .setTimestamp();
 
     const channel =
@@ -221,15 +222,15 @@ client.on("guildCreate", async (guild) => {
     client.guilds.cache.forEach((oldGuild) => {
       if (oldGuild.id !== guild.id) {
         console.log(
-          `[SYSTEM] New hub detected. Scheduling decommissioning of sector ${oldGuild.name} in 60s.`,
+          `[SYSTEM] New server detected. Leaving old server ${oldGuild.name} in 60s.`,
         );
         setTimeout(async () => {
           try {
             await oldGuild.leave();
-            console.log(`[SYSTEM] Decommissioned sector ${oldGuild.name}.`);
+            console.log(`[SYSTEM] Left server ${oldGuild.name}.`);
           } catch (e) {
             console.error(
-              `[SYSTEM] Failed to leave sector ${oldGuild.name}:`,
+              `[ERROR] Failed to leave server ${oldGuild.name}:`,
               e.message,
             );
           }
@@ -261,7 +262,7 @@ client.on("voiceStateUpdate", (oldState, newState) => {
         if (recheck && recheck.members.filter((m) => !m.user.bot).size === 0) {
           player.stop(guildId);
         }
-      }, 60000);
+      }, 2000);
     }
   } else if (state.aloneTimer) {
     clearTimeout(state.aloneTimer);
@@ -295,10 +296,6 @@ client.on("messageCreate", async (message) => {
   }
 
   if (!isAllowed && !isMusicChannel) return;
-
-  if (isMusicChannel && !message.content.startsWith(config.prefix)) {
-    return await musicHandler(message).catch(() => {});
-  }
 
   if (message.content.match(/https?:\/\/[^\s]+/)) {
     try {
@@ -397,6 +394,41 @@ client.on("interactionCreate", async (interaction) => {
     const { commandName } = interaction;
     const userId = interaction.user.id;
 
+    if (!interaction.guild) {
+      let inviteUrl = "https://discord.com";
+      try {
+        const homeGuild = interaction.client.guilds.cache.get(config.guildId);
+        if (homeGuild) {
+          const channel = homeGuild.channels.cache.find(
+            (c) =>
+              c.type === 0 &&
+              c.permissionsFor(homeGuild.members.me).has("CreateInstantInvite"),
+          );
+          if (channel) {
+            const invite = await channel.createInvite({ maxAge: 0 });
+            inviteUrl = invite.url;
+          }
+        }
+      } catch (e) {
+        console.error("[DM-INVITE] Error:", e.message);
+      }
+
+      const dmEmbed = new EmbedBuilder()
+        .setColor("#ff4757")
+        .setTitle("⚠️ Not Available in DMs")
+        .setDescription(
+          "### **Access Denied**\n" +
+            "> *Sorry, my features only work inside a Discord Server. You cannot use commands in Direct Messages.*",
+        )
+        .addFields({
+          name: "🔗 **Join Our Server**",
+          value: `[Click here to join the Main Hub](${inviteUrl})`,
+        })
+        .setFooter({ text: "Please use MaveL inside a Server" });
+
+      return await interaction.reply({ embeds: [dmEmbed], flags: [64] });
+    }
+
     if (
       !interaction.member?.permissions.has(PermissionFlagsBits.Administrator)
     ) {
@@ -463,6 +495,7 @@ client.on("interactionCreate", async (interaction) => {
       "scan",
       "logs",
       "cookies",
+      "harvest",
     ].includes(commandName);
 
     const settings = fs.existsSync(settingsPath)
@@ -474,7 +507,7 @@ client.on("interactionCreate", async (interaction) => {
 
     if (settings.isHibernating && !isAdmin && commandName !== "wakeup") {
       return interaction.reply({
-        content: "*Operational Matrix Suspend. System in hibernation Mode.*",
+        content: "*System is currently in Sleep Mode. Only admins can use it.*",
         flags: [MessageFlags.Ephemeral],
       });
     }
@@ -498,7 +531,7 @@ client.on("interactionCreate", async (interaction) => {
       !interaction.member.permissions.has(PermissionFlagsBits.Administrator)
     ) {
       return interaction.reply({
-        content: "*Unauthorized. Administrative override required.*",
+        content: "*Admin permission needed to use this command.*",
         flags: [MessageFlags.Ephemeral],
       });
     }
@@ -585,6 +618,9 @@ client.on("interactionCreate", async (interaction) => {
     if (commandName === "search") {
       return await searchHandler(interaction);
     }
+    if (commandName === "harvest") {
+      return await harvestHandler(interaction);
+    }
 
     if (commandName === "ping") {
       const guildEmojis = await interaction.guild.emojis.fetch();
@@ -624,7 +660,7 @@ client.on("interactionCreate", async (interaction) => {
           .find((e) => e.name === "blue_arrow_right")
           ?.toString() || "⏭️";
       await interaction.reply({
-        content: `### ${E_NEXT} **Track bypassed. Advancing.**`,
+        content: `### ${E_NEXT} **Song skipped. Moving to next.**`,
         flags: [64],
       });
       setTimeout(
@@ -641,7 +677,7 @@ client.on("interactionCreate", async (interaction) => {
           .find((e) => e.name === "ping_red")
           ?.toString() || "⏹️";
       await interaction.reply({
-        content: `### ${E_STOP} **Operation decommissioned.**`,
+        content: `### ${E_STOP} **Bot stopped.**`,
         flags: [64],
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
@@ -655,7 +691,7 @@ client.on("interactionCreate", async (interaction) => {
           .find((e) => e.name === "time")
           ?.toString() || "⏸️";
       await interaction.reply({
-        content: `### ${E_PAUSE} **Stream Suspension Active.**`,
+        content: `### ${E_PAUSE} **Music Paused.**`,
         flags: [64],
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
@@ -669,7 +705,7 @@ client.on("interactionCreate", async (interaction) => {
           .find((e) => e.name === "time")
           ?.toString() || "▶️";
       await interaction.reply({
-        content: `### ${E_RESUME} **Transmission Resumed.**`,
+        content: `### ${E_RESUME} **Music Resumed.**`,
         flags: [64],
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
@@ -710,7 +746,7 @@ client.on("interactionCreate", async (interaction) => {
         const emptyEmbed = new EmbedBuilder()
           .setColor("#a29bfe")
           .setDescription(
-            `### ${E_FIRE} **Queue: Offline**\n> *No targets currently in registry.*`,
+            `### ${E_FIRE} **Queue: Empty**\n> *No songs found in the queue.*`,
           );
 
         await interaction.reply({
@@ -727,9 +763,7 @@ client.on("interactionCreate", async (interaction) => {
           name: "MaveL Operation Queue",
           iconURL: client.user.displayAvatarURL(),
         })
-        .setDescription(
-          `### ${E_ANNO} **Synchronized Targets**\n` + list.join("\n"),
-        )
+        .setDescription(`### ${E_ANNO} **Track List**\n` + list.join("\n"))
         .setFooter({ text: `Hub | Pending Operations: ${list.length}` });
 
       await interaction.reply({
@@ -777,7 +811,7 @@ client.on("interactionCreate", async (interaction) => {
       }
 
       await interaction.reply({
-        content: `### ${E_REPEAT} **Repeat Protocol: ${mode.toUpperCase()}**`,
+        content: `### ${E_REPEAT} **Repeat Mode: ${mode.toUpperCase()}**`,
         flags: [64],
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
@@ -791,7 +825,7 @@ client.on("interactionCreate", async (interaction) => {
           .find((e) => e.name === "lea")
           ?.toString() || "🗑️";
       await interaction.reply({
-        content: `### ${E_CLEAR} **Registry wiped. Queue Offline.**`,
+        content: `### ${E_CLEAR} **Queue Cleared.**`,
         flags: [64],
       });
       setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
@@ -1105,18 +1139,18 @@ client.on("interactionCreate", async (interaction) => {
 
       const moveEmbed = new EmbedBuilder()
         .setColor("#d63031")
-        .setTitle("*Endpoint Migration Protocol*")
+        .setTitle("*Invite MaveL to another Server*")
         .setImage(botBanner)
         .setDescription(
-          `### ${LINK} **Bot Induction Protocol Initialized**\n` +
-            `*To synchronize the MaveL Hub with a new server endpoint, utilize the induction link below. This will deploy the operational matrix across a different server environment.*\n\n` +
-            `${PC} [Induct MaveL Hub to another server](${inviteUrl})\n\n` +
-            `**Post-Arrival Checklist:**\n` +
-            `${ARROW} *Run **\`/emoji needs\`** to sync visual assets.*\n` +
-            `${ARROW} *Run **\`/setup\`** to activate the operational system.*\n` +
-            `${ARROW} *Run **\`/cookies\`** to synchronize authentication datasets.*`,
+          `### ${LINK} **Connection Success**\n` +
+            `*To add MaveL to a different server, use the invite link below. This will allow you to use all downloader and music features in that server.*\n\n` +
+            `${PC} [Add MaveL to another server](${inviteUrl})\n\n` +
+            `**Setup Checklist:**\n` +
+            `${ARROW} *Run **\`/emoji needs\`** to sync custom emojis.*\n` +
+            `${ARROW} *Run **\`/setup\`** to get everything ready.*\n` +
+            `${ARROW} *Run **\`/cookies\`** for premium downloads.*`,
         )
-        .setFooter({ text: "MaveL Deployment Module" });
+        .setFooter({ text: "MaveL System" });
 
       await interaction.reply({
         embeds: [moveEmbed],
@@ -1197,7 +1231,7 @@ client.on("interactionCreate", async (interaction) => {
       const url = cached?.url || interaction.values[0];
       const title = cached?.title
         ? `${cached.uploader ? cached.uploader + " - " : ""}${cached.title}`
-        : "Resource";
+        : "Title";
       const subcommand = interaction.customId.split("_").pop();
       const type = ["ytm", "bc", "spot"].includes(subcommand) ? "mp3" : "mp4";
 
@@ -1219,6 +1253,23 @@ client.on("interactionCreate", async (interaction) => {
     if (interaction.customId === "music_control_hub") {
       const value = interaction.values[0];
       const guildId = interaction.guild.id;
+      const user = interaction.user;
+
+      const notifyControl = async (action) => {
+        const state = player.queues.get(guildId);
+        if (state?.current && state.current.requestedBy === user.id) return;
+
+        const E_WARN =
+          interaction.guild.emojis.cache
+            .find((e) => e.name === "ping_red")
+            ?.toString() || "🔴";
+        const msg = await interaction.channel
+          .send({
+            content: `${E_WARN} **[STREAM CONTROL]** ${user} has modified the playback: **[${action.toUpperCase()}]**`,
+          })
+          .catch(() => null);
+        if (msg) setTimeout(() => msg.delete().catch(() => {}), 10000);
+      };
 
       if (value === "lyrics") {
         await interaction
@@ -1240,7 +1291,7 @@ client.on("interactionCreate", async (interaction) => {
 
         if (!lyrics || lyrics.includes("Could not find lyrics")) {
           return await interaction.webhook.editMessage(statusMsg.id, {
-            content: `### 📋 **Lyrics Retrieval: Failed**\n> *No intelligence found for track: \`${query}\`*`,
+            content: `### 📋 **Lyrics Search: Failed**\n> *No lyrics found for track: \`${query}\`*`,
           });
         }
 
@@ -1273,8 +1324,13 @@ client.on("interactionCreate", async (interaction) => {
         const state = player.queues.get(guildId);
         if (!state) return;
         const isPaused = state.player.state.status === "paused";
-        if (isPaused) player.resume(guildId);
-        else player.pause(guildId);
+        if (isPaused) {
+          await notifyControl("Resume");
+          player.resume(guildId);
+        } else {
+          await notifyControl("Pause");
+          player.pause(guildId);
+        }
 
         return await interaction
           .update({
@@ -1293,12 +1349,16 @@ client.on("interactionCreate", async (interaction) => {
           guildEmojis.find((e) => e.name === "diamond")?.toString() || "🔀";
 
         if (state.queue.length === 0) {
-          return await interaction.reply({
-            content: `### ${E_SHUFFLE} **Shuffle: Engagement Denied**\n> *No upcoming targets detected in the registry.*`,
+          const deniedMsg = await interaction.reply({
+            content: `### ${E_SHUFFLE} **Shuffle: Queue is empty**\n> *No more songs found in the queue.*`,
             flags: [64],
+            fetchReply: true,
           });
+          setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
+          return;
         }
         const newMode = state.shuffle ? "off" : "on";
+        await notifyControl(`Shuffle ${newMode.toUpperCase()}`);
         player.toggleShuffle(guildId, newMode);
 
         await interaction
@@ -1307,10 +1367,11 @@ client.on("interactionCreate", async (interaction) => {
             components: [player.getPlaybackComponents(guildId)],
           })
           .catch(() => {});
-        return await interaction.followUp({
+        const shuffleMsg = await interaction.followUp({
           content: `### ${E_SHUFFLE} **Shuffle: ${newMode.toUpperCase()}**`,
           flags: [64],
         });
+        setTimeout(() => shuffleMsg.delete().catch(() => {}), 5000);
       }
 
       if (value === "repeat") {
@@ -1323,6 +1384,7 @@ client.on("interactionCreate", async (interaction) => {
 
         const cycle = { off: "one", one: "all", all: "off" };
         const nextMode = cycle[state.repeatMode || "off"];
+        await notifyControl(`Repeat ${nextMode.toUpperCase()}`);
         player.setRepeat(guildId, nextMode);
 
         await interaction
@@ -1331,10 +1393,11 @@ client.on("interactionCreate", async (interaction) => {
             components: [player.getPlaybackComponents(guildId)],
           })
           .catch(() => {});
-        return await interaction.followUp({
+        const repeatMsg = await interaction.followUp({
           content: `### ${E_REPEAT} **Repeat: ${nextMode.toUpperCase()}**`,
           flags: [64],
         });
+        setTimeout(() => repeatMsg.delete().catch(() => {}), 5000);
       }
 
       if (value === "queue") {
@@ -1354,19 +1417,23 @@ client.on("interactionCreate", async (interaction) => {
           list.join("\n").length > 1900
             ? list.slice(0, 15).join("\n") + "\n*...and more*"
             : list.join("\n");
-        await interaction.reply({
+        const queueReply = await interaction.reply({
           content: `### ${E_ANNO} **Upcoming Queue**\n${text}`,
           flags: [64],
         });
+        setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
         return;
       }
 
       if (value === "clear") {
+        await notifyControl("Clear Queue");
         player.clear(guildId);
-        return await interaction.reply({
-          content: "*Registry wiped. Queue is now clear.*",
+        await interaction.reply({
+          content: "*Queue is now clear.*",
           flags: [64],
         });
+        setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
+        return;
       }
 
       if (value === "skip") {
@@ -1377,30 +1444,37 @@ client.on("interactionCreate", async (interaction) => {
           "⏭️";
 
         if (state && state.queue.length === 0 && state.repeatMode === "off") {
-          return await interaction.reply({
-            content: `### ${E_NEXT} **Manual Bypass: Denied**\n> *No secondary target found in queue.*`,
+          const skipDenied = await interaction.reply({
+            content: `### ${E_NEXT} **Skip Request: Denied**\n> *No more songs in the queue.*`,
             flags: [64],
+            fetchReply: true,
           });
+          setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
+          return;
         }
+        await notifyControl("Skip");
         player.skip(guildId);
         await interaction.update({ components: [] }).catch(() => {});
-        return await interaction.followUp({
-          content: `### ${E_NEXT} **Target bypassed. Advancing to next track.**`,
+        const skipMsg = await interaction.followUp({
+          content: `### ${E_NEXT} **Song skipped. Moving to next track.**`,
           flags: [64],
         });
+        setTimeout(() => skipMsg.delete().catch(() => {}), 5000);
       }
 
       if (value === "stop") {
+        await notifyControl("Stop");
         player.stop(guildId);
         const guildEmojis = await interaction.guild.emojis.fetch();
         const E_STOP =
           guildEmojis.find((e) => e.name === "ping_red")?.toString() || "⏹️";
 
         await interaction.update({ components: [] }).catch(() => {});
-        return await interaction.followUp({
-          content: `### ${E_STOP} **Operation decommissioned. Disconnecting.**`,
+        const stopMsg = await interaction.followUp({
+          content: `### ${E_STOP} **Bot stopped. Disconnecting.**`,
           flags: [64],
         });
+        setTimeout(() => stopMsg.delete().catch(() => {}), 5000);
       }
     }
 

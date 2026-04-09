@@ -40,35 +40,35 @@ module.exports = async function diagnosticsHandler(interaction) {
   const embed = new EmbedBuilder()
     .setColor("#d63031")
     .setAuthor({
-      name: "MaveL System Diagnostics",
+      name: "MaveL Status",
       iconURL: interaction.client.user.displayAvatarURL(),
     })
-    .setTitle(`${AMOGUS} **Pulse Analysis Report**`)
-    .setDescription(`*Real-time heartbeat monitor for the MaveL core engine.*`)
+    .setTitle(`${AMOGUS} **How am I doing?**`)
+    .setDescription(`*Checking on my health and performance.*`)
     .addFields(
       {
-        name: `${ROCKET} **Operation Uptime**`,
+        name: `${ROCKET} **Online for**`,
         value: `${ARROW} \`${uptimeStr}\``,
         inline: false,
       },
       {
-        name: `${DIAMOND} **Engine Vitality**`,
+        name: `${DIAMOND} **Memory Usage**`,
         value: `${ARROW} \`${memoryUsage.toFixed(2)} MB\` *Usage*\n${ARROW} \`${totalMemory.toFixed(1)} GB\` *Capacity*`,
         inline: false,
       },
       {
-        name: `${PC} **Architecture**`,
-        value: `${ARROW} \`${platform.toUpperCase()}\` *OS*\n${ARROW} \`${nodeVersion}\` *Node*\n${ARROW} \`v${djsVersion}\` *D.js*`,
+        name: `${PC} **System Info**`,
+        value: `${ARROW} \`${platform.toUpperCase()}\` *OS*\n${ARROW} \`${nodeVersion}\` *Node.js*\n${ARROW} \`v${djsVersion}\` *Library*`,
         inline: false,
       },
       {
-        name: `${CAMERA} **Targeting System**`,
-        value: `${ARROW} \`${interaction.client.guilds.cache.size}\` *Active Bases*\n${ARROW} \`${interaction.client.users.cache.size}\` *Identified Personnel*`,
+        name: `${CAMERA} **Who's using MaveL?**`,
+        value: `${ARROW} \`${interaction.client.guilds.cache.size}\` *Servers*\n${ARROW} \`${interaction.client.users.cache.size}\` *Users*`,
         inline: false,
       },
     )
     .setFooter({
-      text: "MaveL Diagnostics Hub",
+      text: "MaveL",
       iconURL: interaction.client.user.displayAvatarURL(),
     })
     .setTimestamp();

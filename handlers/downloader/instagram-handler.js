@@ -23,17 +23,17 @@ async function runInstagramFlow(target, url, options = {}) {
   const ARROW = getEmoji("arrow", "•");
   const FIRE = getEmoji("purple_fire", "🔥");
 
-  const getStatusEmbed = (status, details) => {
+  const getStatusEmbed = (status, info) => {
     return new EmbedBuilder()
       .setColor("#e17055")
       .setDescription(
-        `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
+        `### ${FIRE} **${status}**\n${ARROW} **Info:** *${info}*`,
       );
   };
 
   const initialEmbed = getStatusEmbed(
-    "Instagram Signal Locked",
-    "Bypassing Meta encryption...",
+    "Instagram Link Found",
+    "Getting post info...",
   );
 
   if (!statusMsg) {
@@ -229,10 +229,7 @@ async function runInstagramFlow(target, url, options = {}) {
       } catch (e) {
         await editResponse({
           embeds: [
-            getStatusEmbed(
-              "Instagram Signal Lost",
-              "Engaging HD Browser Engine for deep extraction...",
-            ),
+            getStatusEmbed("Instagram Link Lost", "Starting the download..."),
           ],
         });
 
@@ -394,7 +391,7 @@ async function runInstagramFlow(target, url, options = {}) {
               isVideo = true;
               mediaUrl = pageData.video || pageData.allVideos[0] || mediaUrl;
               discoveryPath += pageData.placeholder
-                ? " + Browser (Placeholder Bypass)"
+                ? " + Browser (Slow Mode)"
                 : " + Browser (Deep Scan)";
             } else if (
               pageData.video &&
@@ -407,7 +404,7 @@ async function runInstagramFlow(target, url, options = {}) {
             } else {
               isVideo = false;
               mediaUrl = pageData.image || pageData.allImages[0];
-              discoveryPath += " + Browser (Visual Extraction)";
+              discoveryPath += " + Browser (Scan)";
             }
 
             if (!isVideo) {
@@ -432,7 +429,7 @@ async function runInstagramFlow(target, url, options = {}) {
       await editResponse({
         embeds: [
           getStatusEmbed(
-            "Extraction Failed",
+            "Download Failed",
             "Could not capture media resources from this link. Platform may be restricted or content is private.",
           ),
         ],
@@ -481,18 +478,18 @@ async function runInstagramFlow(target, url, options = {}) {
 
     const foundEmbed = new EmbedBuilder()
       .setColor("#e17055")
-      .setTitle(`${NOTIF} **IG Frequency Identified**`)
+      .setTitle(`${NOTIF} **Instagram Post Found**`)
       .setDescription(
-        `### ${LEA} **Asset Decrypted**\n` +
+        `### ${LEA} **Post Found**\n` +
           `${ARROW} **Author:** *${author}*\n` +
-          `${ARROW} **Type:** *Instagram ${isMix ? "Mixed Assets" : isVideo ? "Video/Reel" : allImages.length > 1 ? `Gallery (${allImages.length})` : "Photo"}*\n` +
+          `${ARROW} **Type:** *Instagram ${isMix ? "Mixed Files" : isVideo ? "Video/Reel" : allImages.length > 1 ? `Gallery (${allImages.length})` : "Photo"}*\n` +
           `${ARROW} **Title:** *${title || "Instagram Media"}*\n` +
           `${ARROW} **Length:** *${formatDuration(stats.duration)}*\n\n` +
-          `**Engagement Status**\n` +
+          `**Post Info**\n` +
           `${ARROW} **Likes:** *${stats.likes || "0"}*\n` +
           `${ARROW} **Comments:** *${stats.comments || "0"}*\n` +
           `${ARROW} **Views:** *${stats.views || "0"}*\n\n` +
-          `*Signal strength optimal. Executing high-fidelity siphon...*`,
+          `*Everything is ready. Starting the download...*`,
       );
 
     if (thumbnail && thumbnail.startsWith("http")) {

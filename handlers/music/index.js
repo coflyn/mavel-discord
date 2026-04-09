@@ -49,8 +49,8 @@ async function musicHandler(target, manualData = null) {
   if (!url && query) {
     const searchingMsg =
       source === "bc"
-        ? "*Searching Bandcamp (Spotify Meta)...*"
-        : "*Searching YouTube Music (Spotify Meta)...*";
+        ? "*Searching Bandcamp...*"
+        : "*Searching YouTube Music...*";
 
     if (isInteraction) {
       await target.reply({
@@ -103,23 +103,30 @@ async function musicHandler(target, manualData = null) {
           });
 
           const $ = cheerio.load(data);
-          $(".search-result-item, .searchresult, .data-search").each((i, el) => {
-            const hrefVal = $(el).find(".heading a").attr("href");
-            if (!hrefVal) return;
-            const href = hrefVal.split("?")[0];
-            const title = $(el).find(".heading a").text().trim();
-            const artist = $(el).find(".subhead a").last().text().trim() || $(el).find(".subhead").text().trim();
-            
-            if (href && (href.includes("/track/") || href.includes("/album/"))) {
-              if (!res.some((r) => r.webpage_url === href)) {
-                 res.push({
-                   title, 
-                   webpage_url: href, 
-                   uploader: artist || "Bandcamp Artist" 
-                 });
+          $(".search-result-item, .searchresult, .data-search").each(
+            (i, el) => {
+              const hrefVal = $(el).find(".heading a").attr("href");
+              if (!hrefVal) return;
+              const href = hrefVal.split("?")[0];
+              const title = $(el).find(".heading a").text().trim();
+              const artist =
+                $(el).find(".subhead a").last().text().trim() ||
+                $(el).find(".subhead").text().trim();
+
+              if (
+                href &&
+                (href.includes("/track/") || href.includes("/album/"))
+              ) {
+                if (!res.some((r) => r.webpage_url === href)) {
+                  res.push({
+                    title,
+                    webpage_url: href,
+                    uploader: artist || "Bandcamp Artist",
+                  });
+                }
               }
-            }
-          });
+            },
+          );
         } catch (e) {
           console.error("[BC-SEARCH] Error:", e.message);
         }
@@ -135,21 +142,27 @@ async function musicHandler(target, manualData = null) {
     }
 
     const filterWords = [
-      "remix", "cover", "fanmade", "mashup", "reverb", "slowed", "edit", "version", "sped up", "lyrics"
+      "remix",
+      "cover",
+      "fanmade",
+      "mashup",
+      "reverb",
+      "slowed",
+      "edit",
+      "version",
+      "sped up",
+      "lyrics",
     ];
-    
+
     const noisePatterns = [
-      /\((Official|Music|Lyric|Video|HD|4K|Audio|Visualizer)[^)]*\)/gi,
-      /\[(Official|Music|Lyric|Video|HD|4K|Audio|Visualizer)[^\]]*\]/gi,
+      /\s*[\(\[][^)\]]*[\)\]]/g,
+      /\s*[-|:]?\s*(?:official|lyrics|video|audio|hd|4k|hq|music video|visualizer|full video|lyric video)[^\s]*/gi,
       /\|\s*Official\s*(Music\s*)?Video/gi,
-      /\(Lyrics\)/gi,
-      /\[Lyrics\]/gi,
-      /-\s*Lyrics/gi
     ];
 
     const cleanTitle = (txt) => {
       let cleaned = txt;
-      noisePatterns.forEach(p => cleaned = cleaned.replace(p, ""));
+      noisePatterns.forEach((p) => (cleaned = cleaned.replace(p, "")));
       return cleaned.replace(/\s\s+/g, " ").trim();
     };
 
@@ -159,9 +172,9 @@ async function musicHandler(target, manualData = null) {
       query.toLowerCase().includes(w),
     );
 
-    results = results.map(r => ({
+    results = results.map((r) => ({
       ...r,
-      title: cleanTitle(r.title)
+      title: r.title,
     }));
 
     if (!queryContainsFilter && results.length > 0) {
@@ -181,8 +194,10 @@ async function musicHandler(target, manualData = null) {
     }
 
     const guild = target.guild;
-    const E_FIRE = guild.emojis.cache.find(e => e.name === "purple_fire")?.toString() || "🔥";
-    const arrowEmoji = guild.emojis.cache.find(e => e.name === "arrow");
+    const E_FIRE =
+      guild.emojis.cache.find((e) => e.name === "purple_fire")?.toString() ||
+      "🔥";
+    const arrowEmoji = guild.emojis.cache.find((e) => e.name === "arrow");
 
     const menu = new StringSelectMenuBuilder()
       .setCustomId(`music_select_${author.id}`)
@@ -194,8 +209,9 @@ async function musicHandler(target, manualData = null) {
 
           setTimeout(() => searchCache.delete(shortId), 600000);
 
-          let labelText = r.title.length > 100 ? r.title.substring(0, 97) + "..." : r.title;
-          
+          let labelText =
+            r.title.length > 100 ? r.title.substring(0, 97) + "..." : r.title;
+
           const cleanUploader = (r.uploader || "Unknown Author")
             .replace(/\n/g, " ")
             .replace(/\s\s+/g, " ")
@@ -205,7 +221,7 @@ async function musicHandler(target, manualData = null) {
             label: labelText,
             description: `By ${cleanUploader}`.substring(0, 100),
             value: shortId,
-            emoji: arrowEmoji?.id || "»"
+            emoji: arrowEmoji?.id || "»",
           };
         }),
       );
@@ -219,9 +235,9 @@ async function musicHandler(target, manualData = null) {
       });
       setTimeout(() => target.deleteReply().catch(() => {}), 45000);
     } else {
-      await target.reply({ 
-        content: `### ${E_FIRE} Found **${results.length}** results for: **${query}**`, 
-        components: [row] 
+      await target.reply({
+        content: `### ${E_FIRE} Found **${results.length}** results for: **${query}**`,
+        components: [row],
       });
     }
     return;

@@ -24,18 +24,15 @@ async function runPixivFlow(target, url, options = {}) {
   const ARROW = getEmoji("arrow", "•");
   const FIRE = getEmoji("purple_fire", "🔥");
 
-  const getStatusEmbed = (status, details) => {
+  const getStatusEmbed = (status, info) => {
     return new EmbedBuilder()
       .setColor("#fd79a8")
       .setDescription(
-        `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
+        `### ${FIRE} **${status}**\n${ARROW} **Info:** *${info}*`,
       );
   };
 
-  const initialEmbed = getStatusEmbed(
-    "Pixiv Extraction",
-    "Secure scan in progress...",
-  );
+  const initialEmbed = getStatusEmbed("Pixiv", "Looking for the art...");
 
   if (!statusMsg) {
     if (target.replied || target.deferred) {
@@ -56,7 +53,8 @@ async function runPixivFlow(target, url, options = {}) {
     }
   } else {
     const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
-    if (msg && msg.edit) await msg.edit({ embeds: [initialEmbed] }).catch(() => {});
+    if (msg && msg.edit)
+      await msg.edit({ embeds: [initialEmbed] }).catch(() => {});
   }
 
   const editResponse = async (data) => {
@@ -133,14 +131,14 @@ async function runPixivFlow(target, url, options = {}) {
 
     const foundEmbed = new EmbedBuilder()
       .setColor("#fd79a8")
-      .setTitle(`${NOTIF} **Pixiv Metadata Secured**`)
+      .setTitle(`${NOTIF} **Pixiv Info Found**`)
       .setThumbnail(thumbnail)
       .setDescription(
-        `### ${LEA} *Artwork Identified*\n` +
+        `### ${LEA} *Artwork Found*\n` +
           `${ARROW} **Title:** *${title}*\n` +
           `${ARROW} **Artist:** *${author}*\n` +
           `${ARROW} **Type:** *${isUgoira ? "Ugoku-Illust (MP4)" : `Gallery (${imageProxyUrls.length} Pages)`}*\n\n` +
-          `*Detected via Phixiv Proxy Engine*`,
+          `*Found via Pixiv Downloader*`,
       );
 
     const resMsg = await editResponse({ embeds: [foundEmbed] });
@@ -150,7 +148,7 @@ async function runPixivFlow(target, url, options = {}) {
     await editResponse({
       embeds: [
         getStatusEmbed(
-          "Pixiv Extraction Failed",
+          "Pixiv Download Failed",
           e.message || "Could not reach Pixiv servers.",
         ),
       ],

@@ -124,7 +124,7 @@ async function handleIconLogic(interaction) {
     });
     const embed = new EmbedBuilder()
       .setColor("#74b9ff")
-      .setTitle(`*Biometric Extract: ${targetUser.username}*`)
+      .setTitle(`*User Avatar: ${targetUser.username}*`)
       .setDescription(`[Download Original File](${avatarUrl})`)
       .setImage(avatarUrl);
 
@@ -148,7 +148,7 @@ async function handleIconLogic(interaction) {
 
     const embed = new EmbedBuilder()
       .setColor("#74b9ff")
-      .setTitle(`*Base Identity: ${guild.name}*`)
+      .setTitle(`*Server Icon: ${guild.name}*`)
       .setDescription(`[Download Original File](${iconUrl})`)
       .setImage(iconUrl);
 
@@ -174,13 +174,13 @@ async function handleBannerLogic(interaction) {
     const bannerUrl = user.bannerURL({ dynamic: true, size: 1024 });
     if (!bannerUrl)
       return ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
-        content: "*Target user has no detectable profile banner.*",
+        content: "*This user doesn't have a profile banner.*",
         flags: [64],
       });
 
     const embed = new EmbedBuilder()
       .setColor("#74b9ff")
-      .setTitle(`*Visual Data: ${user.username}*`)
+      .setTitle(`*User Banner: ${user.username}*`)
       .setDescription(`[Download Original File](${bannerUrl})`)
       .setImage(bannerUrl);
 
@@ -204,7 +204,7 @@ async function handleBannerLogic(interaction) {
 
     const embed = new EmbedBuilder()
       .setColor("#74b9ff")
-      .setTitle(`*Base Visual: ${guild.name}*`)
+      .setTitle(`*Server Banner: ${guild.name}*`)
       .setDescription(`[Download Original File](${bannerUrl})`)
       .setImage(bannerUrl);
 
@@ -228,35 +228,35 @@ async function handleServerInfo(interaction, EMOJIS) {
   const embed = new EmbedBuilder()
     .setColor("#74b9ff")
     .setAuthor({
-      name: "Operational Base Registry",
+      name: "Server Information",
       iconURL: guild.iconURL({ dynamic: true }),
     })
     .setThumbnail(guild.iconURL({ dynamic: true, size: 1024 }))
     .setDescription(
-      `### ${EMOJIS.SERVER} **Operational Overview**\n` +
+      `### ${EMOJIS.SERVER} **Server Overview**\n` +
         `${EMOJIS.ARROW} **Name:** ${guild.name}\n` +
         `${EMOJIS.ARROW} **Owner:** ${owner.user.toString()}\n` +
         `${EMOJIS.ARROW} **ID:** \`${guild.id}\`\n` +
-        `${EMOJIS.ARROW} **Verification:** ${guild.verificationLevel}\n` +
+        `${EMOJIS.ARROW} **Security Level:** ${guild.verificationLevel}\n` +
         `${EMOJIS.ARROW} **Region:** ${guild.preferredLocale}`,
     )
     .addFields(
       {
-        name: `${EMOJIS.BOOST} **Boost Status**`,
+        name: `${EMOJIS.BOOST} **Server Boosts**`,
         value:
           `${EMOJIS.ARROW} **Level:** ${guild.premiumTier}\n` +
           `${EMOJIS.ARROW} **Boosts:** ${guild.premiumSubscriptionCount || 0}`,
         inline: false,
       },
       {
-        name: `${EMOJIS.PERSONNEL} **Personnel**`,
+        name: `${EMOJIS.PERSONNEL} **Members**`,
         value:
           `${EMOJIS.ARROW} **Total:** ${guild.memberCount}\n` +
           `${EMOJIS.ARROW} **Roles:** ${guild.roles.cache.size}`,
         inline: false,
       },
       {
-        name: `${EMOJIS.ASSETS} **Assets**`,
+        name: `${EMOJIS.ASSETS} **Customization**`,
         value:
           `${EMOJIS.ARROW} **Emojis:** ${guild.emojis.cache.size}\n` +
           `${EMOJIS.ARROW} **Stickers:** ${guild.stickers.cache.size}`,

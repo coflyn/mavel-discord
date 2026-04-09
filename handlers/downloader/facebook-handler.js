@@ -17,17 +17,17 @@ async function runFacebookFlow(target, url, options = {}) {
   const ARROW = getEmoji("arrow", "•");
   const FIRE = getEmoji("purple_fire", "🔥");
 
-  const getStatusEmbed = (status, details) => {
+  const getStatusEmbed = (status, info) => {
     return new EmbedBuilder()
       .setColor("#e17055")
       .setDescription(
-        `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
+        `### ${FIRE} **${status}**\n${ARROW} **Info:** *${info}*`,
       );
   };
 
   const initialEmbed = getStatusEmbed(
-    "Meta Signal Matrix",
-    "Bypassing security protocols...",
+    "Facebook",
+    "Getting video info...",
   );
 
   if (!statusMsg) {
@@ -140,14 +140,14 @@ async function runFacebookFlow(target, url, options = {}) {
 
     const foundEmbed = new EmbedBuilder()
       .setColor("#e17055")
-      .setTitle(`${NOTIF} **FB Signal Decoded**`)
+      .setTitle(`${NOTIF} **Facebook Video Found**`)
       .setThumbnail(imageUrl || "")
       .setDescription(
-        `### ${LEA} **Media Source Retrieved**\n` +
-          `${ARROW} **Resource:** *${title}*\n` +
-          `${ARROW} **Type:** *${videoUrl ? "Video Stream" : "Static Insight"}*\n` +
+        `### ${LEA} **File Found**\n` +
+          `${ARROW} **Title:** *${title}*\n` +
+          `${ARROW} **Type:** *${videoUrl ? "Video" : "Photo"}*\n` +
           `${ARROW} **Author:** *${author}*\n\n` +
-          `*Signal strength optimal. Commencing high-fidelity retrieval...*`,
+          `*Everything is ready. Starting the download...*`,
       );
 
     const resMsg = await editResponse({ embeds: [foundEmbed] });

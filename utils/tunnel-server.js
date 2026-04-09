@@ -16,7 +16,11 @@ function launchCloudflared(port, resolve) {
   }
 
   console.log("[TUNNEL] Connecting to edge...");
-  cfProcess = spawn("/opt/homebrew/bin/cloudflared", [
+  const cfBinary = process.platform === "darwin" 
+    ? (fs.existsSync("/opt/homebrew/bin/cloudflared") ? "/opt/homebrew/bin/cloudflared" : "cloudflared")
+    : (fs.existsSync("/usr/local/bin/cloudflared") ? "/usr/local/bin/cloudflared" : "cloudflared");
+
+  cfProcess = spawn(cfBinary, [
     "tunnel",
     "--url",
     `http://127.0.0.1:${port}`,

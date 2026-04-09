@@ -29,71 +29,72 @@ module.exports = async function helpHandler(interaction) {
   const embed = new EmbedBuilder()
     .setColor("#fdcb6e")
     .setAuthor({
-      name: "MaveL Operation Guide",
+      name: "MaveL Help Guide",
       iconURL: interaction.client.user.displayAvatarURL(),
     })
-    .setTitle(`${HELP} **Central Strategic Hub**`)
+    .setTitle(`${HELP} **Main Menu**`)
     .setImage(botBanner)
     .setDescription(
-      `*MaveL is a high-performance utility system for media synthesis, decryption, and global information retrieval.*`,
+      `*MaveL is a fast and easy music player and media downloader for your Discord server.*`,
     )
     .addFields(
       {
-        name: `${DIAMOND} **Core Protocols**`,
+        name: `${DIAMOND} **Main Features**`,
         value:
-          `${ARROW} **/dl** — *Universal media downloader*\n` +
-          `${ARROW} **/search** — *Integrated search engine (YT/SPOT/BC)*\n` +
-          `${ARROW} **/lyrics** — *Extract song metadata and lyrics*`,
+          `${ARROW} **/dl** — *Download media from various sites*\n` +
+          `${ARROW} **/harvest** — *Extract intelligence from profiles*\n` +
+          `${ARROW} **/search** — *Search for songs (YouTube/Spotify/etc)*\n` +
+          `${ARROW} **/lyrics** — *Get song lyrics and info*`,
         inline: false,
       },
       {
-        name: `${NOTIF} **Assets & Intelligence**`,
+        name: `${NOTIF} **Files & Information**`,
         value:
-          `${ARROW} **/icon** — *Grab high-res icon asset (User/Server)*\n` +
-          `${ARROW} **/banner** — *Grab high-res banner asset (User/Server)*\n` +
-          `${ARROW} **/emoji list** — *List all server assets (IDs)*\n` +
-          `${ARROW} **/emoji** ${LOCK} — *Manage emoji assets (add/rename/delete)*\n` +
-          `${ARROW} **/emoji needs** ${LOCK} — *Sync missing system assets*\n` +
-          `${ARROW} **/info** — *Check user intelligence and profile*`,
+          `${ARROW} **/icon** — *Get server/user avatar*\n` +
+          `${ARROW} **/banner** — *Get server/user banner link*\n` +
+          `${ARROW} **/emoji list** — *List all server emojis*\n` +
+          `${ARROW} **/emoji** ${LOCK} — *Manage server emojis (add/rename/delete)*\n` +
+          `${ARROW} **/emoji needs** ${LOCK} — *Add missing system emojis*\n` +
+          `${ARROW} **/info** — *Check user info and profile*`,
         inline: false,
       },
       {
-        name: `${PC} **Playback & Controls**`,
+        name: `${PC} **Music Controls**`,
         value:
-          `${ARROW} **/play** — *Initialize audio playback*\n` +
-          `${ARROW} **/stop** — *Decommission player and disconnect*\n` +
-          `${ARROW} **/nowplaying** — *Display active track details*\n` +
-          `${ARROW} **/skip** — *Bypass current audio track*\n` +
-          `${ARROW} **/pause** / **/resume** — *Global playback control*`,
+          `${ARROW} **/play** — *Start playing music*\n` +
+          `${ARROW} **/stop** — *Stop music and disconnect*\n` +
+          `${ARROW} **/nowplaying** — *Show what's currently playing*\n` +
+          `${ARROW} **/skip** — *Skip the current song*\n` +
+          `${ARROW} **/pause** / **/resume** — *Pause or resume playback*`,
         inline: false,
       },
       {
-        name: `${DOTS} **Library & Registry**`,
+        name: `${DOTS} **Queue & Playlists**`,
         value:
-          `${ARROW} **/queue** — *Monitor synchronized queue*\n` +
-          `${ARROW} **/playlist** — *Handle personal audio registries*\n` +
-          `${ARROW} **/shuffle** — *Randomize queue sequence*\n` +
-          `${ARROW} **/repeat** — *Define playback repetition mode*\n` +
-          `${ARROW} **/clear** — *Wipe current synchronized queue*`,
+          `${ARROW} **/queue** — *View the current music queue*\n` +
+          `${ARROW} **/playlist** — *Directly manage your playlists*\n` +
+          `${ARROW} **/shuffle** — *Shuffle the current queue*\n` +
+          `${ARROW} **/repeat** — *Change the repeat mode*\n` +
+          `${ARROW} **/clear** — *Clear all songs in the queue*`,
         inline: false,
       },
       {
-        name: `${ROCKET} **System Administration**`,
+        name: `${ROCKET} **Settings & Admin**`,
         value:
-          `${ARROW} **/server** — *Check operational base information*\n` +
-          `${ARROW} **/setup** ${LOCK} — *Configure system endpoints*\n` +
-          `${ARROW} **/move** ${LOCK} — *Induction link for migration*\n` +
-          `${ARROW} **/diagnostics** ${LOCK} — *Performance Analysis*\n` +
-          `${ARROW} **/hibernate** / **/wakeup** ${LOCK} — *Operational Standby*\n` +
-          `${ARROW} **/purge** / **/backup** ${LOCK} — *Asset & Registry care*\n` +
-          `${ARROW} **/logs** ${LOCK} — *Extract last operational logs*\n` +
-          `${ARROW} **/cookies** ${LOCK} — *Update session datasets*\n` +
-          `${ARROW} **/ping** — *Monitor latency and status*`,
+          `${ARROW} **/server** — *Show server info*\n` +
+          `${ARROW} **/setup** ${LOCK} — *Configure bot channels*\n` +
+          `${ARROW} **/move** ${LOCK} — *Add bot to another server*\n` +
+          `${ARROW} **/diagnostics** ${LOCK} — *Check bot system status*\n` +
+          `${ARROW} **/hibernate** / **/wakeup** ${LOCK} — *Turn bot sleep/active mode*\n` +
+          `${ARROW} **/purge** / **/backup** ${LOCK} — *Delete messages or backup data*\n` +
+          `${ARROW} **/logs** ${LOCK} — *View last system logs*\n` +
+          `${ARROW} **/cookies** ${LOCK} — *Update cookie settings*\n` +
+          `${ARROW} **/ping** — *Check latency and bot speed*`,
         inline: false,
       },
     )
     .setFooter({
-      text: "MaveL Hub Operator | Verified System",
+      text: "MaveL Bot Support",
       iconURL: interaction.client.user.displayAvatarURL(),
     })
     .setTimestamp();

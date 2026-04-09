@@ -31,18 +31,16 @@ async function runSlideshareFlow(target, url, options = {}) {
   const ARCHIVE = getEmoji("camera", "📷");
   const LOADING = getEmoji("loading_pulse", "⚙️");
 
-  const getStatusEmbed = (status, details) => {
+  const getStatusEmbed = (status, info) => {
     return new EmbedBuilder()
       .setColor("#636e72")
       .setDescription(
-        `### ${ARCHIVE} **${status}**\n${ARROW} **Details:** *${details}*`,
+        `### ${ARCHIVE} **${status}**\n${ARROW} **Info:** *${info}*`,
       );
   };
 
   await editResponse({
-    embeds: [
-      getStatusEmbed("Initiating Archival", "Scanning SlideShare Metadata..."),
-    ],
+    embeds: [getStatusEmbed("Processing SlideShare", "Getting info...")],
   });
 
   try {
@@ -108,7 +106,7 @@ async function runSlideshareFlow(target, url, options = {}) {
     await editResponse({
       embeds: [
         getStatusEmbed(
-          "Asset Siphon Active",
+          "Download Active",
           `Downloading ${filteredUrls.length} HD Slides (with Retry Safety)...`,
         ),
       ],
@@ -163,7 +161,7 @@ async function runSlideshareFlow(target, url, options = {}) {
       url: url,
       timestamp: Date.now(),
       title: docTitle,
-      stats: { pages: localPaths.length, type: "HD Slide Siphon" },
+      stats: { pages: localPaths.length, type: "Slide Download" },
       thumbnail:
         target.client?.user?.displayAvatarURL() ||
         "https://www.slideshare.net/favicon.ico",

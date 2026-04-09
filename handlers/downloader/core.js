@@ -63,7 +63,7 @@ async function runYtDlpFlow(target, url, options = {}) {
 
   const initialEmbed = getStatusEmbed(
     "Checking link...",
-    "Scanning resource parameters...",
+    "Getting link info...",
   );
 
   if (target.replied || target.deferred) {
@@ -161,9 +161,10 @@ async function runYtDlpFlow(target, url, options = {}) {
     return;
   }
   if (url.includes("youtube.com") || url.includes("youtu.be")) {
-    const jobResult = await runYoutubeFlow(target, url, { statusMsg });
+    const jobResult = await runYoutubeFlow(target, url, { statusMsg, ...options });
     if (jobResult && jobResult.jobId) {
-      return await startDownload(target, jobResult.jobId, "mp4", {
+      const finalFormat = options.type || "mp4";
+      return await startDownload(target, jobResult.jobId, finalFormat, {
         statusMsg: jobResult.statusMsg,
       });
     }
@@ -218,10 +219,11 @@ async function runYtDlpFlow(target, url, options = {}) {
   }
 
   if (finalUrl.includes("threads.net") || finalUrl.includes("threads.com")) {
-    const jobResult = await runThreadsFlow(target, finalUrl, { statusMsg });
+    const jobResult = await runThreadsFlow(target, finalUrl, { statusMsg, ...options });
     if (!jobResult) return null;
     if (jobResult.jobId && jobResult.jobId !== null) {
-      return await startDownload(target, jobResult.jobId, "mp4", {
+      const finalFormat = options.type || "mp4";
+      return await startDownload(target, jobResult.jobId, finalFormat, {
         statusMsg: jobResult.statusMsg,
       });
     }
@@ -315,10 +317,11 @@ async function runYtDlpFlow(target, url, options = {}) {
     const jobResult = await require("./facebook-handler").runFacebookFlow(
       target,
       finalUrl,
-      { statusMsg },
+      { statusMsg, ...options },
     );
     if (jobResult && jobResult.jobId) {
-      return await startDownload(target, jobResult.jobId, "mp4", {
+      const finalFormat = options.type || "mp4";
+      return await startDownload(target, jobResult.jobId, finalFormat, {
         statusMsg: jobResult.statusMsg,
       });
     }
@@ -443,8 +446,8 @@ async function runYtDlpFlow(target, url, options = {}) {
           await editResponse({
             embeds: [
               getStatusEmbed(
-                "Instagram Identified",
-                "Resource parameters locked. Commencing retrieval phase...",
+                "Instagram Link Found",
+                "Checking link details. Starting the download...",
               ),
             ],
           });
@@ -469,7 +472,7 @@ async function runYtDlpFlow(target, url, options = {}) {
           return await editResponse({
             embeds: [
               getStatusEmbed(
-                isX ? "X/Twitter Identification" : "Download Failed",
+                isX ? "X Post Not Found" : "Download Failed",
                 xError
                   ? "No video found in this tweet. If this is an Image post, it's currently not supported by the video extractor."
                   : cleanError || "Platform not supported or invalid link.",
@@ -548,16 +551,16 @@ async function runYtDlpFlow(target, url, options = {}) {
 
       const foundEmbed = new EmbedBuilder()
         .setColor("#6c5ce7")
-        .setTitle(`${FIRE} **Media Research Found**`)
+        .setTitle(`${FIRE} **Media Found**`)
         .setImage(botBanner)
         .setDescription(
-          `### ✅ **Resource Identified**\n` +
+          `### ✅ **Link Found**\n` +
             `${ARROW} **Topic:** *${safeTitle}*\n` +
             `${ARROW} **Platform:** *${finalPlatform.toUpperCase()}*\n\n` +
             `**${formatNumber(likes)}** *Likes*  •  **${formatNumber(comments)}** *Comments*  •  **${formatNumber(views)}** *Views*`,
         )
         .setFooter({
-          text: "Select Format to Initialize Download",
+          text: "Pick a format to download",
           iconURL: target.client.user.displayAvatarURL(),
         });
 

@@ -24,7 +24,7 @@ const settingsPath = path.join(
 module.exports = async function setupHandler(interaction) {
   if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
     return interaction.reply({
-      content: "*Unauthorized. Administrative override required.*",
+      content: "*You don't have permission to use this command.*",
       flags: [MessageFlags.Ephemeral],
     });
   }
@@ -41,18 +41,18 @@ module.exports = async function setupHandler(interaction) {
   const generateEmbed = () => {
     return new EmbedBuilder()
       .setColor("#d63031")
-      .setTitle(`${NOTIF} **System Registry Configuration**`)
+      .setTitle(`${NOTIF} **Server Setup**`)
       .setDescription(
-        `*Configure the operational endpoints for MaveL Hub across the server.*`,
+        `*Configure the main channels for the bot in this server.*`,
       )
       .addFields({
-        name: "**Current Endpoints**",
+        name: "**Current Settings**",
         value:
           `${ARROW} **Download:** <#${config.allowedChannelId || "Not Set"}>\n` +
           `${ARROW} **Logs:** <#${config.logsChannelId || "Not Set"}>\n` +
           `${ARROW} **Music:** <#${config.musicChannelId || "Not Set"}>`,
       })
-      .setFooter({ text: "Use selection menus below to redirect endpoints." });
+      .setFooter({ text: "Use selection menus below to change settings." });
   };
 
   const rows = [
@@ -71,13 +71,13 @@ module.exports = async function setupHandler(interaction) {
     new ActionRowBuilder().addComponents(
       new ChannelSelectMenuBuilder()
         .setCustomId("setup_music")
-        .setPlaceholder("Select Music Operating Channel...")
+        .setPlaceholder("Select Music Control Channel...")
         .addChannelTypes(ChannelType.GuildText),
     ),
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId("setup_done")
-        .setLabel("Finalize Configuration")
+        .setLabel("Finish Setup")
         .setStyle(ButtonStyle.Success),
     ),
   ];
@@ -109,7 +109,7 @@ module.exports = async function setupHandler(interaction) {
     if (i.customId === "setup_done") {
       await i
         .update({
-          content: "*Configuration finalized. System synchronized.*",
+          content: "*Setup complete! System is ready.*",
           components: [],
           embeds: [generateEmbed()],
         })

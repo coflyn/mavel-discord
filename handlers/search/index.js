@@ -74,14 +74,12 @@ module.exports = async function searchHandler(interaction) {
     const embed = new EmbedBuilder()
       .setColor("#00cec9")
       .setAuthor({
-        name: "MaveL Search Engine",
+        name: "MaveL Search",
         iconURL: interaction.client.user.displayAvatarURL(),
       })
-      .setTitle(`${SEARCH} **Integrated Pulse Search**`)
+      .setTitle(`${SEARCH} **Integrated Search**`)
       .setImage(botBanner)
-      .setDescription(
-        `*Multi-platform indexing system for direct media retrieval.*`,
-      )
+      .setDescription(`*Search across multiple platforms to find your media.*`)
       .addFields(
         {
           name: `${FIRE} **Visuals**`,
@@ -89,11 +87,11 @@ module.exports = async function searchHandler(interaction) {
           inline: false,
         },
         {
-          name: `${DOTS} **Acoustics**`,
+          name: `${DOTS} **Music**`,
           value:
             `${ARROW} *YouTube Music (Audio Download)*\n` +
-            `${ARROW} *Spotify (Metadata Extraction)*\n` +
-            `${ARROW} *Bandcamp (Original Metadata)*`,
+            `${ARROW} *Spotify (Get Track Info)*\n` +
+            `${ARROW} *Bandcamp (Original Info)*`,
           inline: false,
         },
       )
@@ -129,6 +127,7 @@ module.exports = async function searchHandler(interaction) {
       finalResults,
       typeSelection,
       { ARROW, FIRE, SEARCH, DOTS, PING_RED },
+      query,
     );
   }
 
@@ -301,13 +300,20 @@ module.exports = async function searchHandler(interaction) {
   setCacheResults(query, finalResults);
 
   if (interaction.client.clearTempStatus) interaction.client.clearTempStatus();
-  await displaySearchResults(interaction, query, finalResults, typeSelection, {
-    ARROW,
-    FIRE,
-    SEARCH,
-    DOTS,
-    PING_RED,
-  });
+  await displaySearchResults(
+    interaction,
+    query,
+    finalResults,
+    typeSelection,
+    {
+      ARROW,
+      FIRE,
+      SEARCH,
+      DOTS,
+      PING_RED,
+    },
+    refinedQuery,
+  );
 };
 
 async function displaySearchResults(
@@ -316,6 +322,7 @@ async function displaySearchResults(
   finalResults,
   typeSelection,
   EMOJIS,
+  refinedQuery,
 ) {
   const { ARROW, FIRE, SEARCH, DOTS, PING_RED } = EMOJIS;
 
@@ -365,11 +372,11 @@ async function displaySearchResults(
   const resultEmbed = new EmbedBuilder()
     .setColor("#00cec9")
     .setDescription(
-      `### ${SEARCH} **Search Synchronized**\n` +
-        `*Refined Query:* \`${refinedQuery}\`\n` +
-        `*Target:* \`${typeSelection.toUpperCase()}\``,
+      `### ${SEARCH} **Search Finished**\n` +
+        `*Query:* \`${refinedQuery}\`\n` +
+        `*Source:* \`${typeSelection.toUpperCase()}\``,
     )
-    .setFooter({ text: "Select a resource from the menu below to proceed" });
+    .setFooter({ text: "Select a result from the menu below to start" });
 
   await interaction.editReply({
     embeds: [resultEmbed],

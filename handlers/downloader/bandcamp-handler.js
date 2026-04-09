@@ -31,10 +31,7 @@ async function runBandcampFlow(target, url, options = {}) {
       );
   };
 
-  const initialEmbed = getStatusEmbed(
-    "Bandcamp Discovery",
-    "Decoding transmission sequence...",
-  );
+  const initialEmbed = getStatusEmbed("Bandcamp Info", "Getting song info...");
 
   if (!statusMsg) {
     if (target.replied || target.deferred) {
@@ -94,7 +91,7 @@ async function runBandcampFlow(target, url, options = {}) {
     const code = await new Promise((resolve) => proc.on("close", resolve));
 
     if (code !== 0 || !stdout.trim()) {
-      throw new Error("Could not extract metadata via engine.");
+      throw new Error("Could not get song info.");
     }
 
     const json = JSON.parse(stdout.trim().split("\n")[0]);
@@ -140,17 +137,17 @@ async function runBandcampFlow(target, url, options = {}) {
 
     const foundEmbed = new EmbedBuilder()
       .setColor("#00b894")
-      .setTitle(`${NOTIF} **Bandcamp Audio Captured**`)
+      .setTitle(`${NOTIF} **Bandcamp Audio Ready**`)
       .setThumbnail(thumbnail)
       .setDescription(
-        `### ${LEA} *Transmission Identified*\n` +
+        `### ${LEA} *Song Found*\n` +
           `${ARROW} **Title:** *${isAlbum ? `[Album] ${trackTitle}` : trackTitle}*\n` +
           `${ARROW} **Artist:** *${artist}*\n` +
-          `${ARROW} **Type:** *${isAlbum ? "Studio Album" : "Digital Single"}*\n\n` +
-          `*Signal strength optimal. Ready for high-fidelity extraction.*`,
+          `${ARROW} **Type:** *${isAlbum ? "Album" : "Track"}*\n\n` +
+          `*Everything is ready. Starting the download.*`,
       )
       .setFooter({
-        text: "MaveL Bandcamp Resolver",
+        text: "MaveL Bandcamp",
         iconURL: target.client.user.displayAvatarURL(),
       });
 
@@ -161,8 +158,8 @@ async function runBandcampFlow(target, url, options = {}) {
     await editResponse({
       embeds: [
         getStatusEmbed(
-          "Bandcamp Discovery Failed",
-          "The resource could not be indexed by the engine.",
+          "Bandcamp Search Failed",
+          "Could not find the song info.",
         ),
       ],
     });

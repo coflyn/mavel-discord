@@ -309,7 +309,7 @@ class MusicPlayer {
                   guildId,
                   fs.existsSync(cachePath)
                     ? "🚀 Instant Sync Active"
-                    : "Inbound Transmission (Buffering...)",
+                    : "Loading Music (Please wait...)",
                 ),
               ],
               components: [this.getPlaybackComponents(guildId)],
@@ -323,7 +323,7 @@ class MusicPlayer {
                     guildId,
                     fs.existsSync(cachePath)
                       ? "🚀 Instant Sync Active"
-                      : "Inbound Transmission (Buffering...)",
+                      : "Loading Music (Please wait...)",
                   ),
                 ],
                 components: [this.getPlaybackComponents(guildId)],
@@ -338,7 +338,7 @@ class MusicPlayer {
                   guildId,
                   fs.existsSync(cachePath)
                     ? "🚀 Instant Sync Active"
-                    : "Inbound Transmission (Buffering...)",
+                    : "Loading Music (Please wait...)",
                 ),
               ],
               components: [this.getPlaybackComponents(guildId)],
@@ -445,7 +445,7 @@ class MusicPlayer {
           bufferingMsg
             .edit({
               embeds: [
-                this.getNowPlayingEmbed(guildId, "Playback Synchronized"),
+                this.getNowPlayingEmbed(guildId, "Now Playing"),
               ],
               components: [this.getPlaybackComponents(guildId)],
             })
@@ -484,10 +484,16 @@ class MusicPlayer {
       currentStatus =
         state.player.state.status === "paused"
           ? "Streaming Paused"
-          : "Playback Synchronized";
+          : "Now Playing";
     }
     const repeatMode = (state.repeatMode || "OFF").toUpperCase();
     const shuffleMode = state.shuffle ? "ON" : "OFF";
+
+    const cleanTitle = (str) => 
+      str.replace(/\s*[\(\[][^)\]]*[\)\]]/g, "")
+         .replace(/\s*[-|:]?\s*(?:official|lyrics|video|audio|hd|4k|hq|music video|visualizer|full video|lyric video)[^\s]*/gi, "")
+         .replace(/\s\s+/g, " ")
+         .trim();
 
     return new EmbedBuilder()
       .setColor("#a29bfe")
@@ -497,10 +503,10 @@ class MusicPlayer {
       })
       .setDescription(
         `### ${FIRE} **Now Streaming**\n` +
-          `${ARROW} **Track:** [${track.title.substring(0, 100)}](<${track.webpage_url || track.url}>)\n` +
+          `${ARROW} **Track:** [${cleanTitle(track.title).substring(0, 100)}](<${track.webpage_url || track.url}>)\n` +
           `${ARROW} **Artist:** *${track.uploader || track.artist || "---"}*\n` +
           `${ARROW} **Source:** *${source}*\n` +
-          `${ARROW} **Requested by:** <@${track.requestedBy}>\n` +
+          `${ARROW} **Added by:** <@${track.requestedBy}>\n` +
           `${ARROW} **Length:** *${track.duration_string || "---"}*\n` +
           `${ARROW} **Repeat:** *${repeatMode}*\n` +
           `${ARROW} **Shuffle:** *${shuffleMode}*\n\n` +
@@ -509,7 +515,7 @@ class MusicPlayer {
       )
       .setThumbnail(track.thumbnail)
       .setFooter({
-        text: "MaveL Music Hub",
+        text: "MaveL Music",
         iconURL: state.channel.client.user.displayAvatarURL(),
       })
       .setTimestamp();
@@ -610,6 +616,13 @@ class MusicPlayer {
             type: ActivityType.Watching,
           });
         }
+      }
+      if (state.lastNowPlayingMsg) {
+        const stoppedEmbed = this.getNowPlayingEmbed(guildId, "Stopped");
+        state.lastNowPlayingMsg.edit({ 
+          embeds: stoppedEmbed ? [stoppedEmbed] : [],
+          components: [] 
+        }).catch(() => {});
       }
       if (state.activeProcesses) {
         state.activeProcesses.forEach((p) => {

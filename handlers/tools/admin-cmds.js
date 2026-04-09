@@ -15,11 +15,11 @@ module.exports = async function adminCmdsHandler(interaction) {
     return await (interaction.deferred
       ? interaction.editReply({
           content:
-            "*Error: Administrative decryption required. Your current clearance is insufficient.*",
+            "*Error: Owner-only command. Permission denied.*",
         })
       : interaction.reply({
           content:
-            "*Error: Administrative decryption required. Your current clearance is insufficient.*",
+            "*Error: Owner-only command. Permission denied.*",
           flags: [MessageFlags.Ephemeral],
         }));
   }
@@ -49,7 +49,7 @@ module.exports = async function adminCmdsHandler(interaction) {
 async function toggleHibernate(interaction, status) {
   if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
     return await interaction.reply({
-      content: "*Error: Administrative decryption required.*",
+      content: "*Error: Admin permission needed.*",
       flags: [MessageFlags.Ephemeral],
     });
   }
@@ -70,10 +70,10 @@ async function toggleHibernate(interaction, status) {
 
   await (interaction.deferred
     ? interaction.editReply({
-        content: `### ${status ? LOCK : POWER} **System State Updated**\n*Core hibernation protocol: **${status ? "ACTIVATED" : "DEACTIVATED"}***`,
+        content: `### ${status ? LOCK : POWER} **Sleep Mode Updated**\n*Sleep mode: **${status ? "ON" : "OFF"}***`,
       })
     : interaction.reply({
-        content: `### ${status ? LOCK : POWER} **System State Updated**\n*Core hibernation protocol: **${status ? "ACTIVATED" : "DEACTIVATED"}***`,
+        content: `### ${status ? LOCK : POWER} **Sleep Mode Updated**\n*Sleep mode: **${status ? "ON" : "OFF"}***`,
         flags: [MessageFlags.Ephemeral],
       }));
 }
@@ -90,10 +90,10 @@ async function handlePurge(interaction) {
     if (!fs.existsSync(logPath)) {
       return await (interaction.deferred
         ? interaction.editReply({
-            content: "*No transcript files detected in the registry.*",
+            content: "*No log files found.*",
           })
         : interaction.reply({
-            content: "*No transcript files detected in the registry.*",
+            content: "*No log files found.*",
             flags: [MessageFlags.Ephemeral],
           }));
     }
@@ -102,10 +102,10 @@ async function handlePurge(interaction) {
 
     return await (interaction.deferred
       ? interaction.editReply({
-          content: `### ${FIRE} **Purge Protocol Complete**\n*The Operational Registry transcript (**bot.log**) has been truncated and cleared.*`,
+          content: `### ${FIRE} **Cleanup Finished**\n*The system logs (**bot.log**) have been cleared.*`,
         })
       : interaction.reply({
-          content: `### ${FIRE} **Purge Protocol Complete**\n*The Operational Registry transcript (**bot.log**) has been truncated and cleared.*`,
+          content: `### ${FIRE} **Cleanup Finished**\n*The system logs (**bot.log**) have been cleared.*`,
           flags: [MessageFlags.Ephemeral],
         }));
   }
@@ -114,10 +114,10 @@ async function handlePurge(interaction) {
   if (!fs.existsSync(tempDir)) {
     return await (interaction.deferred
       ? interaction.editReply({
-          content: "*No temporary artifacts detected in the sector.*",
+          content: "*No temporary files found.*",
         })
       : interaction.reply({
-          content: "*No temporary artifacts detected in the sector.*",
+          content: "*No temporary files found.*",
           flags: [MessageFlags.Ephemeral],
         }));
   }
@@ -136,10 +136,10 @@ async function handlePurge(interaction) {
 
   await (interaction.deferred
     ? interaction.editReply({
-        content: `### ${FIRE} **Purge Protocol Complete**\n*Decommissioned and deleted **${count}** temporary assets from the sector.*`,
+        content: `### ${FIRE} **Cleanup Finished**\n*Removed **${count}** temporary files from the system.*`,
       })
     : interaction.reply({
-        content: `### ${FIRE} **Purge Protocol Complete**\n*Decommissioned and deleted **${count}** temporary assets from the sector.*`,
+        content: `### ${FIRE} **Cleanup Finished**\n*Removed **${count}** temporary files from the system.*`,
         flags: [MessageFlags.Ephemeral],
       }));
   setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
@@ -169,11 +169,11 @@ async function handleBackup(interaction) {
 
   await (interaction.deferred
     ? interaction.editReply({
-        content: `### ${LEA} **Registry Backup Successful**\n*The MaveL Operational Registry has been synchronized and dispatched to this sector. Archive Trace: \`backup-${timestamp}\`*`,
+        content: `### ${LEA} **Backup Successful**\n*The System Logs have been saved and sent to this channel. File: \`backup-${timestamp}\`*`,
         files: attachments,
       })
     : interaction.reply({
-        content: `### ${LEA} **Registry Backup Successful**\n*The MaveL Operational Registry has been synchronized and dispatched to this sector. Archive Trace: \`backup-${timestamp}\`*`,
+        content: `### ${LEA} **Backup Successful**\n*The System Logs have been saved and sent to this channel. File: \`backup-${timestamp}\`*`,
         files: attachments,
         flags: [MessageFlags.Ephemeral],
       }));
@@ -223,10 +223,10 @@ async function handleScan(interaction) {
       ?.toString() || "•";
   const embed = new EmbedBuilder()
     .setColor("#d63031")
-    .setTitle(`${NOTIF} **Network Integrity Scan**`)
+    .setTitle(`${NOTIF} **Checking Connections**`)
     .setDescription(
       results.join("\n") +
-        "\n\n*No critical firewall anomalies detected in the current sector.*",
+        "\n\n*No connection issues found. Everything looks good.*",
     );
 
   await interaction.editReply({ embeds: [embed] });
@@ -237,7 +237,7 @@ async function handleLogs(interaction) {
   const logPath = path.join(__dirname, "../../bot.log");
   if (!fs.existsSync(logPath)) {
     return await interaction.reply({
-      content: "*No transcript files detected in the registry.*",
+      content: "*No log files found.*",
       flags: [MessageFlags.Ephemeral],
     });
   }
@@ -253,10 +253,10 @@ async function handleLogs(interaction) {
 
   await (interaction.deferred
     ? interaction.editReply({
-        content: `### ${PC} **Terminal Transcript (Last 15 Lines)**\n\`\`\`text\n${logs || "Registry empty."}\n\`\`\``,
+        content: `### ${PC} **Recent Logs (Last 15 Lines)**\n\`\`\`text\n${logs || "No logs yet."}\n\`\`\``,
       })
     : interaction.reply({
-        content: `### ${PC} **Terminal Transcript (Last 15 Lines)**\n\`\`\`text\n${logs || "Registry empty."}\n\`\`\``,
+        content: `### ${PC} **Recent Logs (Last 15 Lines)**\n\`\`\`text\n${logs || "No logs yet."}\n\`\`\``,
         flags: [MessageFlags.Ephemeral],
       }));
   setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);

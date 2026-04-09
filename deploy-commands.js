@@ -31,7 +31,7 @@ const commands = [
     ),
   new SlashCommandBuilder()
     .setName("search")
-    .setDescription("Integrated search engine")
+    .setDescription("Search for music and videos")
     .addStringOption((option) =>
       option
         .setName("type")
@@ -51,10 +51,10 @@ const commands = [
     ),
   new SlashCommandBuilder()
     .setName("help")
-    .setDescription("View MaveL Hub operation guide"),
+    .setDescription("View MaveL help guide"),
   new SlashCommandBuilder()
     .setName("ping")
-    .setDescription("Check connection status and latency"),
+    .setDescription("Check bot speed and connection"),
   new SlashCommandBuilder()
     .setName("play")
     .setDescription("Play music from YouTube/Bandcamp")
@@ -185,9 +185,32 @@ const commands = [
         ),
     ),
   new SlashCommandBuilder()
+    .setName("harvest")
+    .setDescription("Extract intelligence from social profiles")
+    .addStringOption((opt) =>
+      opt
+        .setName("target")
+        .setDescription("Choose platform to harvest")
+        .setRequired(false)
+        .addChoices(
+          { name: "TikTok", value: "tiktok" },
+          { name: "Instagram", value: "instagram" },
+          { name: "YouTube", value: "youtube" },
+          { name: "GitHub", value: "github" },
+          { name: "Reddit", value: "reddit" },
+          { name: "Social Finder", value: "find" },
+        ),
+    )
+    .addStringOption((opt) =>
+      opt
+        .setName("query")
+        .setDescription("Username, URL, or Topic")
+        .setRequired(false),
+    ),
+  new SlashCommandBuilder()
     .setName("lyrics")
     .setDescription(
-      "Find lyrics for the currently playing song or search for one",
+      "Find lyrics for the currently playing song",
     )
     .addStringOption((opt) =>
       opt
@@ -197,28 +220,28 @@ const commands = [
     ),
   new SlashCommandBuilder()
     .setName("server")
-    .setDescription("Check operational base information"),
+    .setDescription("Check server info"),
   new SlashCommandBuilder()
     .setName("icon")
-    .setDescription("Grab high-res icon asset")
+    .setDescription("Get high-res icon")
     .addUserOption((opt) =>
       opt
         .setName("target")
-        .setDescription("Identify target user (Leave empty for Server)")
+        .setDescription("Choose a user (Leave empty for Server)")
         .setRequired(false),
     ),
   new SlashCommandBuilder()
     .setName("banner")
-    .setDescription("Grab high-res banner asset")
+    .setDescription("Get high-res banner")
     .addUserOption((opt) =>
       opt
         .setName("target")
-        .setDescription("Identify target user (Leave empty for Server)")
+        .setDescription("Choose a user (Leave empty for Server)")
         .setRequired(false),
     ),
   new SlashCommandBuilder()
     .setName("info")
-    .setDescription("Check user information and profile details")
+    .setDescription("Check user info and profile")
     .addUserOption((opt) =>
       opt
         .setName("target")
@@ -287,59 +310,59 @@ const commands = [
     .addSubcommand((sub) =>
       sub
         .setName("list")
-        .setDescription("List all custom emojis in high-res format with IDs"),
+        .setDescription("List all custom emojis in the server"),
     )
     .addSubcommand((sub) =>
       sub
         .setName("needs")
-        .setDescription("Check and synchronize missing system emojis"),
+        .setDescription("Check and add missing system emojis"),
     ),
   new SlashCommandBuilder()
     .setName("move")
-    .setDescription("Synchronize MaveL Hub to a different server endpoint"),
+    .setDescription("Add the bot to a different server"),
   new SlashCommandBuilder()
     .setName("setup")
-    .setDescription("Configure system channel endpoints"),
+    .setDescription("Configure server channels for the bot"),
   new SlashCommandBuilder()
     .setName("reset")
-    .setDescription("Force reset system components")
+    .setDescription("Fix connection or system issues")
     .addSubcommand((sub) =>
-      sub.setName("tunnel").setDescription("Force regenerate Cloudflare tunnel"),
+      sub.setName("tunnel").setDescription("Fix connection issues"),
     ),
   new SlashCommandBuilder()
     .setName("diagnostics")
-    .setDescription("Performance & Pulse Analysis Report"),
+    .setDescription("Check bot system status"),
   new SlashCommandBuilder()
     .setName("hibernate")
-    .setDescription("Operational Standby Protocol (Admin Only)"),
+    .setDescription("Put the bot into sleep mode (Admin Only)"),
   new SlashCommandBuilder()
     .setName("wakeup")
-    .setDescription("Restore Operational Matrix from Hibernation"),
+    .setDescription("Wake up the bot from sleep mode"),
   new SlashCommandBuilder()
     .setName("purge")
-    .setDescription("Decommission and delete system data")
+    .setDescription("Clean up or reset server data (Admin Only)")
     .addStringOption((opt) =>
       opt
         .setName("target")
-        .setDescription("What do you want to purge?")
+        .setDescription("What do you want to clean up?")
         .setRequired(true)
         .addChoices(
-          { name: "Temporary Assets", value: "temp" },
+          { name: "Temporary Files", value: "temp" },
           { name: "System Logs", value: "logs" },
         ),
     ),
   new SlashCommandBuilder()
     .setName("backup")
-    .setDescription("Synchronize and backup the system registry"),
+    .setDescription("Backup the current bot settings"),
   new SlashCommandBuilder()
     .setName("scan")
-    .setDescription("Analyze network integrity and blocklist signatures"),
+    .setDescription("Check network safety and blocked sites"),
   new SlashCommandBuilder()
     .setName("logs")
-    .setDescription("Extract and view the last 15 operational logs"),
+    .setDescription("View the last 15 system logs"),
   new SlashCommandBuilder()
     .setName("cookies")
-    .setDescription("Synchronize and update session authentication datasets"),
+    .setDescription("Update or refresh cookie settings"),
 ].map((command) => command.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(config.botToken);

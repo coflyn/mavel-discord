@@ -23,17 +23,17 @@ async function runYoutubeFlow(target, url, options = {}) {
   const ARROW = getEmoji("arrow", "•");
   const FIRE = getEmoji("purple_fire", "🔥");
 
-  const getStatusEmbed = (status, details) => {
+  const getStatusEmbed = (status, info) => {
     return new EmbedBuilder()
       .setColor("#00b894")
       .setDescription(
-        `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
+        `### ${FIRE} **${status}**\n${ARROW} **Info:** *${info}*`,
       );
   };
 
   const initialEmbed = getStatusEmbed(
-    "YouTube Pulse",
-    "Initializing spectral stream extraction...",
+    "YouTube",
+    "Let's get that video for you...",
   );
 
   if (!statusMsg) {
@@ -94,7 +94,7 @@ async function runYoutubeFlow(target, url, options = {}) {
     const code = await new Promise((resolve) => proc.on("close", resolve));
 
     if (code !== 0 || !stdout.trim()) {
-      throw new Error("Could not extract YouTube metadata.");
+      throw new Error("Could not get YouTube video info.");
     }
 
     const json = JSON.parse(stdout.trim().split("\n")[0]);
@@ -139,17 +139,17 @@ async function runYoutubeFlow(target, url, options = {}) {
 
     const foundEmbed = new EmbedBuilder()
       .setColor("#00b894")
-      .setTitle(`${NOTIF} **YouTube Signal Extracted**`)
+      .setTitle(`${NOTIF} **YouTube Video Found**`)
       .setImage(thumbnail)
       .setDescription(
-        `### ${LEA} *Transmission Captured*\n` +
+        `### ${LEA} *Media Found*\n` +
           `${ARROW} **Title:** *${title}*\n` +
           `${ARROW} **Channel:** *${author}*\n` +
-          `${ARROW} **Type:** *YouTube ${isShorts ? "Short" : "Video"} / Stream*\n\n` +
+          `${ARROW} **Type:** *YouTube ${isShorts ? "Short" : "Video"}*\n\n` +
           `**${formatNumber(stats.likes)}** *Likes*  •  **${formatNumber(stats.views)}** *Views*`,
       )
       .setFooter({
-        text: "MaveL YouTube Engine | Select format below",
+        text: "MaveL YouTube | Select format below",
         iconURL: target.client.user.displayAvatarURL(),
       });
 
@@ -160,8 +160,8 @@ async function runYoutubeFlow(target, url, options = {}) {
     await editResponse({
       embeds: [
         getStatusEmbed(
-          "YouTube Link Restricted",
-          "Could not synchronize with the YouTube resource. It may be private or age-restricted.",
+          "Video not available",
+          "Could not connect to the video. It may be private or age-restricted.",
         ),
       ],
     });
