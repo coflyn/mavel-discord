@@ -84,9 +84,11 @@ module.exports = async function helpHandler(interaction) {
           `${ARROW} **/server** — *Show server info*\n` +
           `${ARROW} **/setup** ${LOCK} — *Configure bot channels*\n` +
           `${ARROW} **/move** ${LOCK} — *Add bot to another server*\n` +
-          `${ARROW} **/diagnostics** ${LOCK} — *Check bot system status*\n` +
+          `${ARROW} **/diagnostics** ${LOCK} — *Check system performance, IP & location*\n` +
           `${ARROW} **/hibernate** / **/wakeup** ${LOCK} — *Turn bot sleep/active mode*\n` +
-          `${ARROW} **/purge** / **/backup** ${LOCK} — *Delete messages or backup data*\n` +
+          `${ARROW} **/purge** ${LOCK} — *Delete logs or temp files*\n` +
+          `${ARROW} **/delete** ${LOCK} — *Clean chat messages (DMs/Guilds)*\n` +
+          `${ARROW} **/backup** ${LOCK} — *Backup current system data*\n` +
           `${ARROW} **/logs** ${LOCK} — *View last system logs*\n` +
           `${ARROW} **/cookies** ${LOCK} — *Update cookie settings*\n` +
           `${ARROW} **/ping** — *Check latency and bot speed*`,

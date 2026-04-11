@@ -23,6 +23,7 @@ const {
   getVpsArgs,
   getJsRuntimeArgs,
 } = require("../../utils/dlp-helpers");
+const { REQUIRED_EMOJIS } = require("../../utils/emoji-registry");
 const CACHE_DIR = path.join(__dirname, "../../temp/cache");
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 
@@ -465,13 +466,16 @@ class MusicPlayer {
     const track = state.current;
     const requester = state.channel.client.users.cache.get(track.requestedBy);
     const guild = state.channel.guild;
-    const FIRE =
-      guild.emojis.cache.find((e) => e.name === "purple_fire")?.toString() ||
-      "🔥";
-    const LEA =
-      guild.emojis.cache.find((e) => e.name === "lea")?.toString() || "✅";
-    const ARROW =
-      guild.emojis.cache.find((e) => e.name === "arrow")?.toString() || ">";
+    const getEmoji = (name, fallback) => {
+      const emoji = guild.emojis.cache.find((e) => e.name === name);
+      if (emoji) return emoji.toString();
+      const registry = REQUIRED_EMOJIS.find((e) => e.name === name);
+      return registry ? `<:${registry.name}:${registry.id}>` : fallback;
+    };
+
+    const FIRE = getEmoji("purple_fire", "🔥");
+    const LEA = getEmoji("lea", "✅");
+    const ARROW = getEmoji("arrow", ">");
 
     const source =
       track.webpage_url?.includes("bandcamp.com") ||
@@ -489,11 +493,26 @@ class MusicPlayer {
     const repeatMode = (state.repeatMode || "OFF").toUpperCase();
     const shuffleMode = state.shuffle ? "ON" : "OFF";
 
-    const cleanTitle = (str) => 
-      str.replace(/\s*[\(\[][^)\]]*[\)\]]/g, "")
-         .replace(/\s*[-|:]?\s*(?:official|lyrics|video|audio|hd|4k|hq|music video|visualizer|full video|lyric video)[^\s]*/gi, "")
-         .replace(/\s\s+/g, " ")
-         .trim();
+    const artist = track.uploader || track.artist || "---";
+    const cleanTitle = (str) => {
+      let cleaned = str
+        .replace(/\s*[\(\[][^)\]]*[\)\]]/g, "")
+        .replace(
+          /\s*[-|:]?\s*(?:official|lyrics|video|audio|hd|4k|hq|music video|visualizer|full video|lyric video)[^\s]*/gi,
+          "",
+        );
+
+      if (artist && artist !== "---") {
+        const escapedArtist = artist.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const artistPatterns = [
+          new RegExp(`^${escapedArtist}\\s*[-|:]\\s*`, "i"),
+          new RegExp(`\\s*[-|:]\\s*${escapedArtist}$`, "i"),
+        ];
+        artistPatterns.forEach((p) => (cleaned = cleaned.replace(p, "")));
+      }
+
+      return cleaned.replace(/\s\s+/g, " ").trim();
+    };
 
     return new EmbedBuilder()
       .setColor("#a29bfe")
@@ -504,7 +523,7 @@ class MusicPlayer {
       .setDescription(
         `### ${FIRE} **Now Streaming**\n` +
           `${ARROW} **Track:** [${cleanTitle(track.title).substring(0, 100)}](<${track.webpage_url || track.url}>)\n` +
-          `${ARROW} **Artist:** *${track.uploader || track.artist || "---"}*\n` +
+          `${ARROW} **Artist:** *${artist}*\n` +
           `${ARROW} **Source:** *${source}*\n` +
           `${ARROW} **Added by:** <@${track.requestedBy}>\n` +
           `${ARROW} **Length:** *${track.duration_string || "---"}*\n` +
@@ -526,8 +545,12 @@ class MusicPlayer {
     if (!state || !state.channel) return null;
 
     const guild = state.channel.guild;
-    const getEmoji = (name, fallback) =>
-      guild.emojis.cache.find((e) => e.name === name)?.toString() || fallback;
+    const getEmoji = (name, fallback) => {
+      const emoji = guild.emojis.cache.find((e) => e.name === name);
+      if (emoji) return emoji.toString();
+      const registry = REQUIRED_EMOJIS.find((e) => e.name === name);
+      return registry ? `<:${registry.name}:${registry.id}>` : fallback;
+    };
 
     const E_LYRICS = getEmoji("book", "📋");
     const E_SKIP = getEmoji("blue_arrow_right", "⏭️");
@@ -537,6 +560,7 @@ class MusicPlayer {
     const E_PAUSE = getEmoji("time", "⏸️");
     const E_QUEUE = getEmoji("anno", "📜");
     const E_CLEAR = getEmoji("lea", "🗑️");
+    const E_PLAYLIST = getEmoji("three_dots", "📂");
 
     return new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
@@ -578,6 +602,12 @@ class MusicPlayer {
             value: "skip",
             description: "Skip this track",
             emoji: E_SKIP,
+          },
+          {
+            label: "Playlist",
+            value: "playlist",
+            description: "Load your saved playlists",
+            emoji: E_PLAYLIST,
           },
           {
             label: "Clear",

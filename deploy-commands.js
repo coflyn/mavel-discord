@@ -363,6 +363,15 @@ const commands = [
   new SlashCommandBuilder()
     .setName("cookies")
     .setDescription("Update or refresh cookie settings"),
+  new SlashCommandBuilder()
+    .setName("delete")
+    .setDescription("Purge bot messages in DMs or Clean chat messages in Servers")
+    .addIntegerOption((opt) =>
+      opt
+        .setName("count")
+        .setDescription("Number of messages (max 100)")
+        .setRequired(true),
+    ),
 ].map((command) => command.toJSON());
 
 const rest = new REST({ version: "10" }).setToken(config.botToken);

@@ -13,7 +13,12 @@ const {
   getCookiesArgs,
   getVpsArgs,
 } = require("../../utils/dlp-helpers");
-const { loadDB, saveDB, formatNumber } = require("./core-helpers");
+const {
+  loadDB,
+  saveDB,
+  formatNumber,
+  sendAdminLog,
+} = require("./core-helpers");
 const { startDownload } = require("./callbacks");
 const { runPixivFlow } = require("./pixiv-handler");
 const { runTikTokFlow } = require("./tiktok-handler");
@@ -82,6 +87,14 @@ async function runYtDlpFlow(target, url, options = {}) {
       ? await target.reply({ embeds: [initialEmbed], withResponse: true })
       : await target.channel.send({ embeds: [initialEmbed] });
   }
+
+  await sendAdminLog(target.client, {
+    title: "Link Detected",
+    message: `Bot is processing a new link.`,
+    user: (target.user || target.author || {}).tag || "Unknown",
+    platform: "SCANNER",
+    url: url,
+  });
 
   const editResponse = async (data) => {
     try {
@@ -161,7 +174,10 @@ async function runYtDlpFlow(target, url, options = {}) {
     return;
   }
   if (url.includes("youtube.com") || url.includes("youtu.be")) {
-    const jobResult = await runYoutubeFlow(target, url, { statusMsg, ...options });
+    const jobResult = await runYoutubeFlow(target, url, {
+      statusMsg,
+      ...options,
+    });
     if (jobResult && jobResult.jobId) {
       const finalFormat = options.type || "mp4";
       return await startDownload(target, jobResult.jobId, finalFormat, {
@@ -219,7 +235,10 @@ async function runYtDlpFlow(target, url, options = {}) {
   }
 
   if (finalUrl.includes("threads.net") || finalUrl.includes("threads.com")) {
-    const jobResult = await runThreadsFlow(target, finalUrl, { statusMsg, ...options });
+    const jobResult = await runThreadsFlow(target, finalUrl, {
+      statusMsg,
+      ...options,
+    });
     if (!jobResult) return null;
     if (jobResult.jobId && jobResult.jobId !== null) {
       const finalFormat = options.type || "mp4";

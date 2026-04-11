@@ -7,6 +7,7 @@ const {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  StringSelectMenuBuilder,
   MessageFlags,
   PermissionFlagsBits,
   ChannelType,
@@ -22,6 +23,7 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMessageReactions,
   ],
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
@@ -106,7 +108,7 @@ client.getGuildEmojis = async (guildId) => {
   }
 };
 
-client.once("ready", async () => {
+client.once("clientReady", async () => {
   cleanupTemp();
   cleanupLogs();
 
@@ -394,39 +396,140 @@ client.on("interactionCreate", async (interaction) => {
     const { commandName } = interaction;
     const userId = interaction.user.id;
 
+    if (commandName === "delete") {
+      await interaction.deferReply({ flags: [64] });
+      const count = interaction.options.getInteger("count") || 5;
+      const limit = Math.min(count, 100);
+
+      if (!interaction.guild) {
+        try {
+          const messages = await interaction.channel.messages.fetch({
+            limit: 100,
+          });
+          const botMessages = messages.filter(
+            (m) => m.author.id === client.user.id,
+          );
+          const toDelete = Array.from(botMessages.values()).slice(0, limit);
+
+          let deleted = 0;
+          for (const msg of toDelete) {
+            await msg.delete().catch(() => {});
+            deleted++;
+          }
+
+          const getE = (name, fallback) =>
+            interaction.client.emojis.cache
+              .find((e) => e.name === name)
+              ?.toString() || fallback;
+          const E_FIRE = getE("purple_fire", "🔥");
+
+          const res = await interaction.editReply({
+            content: `### ${E_FIRE} **DM Cleanup Finished**\n*Identified and removed **${deleted}** bot messages from this conversation.*`,
+          });
+          setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
+          return res;
+        } catch (err) {
+          return await interaction.editReply({
+            content: `### ❌ **Cleanup Failed**\n*Error: ${err.message}*`,
+          });
+        }
+      } else {
+        if (
+          !interaction.member.permissions.has(
+            PermissionFlagsBits.ManageMessages,
+          )
+        ) {
+          return await interaction.editReply({
+            content:
+              "*Error: Permission Denied. You need 'Manage Messages' permission to use this.*",
+          });
+        }
+
+        try {
+          const deletedMessages = await interaction.channel.bulkDelete(
+            limit,
+            true,
+          );
+          const getE = (name, fallback) =>
+            interaction.client.emojis.cache
+              .find((e) => e.name === name)
+              ?.toString() || fallback;
+          const E_FIRE = getE("purple_fire", "🔥");
+
+          const res = await interaction.editReply({
+            content: `### ${E_FIRE} **Cleanup Finished**\n*Removed **${deletedMessages.size}** messages from this channel.*`,
+          });
+          setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
+          return res;
+        } catch (err) {
+          return await interaction.editReply({
+            content: `### ❌ **Cleanup Failed**\n*Error: ${err.message}*`,
+          });
+        }
+      }
+    }
+
     if (!interaction.guild) {
       let inviteUrl = "https://discord.com";
       try {
-        const homeGuild = interaction.client.guilds.cache.get(config.guildId);
+        const homeGuild =
+          interaction.client.guilds.cache.get(config.guildId) ||
+          interaction.client.guilds.cache.first();
         if (homeGuild) {
-          const channel = homeGuild.channels.cache.find(
-            (c) =>
-              c.type === 0 &&
-              c.permissionsFor(homeGuild.members.me).has("CreateInstantInvite"),
-          );
-          if (channel) {
-            const invite = await channel.createInvite({ maxAge: 0 });
-            inviteUrl = invite.url;
+          const channels =
+            homeGuild.channels.cache.size > 0
+              ? homeGuild.channels.cache
+              : await homeGuild.channels.fetch().catch(() => null);
+
+          if (channels) {
+            const channel = channels.find(
+              (c) =>
+                c.type === ChannelType.GuildText &&
+                c
+                  .permissionsFor(homeGuild.members.me)
+                  .has(PermissionFlagsBits.CreateInstantInvite),
+            );
+            if (channel) {
+              const invite = await channel
+                .createInvite({ maxAge: 0 })
+                .catch(() => null);
+              if (invite) inviteUrl = invite.url;
+            }
           }
         }
       } catch (e) {
-        console.error("[DM-INVITE] Error:", e.message);
+        // Silent catch for network flickers
       }
+
+      const getE = (name, fallback) =>
+        interaction.client.emojis.cache
+          .find((e) => e.name === name)
+          ?.toString() || fallback;
+      const E_WARN = getE("ping_red", "⚠️");
+      const E_LINK = getE("pc", "🔗");
 
       const dmEmbed = new EmbedBuilder()
         .setColor("#ff4757")
-        .setTitle("⚠️ Not Available in DMs")
+        .setTitle(`${E_WARN} Not Available in DMs`)
         .setDescription(
           "### **Access Denied**\n" +
             "> *Sorry, my features only work inside a Discord Server. You cannot use commands in Direct Messages.*",
         )
         .addFields({
-          name: "🔗 **Join Our Server**",
+          name: `${E_LINK} **Join Our Server**`,
           value: `[Click here to join the Main Hub](${inviteUrl})`,
         })
         .setFooter({ text: "Please use MaveL inside a Server" });
 
-      return await interaction.reply({ embeds: [dmEmbed], flags: [64] });
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction
+          .reply({ embeds: [dmEmbed], flags: [64] })
+          .catch(() => {});
+        setTimeout(() => {
+          interaction.deleteReply().catch(() => {});
+        }, 15000);
+      }
+      return;
     }
 
     if (
@@ -1436,6 +1539,50 @@ client.on("interactionCreate", async (interaction) => {
         return;
       }
 
+      if (value === "playlist") {
+        const playlists = getPlaylists(user.id);
+        const names = Object.keys(playlists);
+
+        const guildEmojis = await interaction.guild.emojis.fetch();
+        const E_FIRE =
+          guildEmojis.find((e) => e.name === "purple_fire")?.toString() || "🔥";
+
+        await interaction
+          .update({
+            components: [player.getPlaybackComponents(guildId)],
+          })
+          .catch(() => {});
+
+        if (names.length === 0) {
+          return await interaction.followUp({
+            content: `### ${E_FIRE} **No Playlists Found**\n> *Create one first using \`/playlist save\`*`,
+            flags: [64],
+          });
+        }
+
+        const E_ARROW = guildEmojis.find((e) => e.name === "arrow") || "▶️";
+
+        const menu = new StringSelectMenuBuilder()
+          .setCustomId("music_load_playlist")
+          .setPlaceholder("Select a playlist to load...")
+          .addOptions(
+            names.slice(0, 25).map((n) => ({
+              label: n.charAt(0).toUpperCase() + n.slice(1),
+              description: `${playlists[n].length} tracks`,
+              value: n,
+              emoji: E_ARROW.id || E_ARROW,
+            })),
+          );
+
+        const row = new ActionRowBuilder().addComponents(menu);
+
+        return await interaction.followUp({
+          content: `### ${E_FIRE} **Select a Playlist to Load**`,
+          components: [row],
+          flags: [64],
+        });
+      }
+
       if (value === "skip") {
         const state = player.queues.get(guildId);
         const guildEmojis = await interaction.guild.emojis.fetch();
@@ -1478,6 +1625,36 @@ client.on("interactionCreate", async (interaction) => {
       }
     }
 
+    if (interaction.customId === "music_load_playlist") {
+      const name = interaction.values[0];
+      const userId = interaction.user.id;
+      const playlists = getPlaylists(userId);
+      const list = playlists[name.toLowerCase()];
+
+      if (!list) {
+        return await interaction.reply({
+          content: `*Playlist '${name}' not found.*`,
+          flags: [64],
+        });
+      }
+
+      await interaction.deferUpdate();
+      try {
+        await player.playBatch(interaction, list);
+        await interaction.editReply({
+          content: `*Enqueued ${list.length} tracks from playlist '${name}'.*`,
+          components: [],
+        });
+        setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
+      } catch (e) {
+        await interaction.editReply({
+          content: `*Error: ${e.message}*`,
+          components: [],
+        });
+      }
+      return;
+    }
+
     if (interaction.customId === "sync_emojis") {
       return await emojiHandler.syncMissingEmojis(interaction);
     }
@@ -1495,6 +1672,76 @@ process.on("uncaughtException", (error) => {
     error.code === "InteractionAlreadyReplied"
   ) {
     return;
+  }
+});
+
+client.on("messageReactionAdd", async (reaction, user) => {
+  if (user.bot) return;
+  if (reaction.partial) {
+    try {
+      await reaction.fetch();
+    } catch (error) {
+      return;
+    }
+  }
+
+  const { message, emoji } = reaction;
+  const isCheck =
+    ["check", "verified", "blue_check"].includes(emoji.name?.toLowerCase()) ||
+    emoji.name === "✅" ||
+    emoji.name === "☑️";
+  if (!isCheck) return;
+
+  if (message.author.id !== client.user.id) return;
+
+  const embed = message.embeds[0];
+  if (
+    !embed ||
+    !(
+      embed.title?.includes("Media Ready") ||
+      embed.title?.includes("Media Link Ready")
+    )
+  )
+    return;
+
+  const desc = embed.description || "";
+  const linkMatch = desc.match(/\[Original Link\]\(<([^>]+)>\)/);
+  if (!linkMatch) return;
+
+  const url = linkMatch[1];
+  const titleField = embed.fields?.find((f) => f.name.includes("Title"));
+  const cleanTitle =
+    titleField?.value.replace(/\*/g, "").substring(0, 100) || "Media";
+
+  try {
+    const guildEmojis = message.guild
+      ? await message.guild.emojis.fetch().catch(() => null)
+      : null;
+    const getE = (name, fallback) =>
+      guildEmojis?.find((e) => e.name === name)?.toString() || fallback;
+
+    const E_ANNO = getE("anno", "📑");
+    const E_ARROW = getE("arrow", "»");
+
+    const dmEmbed = new EmbedBuilder()
+      .setColor(embed.color || "#6c5ce7")
+      .setAuthor({
+        name: "MaveL Bookmark Service",
+        iconURL: client.user.displayAvatarURL(),
+      })
+      .setTitle(`${E_ANNO} **Content Bookmarked**`)
+      .setThumbnail(embed.thumbnail?.url || embed.image?.url || null)
+      .setDescription(
+        `You bookmarked this media via reaction in **${message.guild?.name || "a server"}**.\n\n` +
+          `${E_ARROW} **Title:** *${cleanTitle}*\n` +
+          `${E_ARROW} **Source:** ${url}`,
+      )
+      .setFooter({ text: "MaveL", iconURL: client.user.displayAvatarURL() })
+      .setTimestamp();
+
+    await user.send({ embeds: [dmEmbed] }).catch(() => {});
+  } catch (err) {
+    // Silent fail if DMs are closed
   }
 });
 

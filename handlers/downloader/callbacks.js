@@ -346,11 +346,13 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 `### ${DIAMOND} **Gallery Bundle Too Large**\n` +
                 `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
+                `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 `${ARROW} **[${PING_GREEN} CLICK TO DOWNLOAD BUNDLE](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
             );
             doneEmbed.setImage(null);
-            await interaction.channel.send({ embeds: [doneEmbed] });
+            const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+            await finalMsg.react(CHECK).catch(() => {});
             await cleanupStatus();
             if (interaction.deleteReply)
               await interaction.deleteReply().catch(() => {});
@@ -376,6 +378,19 @@ async function startDownload(interaction, jobId, format, options = {}) {
         if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
         if (interaction.deleteReply)
           await interaction.deleteReply().catch(() => {});
+
+        await sendAdminLog(interaction.client, {
+          title: "Download Success (Gallery)",
+          color: parseInt(platformColor.replace("#", ""), 16),
+          message: `Delivered ${urls.length} files.`,
+          user:
+            (interaction.user || interaction.author || {}).tag ||
+            "Unknown User",
+          platform: platformName,
+          url: url,
+          size: formatSize(sizeGall),
+        });
+
         return;
       }
 
@@ -421,13 +436,13 @@ async function startDownload(interaction, jobId, format, options = {}) {
           });
           const rawPdf = await bundleImagesToPdf(photoPaths);
           photoPaths.forEach((p) => p && fs.existsSync(p) && fs.unlinkSync(p));
-          
+
           pdfPath = path.join(
             tempDir,
             `${sanitizedTitle}_${jobId || Date.now()}.pdf`,
           );
           if (fs.existsSync(rawPdf)) fs.renameSync(rawPdf, pdfPath);
-          
+
           attachments = [
             new AttachmentBuilder(pdfPath, { name: `${sanitizedTitle}.pdf` }),
           ];
@@ -496,11 +511,13 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 `### ${DIAMOND} **Gallery Bundle Too Large**\n` +
                 `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
+                `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 `${ARROW} **[${PING_GREEN} CLICK TO DOWNLOAD BUNDLE](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
             );
             doneEmbed.setImage(null);
-            await interaction.channel.send({ embeds: [doneEmbed] });
+            const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+            await finalMsg.react(CHECK).catch(() => {});
             await cleanupStatus();
             if (interaction.deleteReply)
               await interaction.deleteReply().catch(() => {});
@@ -524,6 +541,19 @@ async function startDownload(interaction, jobId, format, options = {}) {
         if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
         if (interaction.deleteReply)
           await interaction.deleteReply().catch(() => {});
+
+        await sendAdminLog(interaction.client, {
+          title: "Download Success (TK Gallery)",
+          color: parseInt(platformColor.replace("#", ""), 16),
+          message: `Delivered ${urls.length} photos.`,
+          user:
+            (interaction.user || interaction.author || {}).tag ||
+            "Unknown User",
+          platform: "TikTok",
+          url: url,
+          size: formatSize(sizeGallTK),
+        });
+
         return;
       }
 
@@ -600,10 +630,12 @@ async function startDownload(interaction, jobId, format, options = {}) {
                     `### ${DIAMOND} **File Too Large for Discord**\n` +
                     `${ARROW} **Title:** *${title}*\n` +
                     `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
+                    `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                     `${ARROW} **[DOWNLOAD HD VIDEO](${publicUrl})**\n\n` +
                     `*Local host link expires in 10 minutes.*`,
                 );
-              await interaction.channel.send({ embeds: [doneEmbed] });
+              const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+              await finalMsg.react(CHECK).catch(() => {});
               await cleanupStatus();
               if (interaction.deleteReply)
                 await interaction.deleteReply().catch(() => {});
@@ -739,10 +771,12 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 `### ${DIAMOND} **Cloud File Too Large**\n` +
                 `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
+                `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 `${ARROW} **[DOWNLOAD FILE](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
             );
-            await interaction.channel.send({ embeds: [doneEmbed] });
+            const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+            await finalMsg.react(CHECK).catch(() => {});
             await cleanupStatus();
             if (interaction.deleteReply)
               await interaction.deleteReply().catch(() => {});
@@ -855,10 +889,12 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 `### ${DIAMOND} **Audio File Too Large**\n` +
                 `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
+                `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 `${ARROW} **[${PING_GREEN} DOWNLOAD MUSIC](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
             );
-            await interaction.channel.send({ embeds: [doneEmbed] });
+            const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+            await finalMsg.react(CHECK).catch(() => {});
             await cleanupStatus();
             if (interaction.deleteReply)
               await interaction.deleteReply().catch(() => {});
@@ -877,9 +913,25 @@ async function startDownload(interaction, jobId, format, options = {}) {
           });
           await finalMsg.react(CHECK).catch(() => {});
           await cleanupStatus();
+          const finalSize = fs.existsSync(outputFile)
+            ? fs.statSync(outputFile).size
+            : 0;
           if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
           if (interaction.deleteReply)
             await interaction.deleteReply().catch(() => {});
+
+          await sendAdminLog(interaction.client, {
+            title: "Download Success (Spotify)",
+            color: parseInt(EC.MUSIC_DL.replace("#", ""), 16),
+            message: `Delivered audio file.`,
+            user:
+              (interaction.user || interaction.author || {}).tag ||
+              "Unknown User",
+            platform: "Spotify",
+            url: url,
+            size: formatSize(finalSize),
+          });
+
           return;
         } else {
           if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
@@ -999,12 +1051,14 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 `### ${DIAMOND} **Pixiv Gallery Too Large**\n` +
                 `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
+                `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 `${ARROW} **[${PING_GREEN} CLICK TO DOWNLOAD BUNDLE](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
             );
             doneEmbed.setImage(null);
 
-            await interaction.channel.send({ embeds: [doneEmbed] });
+            const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+            await finalMsg.react(CHECK).catch(() => {});
             await cleanupStatus();
             if (interaction.deleteReply)
               await interaction.deleteReply().catch(() => {});
@@ -1035,9 +1089,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const outputFile = path.join(tempDir, `pixiv_${jobId}.mp4`);
 
         await editLocal({
-          embeds: [
-            getStatusEmbed("Downloading", "Getting the video..."),
-          ],
+          embeds: [getStatusEmbed("Downloading", "Getting the video...")],
         });
         const videoRes = await axios.get(directUrl, {
           responseType: "arraybuffer",
@@ -1092,10 +1144,12 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 `### ${DIAMOND} **Pixiv Animation Too Large**\n` +
                 `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
+                `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 `${ARROW} **[DOWNLOAD UGOIRA VIDEO](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
             );
-            await interaction.channel.send({ embeds: [doneEmbed] });
+            const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+            await finalMsg.react(CHECK).catch(() => {});
             await cleanupStatus();
             if (interaction.deleteReply)
               await interaction.deleteReply().catch(() => {});
@@ -1280,10 +1334,12 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 `### ${DIAMOND} **Social Gallery Too Large**\n` +
                 `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
+                `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 `${ARROW} **[DOWNLOAD GALLERY ASSETS](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
             );
-            await interaction.channel.send({ embeds: [doneEmbed] });
+            const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+            await finalMsg.react(CHECK).catch(() => {});
             await cleanupStatus();
             if (interaction.deleteReply)
               await interaction.deleteReply().catch(() => {});
