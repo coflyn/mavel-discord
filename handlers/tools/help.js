@@ -26,29 +26,35 @@ module.exports = async function helpHandler(interaction) {
   const botUser = await interaction.client.user.fetch();
   const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
-  const embed = new EmbedBuilder()
-    .setColor("#fdcb6e")
-    .setAuthor({
-      name: "MaveL Help Guide",
-      iconURL: interaction.client.user.displayAvatarURL(),
-    })
-    .setTitle(`${HELP} **Main Menu**`)
-    .setImage(botBanner)
-    .setDescription(
+  try {
+    const embed = new EmbedBuilder()
+      .setColor("#fdcb6e")
+      .setAuthor({
+        name: "MaveL Help Guide",
+        iconURL: interaction.client.user.displayAvatarURL(),
+      })
+      .setTitle(`${HELP || "📚"} **Main Menu**`);
+
+    if (botBanner) {
+      embed.setImage(botBanner);
+    }
+
+    embed.setDescription(
       `*MaveL is a fast and easy music player and media downloader for your Discord server.*`,
     )
     .addFields(
       {
-        name: `${DIAMOND} **Main Features**`,
+        name: `${DIAMOND || "✨"} **Main Features**`,
         value:
           `${ARROW} **/dl** — *Download media from various sites*\n` +
           `${ARROW} **/harvest** — *Extract intelligence from profiles*\n` +
+          `${ARROW} **/convert** — *Transform Video/Audio/Image formats*\n` +
           `${ARROW} **/search** — *Search for songs (YouTube/Spotify/etc)*\n` +
           `${ARROW} **/lyrics** — *Get song lyrics and info*`,
         inline: false,
       },
       {
-        name: `${NOTIF} **Files & Information**`,
+        name: `${NOTIF || "🔔"} **Files & Information**`,
         value:
           `${ARROW} **/icon** — *Get server/user avatar*\n` +
           `${ARROW} **/banner** — *Get server/user banner link*\n` +
@@ -59,7 +65,7 @@ module.exports = async function helpHandler(interaction) {
         inline: false,
       },
       {
-        name: `${PC} **Music Controls**`,
+        name: `${PC || "💻"} **Music Controls**`,
         value:
           `${ARROW} **/play** — *Start playing music*\n` +
           `${ARROW} **/stop** — *Stop music and disconnect*\n` +
@@ -69,7 +75,7 @@ module.exports = async function helpHandler(interaction) {
         inline: false,
       },
       {
-        name: `${DOTS} **Queue & Playlists**`,
+        name: `${DOTS || "🎵"} **Queue & Playlists**`,
         value:
           `${ARROW} **/queue** — *View the current music queue*\n` +
           `${ARROW} **/playlist** — *Directly manage your playlists*\n` +
@@ -79,15 +85,20 @@ module.exports = async function helpHandler(interaction) {
         inline: false,
       },
       {
-        name: `${ROCKET} **Settings & Admin**`,
+        name: `${ROCKET || "🚀"} **System Management**`,
         value:
           `${ARROW} **/server** — *Show server info*\n` +
           `${ARROW} **/setup** ${LOCK} — *Configure bot channels*\n` +
           `${ARROW} **/move** ${LOCK} — *Add bot to another server*\n` +
-          `${ARROW} **/diagnostics** ${LOCK} — *Check system performance, IP & location*\n` +
-          `${ARROW} **/hibernate** / **/wakeup** ${LOCK} — *Turn bot sleep/active mode*\n` +
+          `${ARROW} **/diagnostics** ${LOCK} — *Check performance, IP & location*\n` +
+          `${ARROW} **/hibernate** / **/wakeup** ${LOCK} — *Sleep/active mode*`,
+        inline: false,
+      },
+      {
+        name: `${LOCK || "🔐"} **System Maintenance**`,
+        value:
           `${ARROW} **/purge** ${LOCK} — *Delete logs or temp files*\n` +
-          `${ARROW} **/delete** ${LOCK} — *Clean chat messages (DMs/Guilds)*\n` +
+          `${ARROW} **/delete** ${LOCK} — *Clean messages (DMs/Guilds)*\n` +
           `${ARROW} **/backup** ${LOCK} — *Backup current system data*\n` +
           `${ARROW} **/logs** ${LOCK} — *View last system logs*\n` +
           `${ARROW} **/cookies** ${LOCK} — *Update cookie settings*\n` +
@@ -101,17 +112,17 @@ module.exports = async function helpHandler(interaction) {
     })
     .setTimestamp();
 
-  if (interaction.editReply && (interaction.isChatInputCommand?.() || interaction.isButton?.() || interaction.isStringSelectMenu?.())) {
-    try {
-      await interaction.editReply({
-        embeds: [embed],
-      });
+    if (interaction.isChatInputCommand?.() || interaction.isButton?.() || interaction.isStringSelectMenu?.()) {
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ embeds: [embed] });
+      } else {
+        await interaction.reply({ embeds: [embed], flags: [MessageFlags.Ephemeral] });
+      }
       setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
-    } catch (e) {
-      await interaction.reply({ embeds: [embed], flags: [MessageFlags.Ephemeral] }).catch(() => {});
-      setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
+    } else {
+      await interaction.reply({ embeds: [embed] }).catch(() => {});
     }
-  } else if (interaction.reply) {
-    await interaction.reply({ embeds: [embed] }).catch(() => {});
+  } catch (err) {
+    console.error("[HELP-EMBED] Critical Error:", err);
   }
 };

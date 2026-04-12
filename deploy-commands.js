@@ -1,4 +1,4 @@
-const { REST, Routes, SlashCommandBuilder } = require("discord.js");
+const { REST, Routes, SlashCommandBuilder, ContextMenuCommandBuilder, ApplicationCommandType } = require("discord.js");
 const config = require("./config");
 
 const commands = [
@@ -209,9 +209,7 @@ const commands = [
     ),
   new SlashCommandBuilder()
     .setName("lyrics")
-    .setDescription(
-      "Find lyrics for the currently playing song",
-    )
+    .setDescription("Find lyrics for the currently playing song")
     .addStringOption((opt) =>
       opt
         .setName("query")
@@ -330,6 +328,38 @@ const commands = [
       sub.setName("tunnel").setDescription("Fix connection issues"),
     ),
   new SlashCommandBuilder()
+    .setName("convert")
+    .setDescription("Media Converter (Video/Audio/Image)")
+    .addStringOption((option) =>
+      option
+        .setName("to")
+        .setDescription("Target format")
+        .setRequired(true)
+        .addChoices(
+          { name: "Video: MP4 (HQ Compressed)", value: "mp4" },
+          { name: "Video: MP4 (8MB Limit - No Nitro)", value: "mp4_small" },
+          { name: "Video: GIF (High Quality)", value: "gif" },
+          { name: "Video: GIF (Small/Fast)", value: "gif_small" },
+          { name: "Audio: MP3 (320kbps)", value: "mp3" },
+          { name: "Audio: OGG (Soundboard Ready)", value: "ogg" },
+          { name: "Audio: WAV (Lossless)", value: "wav" },
+          { name: "Image: PNG", value: "png" },
+          { name: "Image: JPG", value: "jpg" },
+          { name: "Image: WebP", value: "webp" },
+          { name: "Document: Image to PDF", value: "pdf" },
+          { name: "Document: Word (.docx) to PDF", value: "word_to_pdf" },
+        ),
+    )
+    .addAttachmentOption((option) =>
+      option
+        .setName("file")
+        .setDescription("The file you want to convert")
+        .setRequired(true),
+    ),
+  new ContextMenuCommandBuilder()
+    .setName("Convert Media")
+    .setType(ApplicationCommandType.Message),
+  new SlashCommandBuilder()
     .setName("diagnostics")
     .setDescription("Check bot system status"),
   new SlashCommandBuilder()
@@ -365,7 +395,9 @@ const commands = [
     .setDescription("Update or refresh cookie settings"),
   new SlashCommandBuilder()
     .setName("delete")
-    .setDescription("Purge bot messages in DMs or Clean chat messages in Servers")
+    .setDescription(
+      "Purge bot messages in DMs or Clean chat messages in Servers",
+    )
     .addIntegerOption((opt) =>
       opt
         .setName("count")
@@ -382,10 +414,9 @@ const rest = new REST({ version: "10" }).setToken(config.botToken);
       `Started refreshing ${commands.length} application (/) commands globally.`,
     );
 
-    const data = await rest.put(
-      Routes.applicationCommands(config.clientId),
-      { body: commands },
-    );
+    const data = await rest.put(Routes.applicationCommands(config.clientId), {
+      body: commands,
+    });
 
     console.log(
       `Successfully reloaded ${data.length} global application (/) commands.`,

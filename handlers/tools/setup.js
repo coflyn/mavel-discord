@@ -89,15 +89,12 @@ module.exports = async function setupHandler(interaction) {
     withResponse: true,
   };
 
-  const sent = await interaction.reply(replyOptions);
+  await interaction.reply(replyOptions);
 
-  const response = sent?.resource || sent;
+  const response = await interaction.fetchReply().catch(() => null);
 
-  if (
-    !response ||
-    typeof response.createMessageComponentCollector !== "function"
-  ) {
-    console.warn("[SETUP] Failed to get response object for collector.");
+  if (!response) {
+    console.warn("[SETUP] Failed to fetch reply for collector.");
     return;
   }
 
@@ -105,41 +102,53 @@ module.exports = async function setupHandler(interaction) {
     time: 300000,
   });
 
+  let isProcessing = false;
   collector.on("collect", async (i) => {
-    if (i.customId === "setup_done") {
+    if (isProcessing) return;
+    isProcessing = true;
+
+    try {
+      await i.deferUpdate().catch(() => {});
+
+      if (i.customId === "setup_done") {
+        await i
+          .editReply({
+            content: "*Setup complete! System is ready.*",
+            components: [],
+            embeds: [generateEmbed()],
+          })
+          .catch(() => {});
+        return collector.stop();
+      }
+
+      const channelId = i.values[0];
+      const settings = fs.existsSync(settingsPath)
+        ? JSON.parse(fs.readFileSync(settingsPath, "utf-8"))
+        : {};
+
+      if (i.customId === "setup_download") {
+        settings.downloadChannelId = channelId;
+        config.allowedChannelId = channelId;
+      } else if (i.customId === "setup_logs") {
+        settings.logsChannelId = channelId;
+        config.logsChannelId = channelId;
+      } else if (i.customId === "setup_music") {
+        settings.musicChannelId = channelId;
+        config.musicChannelId = channelId;
+      }
+
+      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+
       await i
-        .update({
-          content: "*Setup complete! System is ready.*",
-          components: [],
+        .editReply({
           embeds: [generateEmbed()],
+          components: rows,
         })
         .catch(() => {});
-      return collector.stop();
+    } catch (err) {
+      console.error("[SETUP-COLLECT] Error:", err.message);
+    } finally {
+      isProcessing = false;
     }
-
-    const channelId = i.values[0];
-    const settings = fs.existsSync(settingsPath)
-      ? JSON.parse(fs.readFileSync(settingsPath, "utf-8"))
-      : {};
-
-    if (i.customId === "setup_download") {
-      settings.downloadChannelId = channelId;
-      config.allowedChannelId = channelId;
-    } else if (i.customId === "setup_logs") {
-      settings.logsChannelId = channelId;
-      config.logsChannelId = channelId;
-    } else if (i.customId === "setup_music") {
-      settings.musicChannelId = channelId;
-      config.musicChannelId = channelId;
-    }
-
-    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-
-    await i
-      .update({
-        embeds: [generateEmbed()],
-        components: rows,
-      })
-      .catch(() => {});
   });
 };

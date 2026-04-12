@@ -7,6 +7,7 @@ const {
 const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
+const { advanceLog } = require("../../utils/logger");
 
 const settingsPath = path.join(__dirname, "../../database/settings.json");
 
@@ -14,12 +15,10 @@ module.exports = async function adminCmdsHandler(interaction) {
   if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
     return await (interaction.deferred
       ? interaction.editReply({
-          content:
-            "*Error: Owner-only command. Permission denied.*",
+          content: "*Error: Owner-only command. Permission denied.*",
         })
       : interaction.reply({
-          content:
-            "*Error: Owner-only command. Permission denied.*",
+          content: "*Error: Owner-only command. Permission denied.*",
           flags: [MessageFlags.Ephemeral],
         }));
   }
@@ -60,13 +59,29 @@ async function toggleHibernate(interaction, status) {
   db.hibernate = status;
   fs.writeFileSync(settingsPath, JSON.stringify(db, null, 2));
 
+  advanceLog(interaction.client, {
+    type: status ? "warning" : "online",
+    title: "System Status Changed",
+    activity: status ? "Hibernate Mode: ON" : "Hibernate Mode: OFF",
+    message: `Administrator has ${status ? "put the system to sleep" : "woken up the system"}.`,
+    user: `${interaction.user.tag}`,
+    guild: interaction.guild.name,
+  });
+
   const LOCK =
-    interaction.guild.emojis.cache.find((e) => e.name === "lock")?.toString() ||
+    interaction.guild.emojis.cache.find((e) => e.name === "cash")?.toString() ||
+    interaction.guild.emojis.cache
+      .find((e) => e.name === "crowncyan")
+      ?.toString() ||
     "🔒";
   const POWER =
     interaction.guild.emojis.cache
-      .find((e) => e.name === "ping_red")
-      ?.toString() || "🔴";
+      .find((e) => e.name === "ping_green")
+      ?.toString() ||
+    interaction.guild.emojis.cache
+      .find((e) => e.name === "online")
+      ?.toString() ||
+    "🟢";
 
   await (interaction.deferred
     ? interaction.editReply({
@@ -99,6 +114,15 @@ async function handlePurge(interaction) {
     }
 
     fs.writeFileSync(logPath, "");
+
+    advanceLog(interaction.client, {
+      type: "admin",
+      title: "System Cleanup",
+      activity: "Log Purge",
+      message: "System log files have been cleared manually.",
+      user: `${interaction.user.tag}`,
+      guild: interaction.guild.name,
+    });
 
     return await (interaction.deferred
       ? interaction.editReply({
@@ -153,6 +177,15 @@ async function handleBackup(interaction) {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
   const currentBackupDir = path.join(backupDir, `backup-${timestamp}`);
   fs.mkdirSync(currentBackupDir);
+
+  advanceLog(interaction.client, {
+    type: "admin",
+    title: "Data Backup",
+    activity: "Database Backup",
+    message: `System database backup created: \`backup-${timestamp}\``,
+    user: `${interaction.user.tag}`,
+    guild: interaction.guild.name,
+  });
 
   const files = fs.readdirSync(dbDir).filter((f) => f.endsWith(".json"));
   const attachments = [];

@@ -11,6 +11,7 @@ const {
   MessageFlags,
   PermissionFlagsBits,
   ChannelType,
+  ActivityType,
 } = require("discord.js");
 const config = require("./config");
 const fs = require("fs");
@@ -56,6 +57,8 @@ const diagnosticsHandler = require("./handlers/tools/diagnostics");
 const cookiesHandler = require("./handlers/tools/cookies");
 const adminCmdsHandler = require("./handlers/tools/admin-cmds");
 const harvestHandler = require("./handlers/tools/harvest");
+const converterHandler = require("./handlers/tools/converter");
+const { advanceLog } = require("./utils/logger");
 const { startTunnel, resetTunnel } = require("./utils/tunnel-server");
 
 const logPath = path.join(__dirname, "bot.log");
@@ -150,13 +153,23 @@ client.once("clientReady", async () => {
       name = `${guilds} servers`;
     }
 
-    client.user.setActivity(name, { type: activity.type });
+    client.user.setPresence({
+      activities: [{ name, type: activity.type || ActivityType.Watching }],
+      status: "online",
+    });
     i++;
   };
 
-  client.setTempStatus = (name, type = 3, duration = 15000) => {
+  client.setTempStatus = (
+    name,
+    type = ActivityType.Watching,
+    duration = 15000,
+  ) => {
     client.statusOverride = true;
-    client.user.setActivity(name, { type });
+    client.user.setPresence({
+      activities: [{ name, type }],
+      status: "online",
+    });
     if (client.statusTimeout) clearTimeout(client.statusTimeout);
     if (duration !== null) {
       client.statusTimeout = setTimeout(() => {
@@ -243,12 +256,50 @@ client.on("guildCreate", async (guild) => {
     console.error("[GUILD-CREATE] Error sending welcome:", err.message);
   }
 });
-client.on("voiceStateUpdate", (oldState, newState) => {
-  const guildId = oldState.guild.id;
+client.on("voiceStateUpdate", async (oldState, newState) => {
+  const guild = oldState.guild;
+  const user = oldState.member.user;
+
+  if (!user.bot) {
+    if (!oldState.channelId && newState.channelId) {
+      advanceLog(client, {
+        type: "voice",
+        title: "Voice Joined",
+        activity: "User Connected",
+        message: `${user} joined voice channel: **${newState.channel.name}**`,
+        user: `${user.tag}`,
+        guild: guild.name,
+      });
+    } else if (oldState.channelId && !newState.channelId) {
+      advanceLog(client, {
+        type: "voice",
+        title: "Voice Left",
+        activity: "User Disconnected",
+        message: `${user} left voice channel: **${oldState.channel.name}**`,
+        user: `${user.tag}`,
+        guild: guild.name,
+      });
+    } else if (
+      oldState.channelId &&
+      newState.channelId &&
+      oldState.channelId !== newState.channelId
+    ) {
+      advanceLog(client, {
+        type: "voice",
+        title: "Voice Moved",
+        activity: "Switching Channels",
+        message: `${user} moved from **${oldState.channel.name}** to **${newState.channel.name}**`,
+        user: `${user.tag}`,
+        guild: guild.name,
+      });
+    }
+  }
+
+  const guildId = guild.id;
   const state = player.queues.get(guildId);
   if (!state) return;
 
-  const me = oldState.guild.members.me;
+  const me = guild.members.me;
   const botChannel = me.voice.channel;
 
   if (!botChannel) {
@@ -392,9 +443,38 @@ client.on("interactionCreate", async (interaction) => {
     return;
   }
 
+  if (
+    interaction.isMessageContextMenuCommand() &&
+    interaction.commandName === "Convert Media"
+  ) {
+    return await converterHandler(interaction);
+  }
+
+  if (
+    interaction.isStringSelectMenu() &&
+    interaction.customId.startsWith("conv_pick_")
+  ) {
+    return await converterHandler(interaction);
+  }
+
   if (interaction.isChatInputCommand()) {
     const { commandName } = interaction;
     const userId = interaction.user.id;
+
+    advanceLog(client, {
+      type: "command",
+      title: "Command Execution",
+      activity: `/${commandName}`,
+      message: `User triggered a slash command in #${interaction.channel.name}`,
+      user: `${interaction.user.tag} (${interaction.user.id})`,
+      guild: interaction.guild ? `${interaction.guild.name}` : "DMs",
+      extra:
+        interaction.options.data.length > 0
+          ? interaction.options.data
+              .map((o) => `${o.name}: ${o.value}`)
+              .join("\n")
+          : "No arguments",
+    });
 
     if (commandName === "delete") {
       await interaction.deferReply({ flags: [64] });
@@ -498,7 +578,7 @@ client.on("interactionCreate", async (interaction) => {
           }
         }
       } catch (e) {
-        // Silent catch for network flickers
+        // Silent
       }
 
       const getE = (name, fallback) =>
@@ -723,6 +803,9 @@ client.on("interactionCreate", async (interaction) => {
     }
     if (commandName === "harvest") {
       return await harvestHandler(interaction);
+    }
+    if (commandName === "convert") {
+      return await converterHandler(interaction);
     }
 
     if (commandName === "ping") {
@@ -1474,7 +1557,10 @@ client.on("interactionCreate", async (interaction) => {
           content: `### ${E_SHUFFLE} **Shuffle: ${newMode.toUpperCase()}**`,
           flags: [64],
         });
-        setTimeout(() => shuffleMsg.delete().catch(() => {}), 5000);
+        setTimeout(
+          () => interaction.deleteReply(shuffleMsg.id).catch(() => {}),
+          5000,
+        );
       }
 
       if (value === "repeat") {
@@ -1500,7 +1586,10 @@ client.on("interactionCreate", async (interaction) => {
           content: `### ${E_REPEAT} **Repeat: ${nextMode.toUpperCase()}**`,
           flags: [64],
         });
-        setTimeout(() => repeatMsg.delete().catch(() => {}), 5000);
+        setTimeout(
+          () => interaction.deleteReply(repeatMsg.id).catch(() => {}),
+          5000,
+        );
       }
 
       if (value === "queue") {
@@ -1606,7 +1695,10 @@ client.on("interactionCreate", async (interaction) => {
           content: `### ${E_NEXT} **Song skipped. Moving to next track.**`,
           flags: [64],
         });
-        setTimeout(() => skipMsg.delete().catch(() => {}), 5000);
+        setTimeout(
+          () => interaction.deleteReply(skipMsg.id).catch(() => {}),
+          5000,
+        );
       }
 
       if (value === "stop") {
@@ -1741,8 +1833,31 @@ client.on("messageReactionAdd", async (reaction, user) => {
 
     await user.send({ embeds: [dmEmbed] }).catch(() => {});
   } catch (err) {
-    // Silent fail if DMs are closed
+    // Silent
   }
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("[UNCAUGHT-EXCEPTION]", err.message);
+  advanceLog(client, {
+    type: "error",
+    title: "Critical System Error",
+    activity: "Uncaught Exception",
+    message: err.message,
+    extra: err.stack,
+  });
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("[UNHANDLED-REJECTION]", reason);
+  advanceLog(client, {
+    type: "error",
+    title: "System Warning",
+    activity: "Unhandled Promise Rejection",
+    message:
+      typeof reason === "string" ? reason : reason.message || "Unknown error",
+    extra: reason.stack || "No stack trace available",
+  });
 });
 
 client.login(config.botToken);

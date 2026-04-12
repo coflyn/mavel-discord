@@ -24,6 +24,7 @@ const {
   getJsRuntimeArgs,
 } = require("../../utils/dlp-helpers");
 const { REQUIRED_EMOJIS } = require("../../utils/emoji-registry");
+const { advanceLog } = require("../../utils/logger");
 const CACHE_DIR = path.join(__dirname, "../../temp/cache");
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 
@@ -187,7 +188,13 @@ class MusicPlayer {
     if (!state) return;
 
     if (state.lastNowPlayingMsg) {
-      state.lastNowPlayingMsg.edit({ components: [] }).catch(() => {});
+      const endedEmbed = this.getNowPlayingEmbed(guildId, "Playback Ended");
+      state.lastNowPlayingMsg
+        .edit({
+          embeds: endedEmbed ? [endedEmbed] : [],
+          components: [],
+        })
+        .catch(() => {});
     }
 
     if (state.activeProcesses) {
@@ -282,6 +289,19 @@ class MusicPlayer {
           : info.title || "---";
       state.current = { ...info, ...track, title: finalTitle };
       const streamUrl = info.url;
+
+      // Advance Log for Music
+      if (state.channel) {
+        advanceLog(state.channel.client, {
+          type: "music",
+          title: "Music Stream Started",
+          activity: "Streaming Audio",
+          message: `Now playing: **${finalTitle}**`,
+          user: `<@${track.requestedBy}>`,
+          guild: state.channel.guild.name,
+          extra: `URL: ${track.url}\nSource: ${info.extractor_key || "Unknown"}`
+        });
+      }
 
       if (!streamUrl || !streamUrl.startsWith("http")) {
         console.error(`[MUSIC-DLP] Failed for: ${track.title}`);
