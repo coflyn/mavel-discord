@@ -186,7 +186,7 @@ const commands = [
     ),
   new SlashCommandBuilder()
     .setName("harvest")
-    .setDescription("Extract intelligence from social profiles")
+    .setDescription("Analyze and get info from social profiles")
     .addStringOption((opt) =>
       opt
         .setName("target")
@@ -358,6 +358,27 @@ const commands = [
     ),
   new ContextMenuCommandBuilder()
     .setName("Convert Media")
+    .setType(ApplicationCommandType.Message),
+  new SlashCommandBuilder()
+    .setName("ss")
+    .setDescription("Capture a high-quality screenshot of any website")
+    .addStringOption((opt) =>
+      opt.setName("url").setDescription("The website URL").setRequired(true),
+    )
+    .addBooleanOption((opt) =>
+      opt
+        .setName("full")
+        .setDescription("Capture the entire scrollable page? (Default: False)")
+        .setRequired(false),
+    ),
+  new SlashCommandBuilder()
+    .setName("inspect")
+    .setDescription("Expose technical metadata and EXIF data of a file")
+    .addAttachmentOption((opt) =>
+      opt.setName("file").setDescription("The file to inspect").setRequired(true),
+    ),
+  new ContextMenuCommandBuilder()
+    .setName("Inspect Media")
     .setType(ApplicationCommandType.Message),
   new SlashCommandBuilder()
     .setName("diagnostics")

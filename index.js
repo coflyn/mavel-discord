@@ -58,6 +58,8 @@ const cookiesHandler = require("./handlers/tools/cookies");
 const adminCmdsHandler = require("./handlers/tools/admin-cmds");
 const harvestHandler = require("./handlers/tools/harvest");
 const converterHandler = require("./handlers/tools/converter");
+const ssHandler = require("./handlers/tools/ss");
+const inspectorHandler = require("./handlers/tools/inspector");
 const { advanceLog } = require("./utils/logger");
 const { startTunnel, resetTunnel } = require("./utils/tunnel-server");
 
@@ -337,18 +339,21 @@ client.on("messageCreate", async (message) => {
     config.musicChannelId && message.channel.id === config.musicChannelId;
   const isLogsChannel =
     config.logsChannelId && message.channel.id === config.logsChannelId;
+  const isAdminChannel =
+    config.adminChannelId && message.channel.id === config.adminChannelId;
 
   const isHelpRequest =
     commandName === "help" ||
     (message.mentions.has(client.user.id) && !message.content.includes("http"));
 
   if (isHelpRequest) {
-    if (isAllowed || isMusicChannel || isLogsChannel) {
+    if (isAllowed || isMusicChannel || isLogsChannel || isAdminChannel) {
       return await helpHandler(message);
     }
   }
 
-  if (!isAllowed && !isMusicChannel) return;
+  if (!isAllowed && !isMusicChannel && !isLogsChannel && !isAdminChannel)
+    return;
 
   if (message.content.match(/https?:\/\/[^\s]+/)) {
     try {
@@ -427,6 +432,268 @@ client.on("messageCreate", async (message) => {
   }
 });
 
+client.on("messageDelete", async (message) => {
+  if (message.partial || !message.guild || message.author?.bot) return;
+
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  let executor = "Unknown (Self or Fast Delay)";
+  try {
+    const fetchedLogs = await message.guild.fetchAuditLogs({
+      limit: 1,
+      type: 72,
+    });
+    const deletionLog = fetchedLogs.entries.first();
+
+    if (deletionLog) {
+      const { executor: user, target } = deletionLog;
+      if (
+        target.id === message.author.id &&
+        Date.now() - deletionLog.createdAt < 10000
+      ) {
+        executor = `${user.tag} (${user.id})`;
+      } else {
+        executor = "User (Self)";
+      }
+    }
+  } catch (e) {
+    executor = "User (Self or No Perms)";
+  }
+
+  advanceLog(client, {
+    type: "warn",
+    title: "Message Deleted",
+    activity: "Message Management",
+    message: `A message was removed in #${message.channel.name}`,
+    user: `${message.author.tag} (${message.author.id})`,
+    guild: message.guild.name,
+    extra:
+      `**Content:** ${message.content || "*(No Text Content)*"}\n` +
+      `**Deleted By:** ${executor}\n` +
+      `**Channel:** <#${message.channel.id}>`,
+  });
+});
+
+client.on("messageUpdate", async (oldMsg, newMsg) => {
+  if (oldMsg.partial || oldMsg.author?.bot || oldMsg.content === newMsg.content)
+    return;
+
+  advanceLog(client, {
+    type: "warn",
+    title: "Message Edited",
+    activity: "Message Management",
+    message: `A message was modified in #${oldMsg.channel.name}`,
+    user: `${oldMsg.author.tag} (${oldMsg.author.id})`,
+    guild: oldMsg.guild.name,
+    extra:
+      `**Old Content:** ${oldMsg.content || "*(No Text)*"}\n` +
+      `**New Content:** ${newMsg.content || "*(No Text)*"}\n` +
+      `**Channel:** <#${oldMsg.channel.id}>`,
+  });
+});
+
+client.on("voiceStateUpdate", (oldState, newState) => {
+  const member = newState.member || oldState.member;
+  if (!member || member.user.bot) return;
+
+  let action = "";
+  if (!oldState.channelId && newState.channelId)
+    action = `Joined VC: <#${newState.channelId}>`;
+  else if (oldState.channelId && !newState.channelId)
+    action = `Left VC: <#${oldState.channelId}>`;
+  else if (oldState.channelId !== newState.channelId)
+    action = `Moved: <#${oldState.channelId}> ➔ <#${newState.channelId}>`;
+  else if (oldState.selfMute !== newState.selfMute)
+    action = newState.selfMute ? "Muted themselves" : "Unmuted themselves";
+  else if (oldState.selfDeaf !== newState.selfDeaf)
+    action = newState.selfDeaf
+      ? "Deafened themselves"
+      : "Undeafened themselves";
+
+  if (!action) return;
+
+  advanceLog(client, {
+    type: "info",
+    title: "Voice Activity",
+    activity: "VC Monitoring",
+    message: `${member.user.tag} activity detected`,
+    user: `${member.user.tag} (${member.user.id})`,
+    guild: newState.guild.name,
+    extra: `**Action:** ${action}`,
+  });
+});
+
+client.on("guildMemberAdd", (member) => {
+  advanceLog(client, {
+    type: "success",
+    title: "Member Joined",
+    activity: "Border Control",
+    message: `${member.user.tag} has entered the server`,
+    user: `${member.user.tag} (${member.user.id})`,
+    guild: member.guild.name,
+    extra: `**Created Account:** <t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`,
+  });
+});
+
+client.on("guildMemberRemove", (member) => {
+  advanceLog(client, {
+    type: "error",
+    title: "Member Left",
+    activity: "Border Control",
+    message: `${member.user.tag} has left the server`,
+    user: `${member.user.tag} (${member.user.id})`,
+    guild: member.guild.name,
+    extra: `**Joined Server:** <t:${Math.floor(member.joinedTimestamp / 1000)}:R>`,
+  });
+});
+
+client.on("guildMemberUpdate", (oldMember, newMember) => {
+  const diffRoles = newMember.roles.cache.filter(
+    (role) => !oldMember.roles.cache.has(role.id),
+  );
+  const removedRoles = oldMember.roles.cache.filter(
+    (role) => !newMember.roles.cache.has(role.id),
+  );
+
+  let auditMsg = "";
+  if (diffRoles.size > 0)
+    auditMsg = `**Added Roles:** ${diffRoles.map((r) => r.name).join(", ")}`;
+  else if (removedRoles.size > 0)
+    auditMsg = `**Removed Roles:** ${removedRoles.map((r) => r.name).join(", ")}`;
+  else if (oldMember.nickname !== newMember.nickname)
+    auditMsg = `**Nickname Change:** \`${oldMember.nickname || "None"}\` ➔ \`${newMember.nickname || "None"}\``;
+
+  if (!auditMsg) return;
+
+  advanceLog(client, {
+    type: "warn",
+    title: "Member Audit",
+    activity: "Identity Management",
+    message: `Update for ${newMember.user.tag}`,
+    user: `${newMember.user.tag} (${newMember.user.id})`,
+    guild: newMember.guild.name,
+    extra: auditMsg,
+  });
+});
+
+client.on("channelCreate", async (channel) => {
+  if (!channel.guild) return;
+  await new Promise((r) => setTimeout(r, 1000));
+  let executor = "Unknown";
+  try {
+    const logs = await channel.guild.fetchAuditLogs({ limit: 1, type: 10 });
+    executor = logs.entries.first()?.executor.tag || "System";
+  } catch (e) {}
+
+  advanceLog(client, {
+    type: "success",
+    title: "Channel Created",
+    activity: "Architecture Audit",
+    message: `New channel: #${channel.name}`,
+    user: executor,
+    guild: channel.guild.name,
+    extra: `**Type:** ${ChannelType[channel.type]}\n**Target:** <#${channel.id}>`,
+  });
+});
+
+client.on("channelDelete", async (channel) => {
+  if (!channel.guild) return;
+  await new Promise((r) => setTimeout(r, 1000));
+  let executor = "Unknown";
+  try {
+    const logs = await channel.guild.fetchAuditLogs({ limit: 1, type: 12 });
+    executor = logs.entries.first()?.executor.tag || "System";
+  } catch (e) {}
+
+  advanceLog(client, {
+    type: "error",
+    title: "Channel Deleted",
+    activity: "Architecture Audit",
+    message: `Channel removed: #${channel.name}`,
+    user: executor,
+    guild: channel.guild.name,
+    extra: `**Type:** ${ChannelType[channel.type]}`,
+  });
+});
+
+client.on("channelUpdate", async (oldC, newC) => {
+  if (!newC.guild || oldC.name === newC.name) return;
+  await new Promise((r) => setTimeout(r, 1000));
+  let executor = "Unknown";
+  try {
+    const logs = await newC.guild.fetchAuditLogs({ limit: 1, type: 11 });
+    executor = logs.entries.first()?.executor.tag || "System";
+  } catch (e) {}
+
+  advanceLog(client, {
+    type: "warn",
+    title: "Channel Modified",
+    activity: "Architecture Audit",
+    message: `Rename: #${oldC.name} ➔ #${newC.name}`,
+    user: executor,
+    guild: newC.guild.name,
+    extra: `**Channel:** <#${newC.id}>`,
+  });
+});
+
+client.on("roleCreate", async (role) => {
+  await new Promise((r) => setTimeout(r, 1000));
+  let executor = "Unknown";
+  try {
+    const logs = await role.guild.fetchAuditLogs({ limit: 1, type: 30 });
+    executor = logs.entries.first()?.executor.tag || "System";
+  } catch (e) {}
+
+  advanceLog(client, {
+    type: "success",
+    title: "Role Created",
+    activity: "Architecture Audit",
+    message: `New role structure: ${role.name}`,
+    user: executor,
+    guild: role.guild.name,
+    extra: `**Role ID:** \`${role.id}\``,
+  });
+});
+
+client.on("roleDelete", async (role) => {
+  await new Promise((r) => setTimeout(r, 1000));
+  let executor = "Unknown";
+  try {
+    const logs = await role.guild.fetchAuditLogs({ limit: 1, type: 32 });
+    executor = logs.entries.first()?.executor.tag || "System";
+  } catch (e) {}
+
+  advanceLog(client, {
+    type: "error",
+    title: "Role Deleted",
+    activity: "Architecture Audit",
+    message: `Role removed: ${role.name}`,
+    user: executor,
+    guild: role.guild.name,
+    extra: `**Role ID:** \`${role.id}\``,
+  });
+});
+
+client.on("roleUpdate", async (oldR, newR) => {
+  if (oldR.name === newR.name) return;
+  await new Promise((r) => setTimeout(r, 1000));
+  let executor = "Unknown";
+  try {
+    const logs = await newR.guild.fetchAuditLogs({ limit: 1, type: 31 });
+    executor = logs.entries.first()?.executor.tag || "System";
+  } catch (e) {}
+
+  advanceLog(client, {
+    type: "warn",
+    title: "Role Modified",
+    activity: "Architecture Audit",
+    message: `Rename: ${oldR.name} ➔ ${newR.name}`,
+    user: executor,
+    guild: newR.guild.name,
+    extra: `**Role:** <@&${newR.id}>`,
+  });
+});
+
 client.on("interactionCreate", async (interaction) => {
   if (interaction.isAutocomplete()) {
     const { commandName } = interaction;
@@ -445,9 +712,13 @@ client.on("interactionCreate", async (interaction) => {
 
   if (
     interaction.isMessageContextMenuCommand() &&
-    interaction.commandName === "Convert Media"
+    (interaction.commandName === "Convert Media" ||
+      interaction.commandName === "Inspect Media")
   ) {
-    return await converterHandler(interaction);
+    if (interaction.commandName === "Convert Media")
+      return await converterHandler(interaction);
+    if (interaction.commandName === "Inspect Media")
+      return await inspectorHandler(interaction);
   }
 
   if (
@@ -476,6 +747,9 @@ client.on("interactionCreate", async (interaction) => {
           : "No arguments",
     });
 
+    if (commandName === "ss") return await ssHandler(interaction);
+    if (commandName === "inspect") return await inspectorHandler(interaction);
+
     if (commandName === "delete") {
       await interaction.deferReply({ flags: [64] });
       const count = interaction.options.getInteger("count") || 5;
@@ -502,6 +776,7 @@ client.on("interactionCreate", async (interaction) => {
               .find((e) => e.name === name)
               ?.toString() || fallback;
           const E_FIRE = getE("purple_fire", "🔥");
+          const E_ERR = getE("ping_red", "🔴");
 
           const res = await interaction.editReply({
             content: `### ${E_FIRE} **DM Cleanup Finished**\n*Identified and removed **${deleted}** bot messages from this conversation.*`,
@@ -509,8 +784,13 @@ client.on("interactionCreate", async (interaction) => {
           setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
           return res;
         } catch (err) {
+          const getE = (name, fallback) =>
+            interaction.client.emojis.cache
+              .find((e) => e.name === name)
+              ?.toString() || fallback;
+          const E_ERR = getE("ping_red", "🔴");
           return await interaction.editReply({
-            content: `### ❌ **Cleanup Failed**\n*Error: ${err.message}*`,
+            content: `### ${E_ERR} **Cleanup Failed**\n*Error: ${err.message}*`,
           });
         }
       } else {
@@ -535,6 +815,7 @@ client.on("interactionCreate", async (interaction) => {
               .find((e) => e.name === name)
               ?.toString() || fallback;
           const E_FIRE = getE("purple_fire", "🔥");
+          const E_ERR = getE("ping_red", "🔴");
 
           const res = await interaction.editReply({
             content: `### ${E_FIRE} **Cleanup Finished**\n*Removed **${deletedMessages.size}** messages from this channel.*`,
@@ -542,8 +823,13 @@ client.on("interactionCreate", async (interaction) => {
           setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
           return res;
         } catch (err) {
+          const getE = (name, fallback) =>
+            interaction.client.emojis.cache
+              .find((e) => e.name === name)
+              ?.toString() || fallback;
+          const E_ERR = getE("ping_red", "🔴");
           return await interaction.editReply({
-            content: `### ❌ **Cleanup Failed**\n*Error: ${err.message}*`,
+            content: `### ${E_ERR} **Cleanup Failed**\n*Error: ${err.message}*`,
           });
         }
       }
@@ -1821,8 +2107,11 @@ client.on("messageReactionAdd", async (reaction, user) => {
         name: "MaveL Bookmark Service",
         iconURL: client.user.displayAvatarURL(),
       })
-      .setTitle(`${E_ANNO} **Content Bookmarked**`)
-      .setThumbnail(embed.thumbnail?.url || embed.image?.url || null)
+      .setTitle(`${E_ANNO} **Content Bookmarked**`);
+    const thumbnail = embed.thumbnail?.url || embed.image?.url;
+    if (thumbnail) dmEmbed.setThumbnail(thumbnail);
+
+    dmEmbed
       .setDescription(
         `You bookmarked this media via reaction in **${message.guild?.name || "a server"}**.\n\n` +
           `${E_ARROW} **Title:** *${cleanTitle}*\n` +

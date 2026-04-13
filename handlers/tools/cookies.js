@@ -37,7 +37,7 @@ module.exports = async function cookiesHandler(interaction) {
     const exists = fs.existsSync(filePath);
     let status = exists
       ? `${STATUS} **Active**`
-      : `❌ **Cookies not found**`;
+      : `:ping_red: **Cookies not found**`;
     let stats = "---";
 
     if (exists) {
@@ -230,7 +230,7 @@ module.exports = async function cookiesHandler(interaction) {
         } catch (err) {
           await submission
             .editReply({
-              content: `❌ **Failed to update cookies:** *${err.message}*`,
+              content: `:ping_red: **Failed to update cookies:** *${err.message}*`,
             })
             .catch(() => {});
         }

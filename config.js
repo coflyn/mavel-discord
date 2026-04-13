@@ -28,6 +28,8 @@ module.exports = {
     savedSettings.logsChannelId || process.env.LOGS_CHANNEL_ID || "",
   musicChannelId:
     savedSettings.musicChannelId || process.env.MUSIC_CHANNEL_ID || "",
+  adminChannelId:
+    savedSettings.adminChannelId || process.env.ADMIN_CHANNEL_ID || "",
 
   prefix: ".",
 

@@ -215,7 +215,7 @@ async function runPinterestFlow(target, url, options = {}) {
   } catch (e) {
     if (browser) await browser.close();
     console.error(`[PINTEREST-FAIL] ${e.message}`);
-    await editResponse({ content: `❌ **Error:** *${e.message}*`, embeds: [] });
+    await editResponse({ content: `:ping_red: **Error:** *${e.message}*`, embeds: [] });
     return null;
   }
 }

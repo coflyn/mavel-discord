@@ -59,7 +59,7 @@ module.exports = async function diagnosticsHandler(interaction) {
       name: "MaveL Health Status",
       iconURL: interaction.client.user.displayAvatarURL(),
     })
-    .setTitle(`${AMOGUS} **System Intelligence Report**`)
+    .setTitle(`${AMOGUS} **System Analysis Report**`)
     .setDescription(`*Checking on my health, location and performance.*`)
     .addFields(
       {
@@ -94,7 +94,7 @@ module.exports = async function diagnosticsHandler(interaction) {
       },
     )
     .setFooter({
-      text: "MaveL Intelligence Unit",
+      text: "MaveL Monitoring Unit",
       iconURL: interaction.client.user.displayAvatarURL(),
     })
     .setTimestamp();

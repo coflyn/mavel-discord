@@ -42,10 +42,10 @@ async function harvestHandler(interaction) {
     const infoEmbed = new EmbedBuilder()
       .setColor(EC.INFO)
       .setAuthor({
-        name: "MaveL Intelligence System",
+        name: "MaveL Analysis System",
         iconURL: interaction.client.user.displayAvatarURL(),
       })
-      .setTitle(`${ANNO} **Intelligence Targets**`)
+      .setTitle(`${ANNO} **Target Analysis**`)
       .setImage(botBanner)
       .setDescription(
         `*Deep scan and extract metadata from profiles, channels, and discussions across the web.*`,
@@ -96,14 +96,14 @@ async function harvestHandler(interaction) {
       const result = await scrapeInstagram(query);
       if (!result.success) {
         return interaction.editReply({
-          content: `❌ **Failed:** ${result.error}\n*Instagram is currently restricting connections, please try again later.*`,
+          content: `${getEmoji("ping_red", "🔴")} **Failed:** ${result.error}\n*Instagram is currently restricting connections, please try again later.*`,
         });
       }
 
       const embed = new EmbedBuilder()
         .setColor(EC.SOCIAL)
         .setAuthor({
-          name: "MaveL Intelligence System",
+          name: "MaveL Analysis System",
           iconURL: interaction.client.user.displayAvatarURL(),
         })
         .setTitle(`${ANNO} **Instagram Profile Info**`)
@@ -134,14 +134,14 @@ async function harvestHandler(interaction) {
       const result = await scrapeTikTok(query);
       if (!result.success) {
         return interaction.editReply({
-          content: `❌ **Failed:** ${result.error}`,
+          content: `${getEmoji("ping_red", "🔴")} **Failed:** ${result.error}`,
         });
       }
 
       const embed = new EmbedBuilder()
         .setColor(EC.SOCIAL)
         .setAuthor({
-          name: "MaveL Intelligence System",
+          name: "MaveL Analysis System",
           iconURL: interaction.client.user.displayAvatarURL(),
         })
         .setTitle(`${ANNO} **TikTok Profile Info**`)
@@ -174,14 +174,14 @@ async function harvestHandler(interaction) {
       const result = await scrapeYouTube(query);
       if (!result.success) {
         return interaction.editReply({
-          content: `❌ **Failed:** ${result.error}`,
+          content: `${getEmoji("ping_red", "🔴")} **Failed:** ${result.error}`,
         });
       }
 
       const embed = new EmbedBuilder()
         .setColor(EC.MUSIC_DL)
         .setAuthor({
-          name: "MaveL Intelligence System",
+          name: "MaveL Analysis System",
           iconURL: interaction.client.user.displayAvatarURL(),
         })
         .setTitle(`${ANNO} **YouTube Channel/Video Info**`)
@@ -207,7 +207,7 @@ async function harvestHandler(interaction) {
       const result = await scrapeGitHub(query);
       if (!result.success) {
         return interaction.editReply({
-          content: `❌ **Failed:** ${result.error}`,
+          content: `${getEmoji("ping_red", "🔴")} **Failed:** ${result.error}`,
         });
       }
 
@@ -222,7 +222,7 @@ async function harvestHandler(interaction) {
       const embed = new EmbedBuilder()
         .setColor(EC.DOCUMENT)
         .setAuthor({
-          name: "MaveL Intelligence System",
+          name: "MaveL Analysis System",
           iconURL: interaction.client.user.displayAvatarURL(),
         })
         .setTitle(`${ANNO} **GitHub Profile Info**`)
@@ -253,7 +253,7 @@ async function harvestHandler(interaction) {
       const result = await scrapeReddit(query);
       if (!result.success) {
         return interaction.editReply({
-          content: `❌ **Failed:** ${result.error}`,
+          content: `${getEmoji("ping_red", "🔴")} **Failed:** ${result.error}`,
         });
       }
 
@@ -274,7 +274,7 @@ async function harvestHandler(interaction) {
       const embed = new EmbedBuilder()
         .setColor("#ff4500")
         .setAuthor({
-          name: "MaveL Intelligence System",
+          name: "MaveL Analysis System",
           iconURL: interaction.client.user.displayAvatarURL(),
         })
         .setTitle(`${ANNO} **Reddit Results: ${query}**`)
@@ -294,7 +294,7 @@ async function harvestHandler(interaction) {
       let report = result.results
         .map((p) => {
           const found = p.status === "Found";
-          return `${found ? "✅" : "❌"} **${p.name}**: ${found ? `[Link](${p.url})` : `*${p.status}*`}`;
+          return `${found ? "✅" : getEmoji("ping_red", "🔴")} **${p.name}**: ${found ? `[Link](${p.url})` : `*${p.status}*`}`;
         })
         .join("\n");
 
@@ -318,7 +318,9 @@ async function harvestHandler(interaction) {
   } catch (err) {
     console.error(`[HARVEST-HANDLER] Error:`, err.message);
     await interaction
-      .editReply({ content: `❌ **System Error:** ${err.message}` })
+      .editReply({
+        content: `${getEmoji("ping_red", "🔴")} **System Error:** ${err.message}`,
+      })
       .catch(() => {});
   }
 }

@@ -18,25 +18,28 @@ const { getAssetUrl } = require("../../utils/tunnel-server");
 const { bundleImagesToPdf } = require("../../utils/filetools");
 
 module.exports = async function converterHandler(interaction) {
+  if (interaction.isMessageContextMenuCommand()) {
+  } else if (interaction.isStringSelectMenu()) {
+    await interaction.deferUpdate();
+  } else if (interaction.isChatInputCommand()) {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+  }
+
   const guild = interaction.guild;
   const guildEmojis =
     (await interaction.client.getGuildEmojis?.(guild.id)) ||
     (await guild.emojis.fetch().catch(() => null));
-  const getEmoji = (name, fallback) => {
-    const emoji = guildEmojis?.find((e) => e.name === name);
-    return emoji ? emoji.toString() : fallback;
-  };
+  const getE = (name, fallback) =>
+    guildEmojis?.find((e) => e.name === name)?.toString() || fallback;
 
-  const E_TIME = getEmoji("time", "⏳");
-  const E_SYNC = getEmoji("online", "🔄");
-  const E_ARROW = getEmoji("arrow", "•");
-  const E_FIRE = getEmoji("purple_fire", "🔥");
-  const E_ROCKET = getEmoji("rocket", "🚀");
-  const E_CHEST = getEmoji("chest", "📦");
-  const E_DIAMOND = getEmoji("diamond", "💎");
-  const E_PING_GREEN = getEmoji("ping_green", "🟢");
-  const E_PING_RED = getEmoji("ping_red", "🔴");
-  const E_NOTIF = getEmoji("notif", "🔔");
+  const E_TIME = getE("time", "⏳");
+  const E_SYNC = getE("online", "🔄");
+  const E_ARROW = getE("arrow", "•");
+  const E_FIRE = getE("purple_fire", "🔥");
+  const E_ROCKET = getE("rocket", "🚀");
+  const E_DIAMOND = getE("diamond", "💎");
+  const E_PING_GREEN = getE("ping_green", "🟢");
+  const E_PING_RED = getE("ping_red", "🔴");
 
   const rootTempDir = path.join(__dirname, "../../temp");
   if (!fs.existsSync(rootTempDir))
@@ -44,122 +47,74 @@ module.exports = async function converterHandler(interaction) {
 
   if (interaction.isMessageContextMenuCommand()) {
     const targetMsg = interaction.targetMessage;
-    const hasAttachments = targetMsg.attachments.size > 0;
-    const hasEmbeds = targetMsg.embeds.some(
-      (e) =>
-        e.image ||
-        e.video ||
-        e.thumbnail ||
-        e.url?.match(/\.(mp4|mkv|gif|png|jpg|jpeg|webp)$/i),
-    );
-
-    if (!hasAttachments && !hasEmbeds) {
+    const hasMedia =
+      targetMsg.attachments.size > 0 ||
+      targetMsg.embeds.some(
+        (e) =>
+          e.image ||
+          e.video ||
+          e.thumbnail ||
+          e.url?.match(/\.(mp4|mkv|gif|png|jpg|jpeg|webp)$/i),
+      );
+    if (!hasMedia) {
       return await interaction.reply({
-        content: `### ${E_PING_RED} **No Media Detected**\nThis message doesn't seem to contain any convertible media.`,
+        content: `### ${E_PING_RED} **No Media Detected**\nCouldn't find any convertible attachments or links.`,
         flags: [MessageFlags.Ephemeral],
       });
     }
-
     const select = new StringSelectMenuBuilder()
       .setCustomId(`conv_pick_${targetMsg.id}`)
       .setPlaceholder("Select destination format...")
       .addOptions(
-        {
-          label: "Video: MP4 (HQ Compressed)",
-          description: "High quality MP4 conversion",
-          value: "mp4",
-        },
-        {
-          label: "Video: MP4 (8MB - No Nitro)",
-          description: "Compressed for non-Nitro users",
-          value: "mp4_small",
-        },
-        {
-          label: "Video: GIF (High Quality)",
-          description: "Smooth animated GIF",
-          value: "gif",
-        },
-        {
-          label: "Video: GIF (Small/Fast)",
-          description: "Fast-loading small GIF",
-          value: "gif_small",
-        },
-        {
-          label: "Audio: MP3 (320kbps)",
-          description: "Extract high quality audio",
-          value: "mp3",
-        },
-        {
-          label: "Audio: OGG (Soundboard Ready)",
-          description: "Low latency audio format",
-          value: "ogg",
-        },
-        {
-          label: "Audio: WAV (Lossless)",
-          description: "Pure uncompressed audio",
-          value: "wav",
-        },
-        {
-          label: "Image: PNG",
-          description: "Convert first frame to lossless PNG",
-          value: "png",
-        },
-        {
-          label: "Image: JPG",
-          description: "Convert to standard JPG image",
-          value: "jpg",
-        },
-        {
-          label: "Image: WebP",
-          description: "Efficient modern web image format",
-          value: "webp",
-        },
-        {
-          label: "Document: Multiple Images to PDF",
-          description: "Bundle gallery into one PDF",
-          value: "pdf",
-        },
-        {
-          label: "Document: Word (.docx) to PDF",
-          description: "Professional PDF rendering",
-          value: "word_to_pdf",
-        },
+        { label: "Video: MP4 (HQ)", value: "mp4" },
+        { label: "Video: MP4 (8MB/Fast)", value: "mp4_small" },
+        { label: "Video: GIF (HQ)", value: "gif" },
+        { label: "Video: GIF (Small)", value: "gif_small" },
+        { label: "Audio: MP3", value: "mp3" },
+        { label: "Audio: OGG", value: "ogg" },
+        { label: "Audio: WAV", value: "wav" },
+        { label: "Image: PNG", value: "png" },
+        { label: "Image: JPG", value: "jpg" },
+        { label: "Image: WebP", value: "webp" },
+        { label: "Document: Multiple Images to PDF", value: "pdf" },
+        { label: "Document: Word to PDF", value: "word_to_pdf" },
       );
-
-    const row = new ActionRowBuilder().addComponents(select);
     return await interaction.reply({
-      content: `### ${E_SYNC} **MaveL Media Converter**\nChoose target format for **${targetMsg.author.username}**'s media:`,
-      components: [row],
+      content: `### ${E_SYNC} **MaveL Media Converter**\nTarget for **${targetMsg.author.username}**'s media:`,
+      components: [new ActionRowBuilder().addComponents(select)],
       flags: [MessageFlags.Ephemeral],
     });
   }
 
-  let targetFormat = null;
-  let filesToProcess = [];
-  let sourceLabel = "Uploaded File";
-  let targetMsgId = null;
-
+  let targetFormat = null,
+    filesToProcess = [],
+    sourceLabel = "Uploaded File",
+    targetMsgId = null;
   if (interaction.isChatInputCommand()) {
     targetFormat = interaction.options.getString("to");
     const uploadedFile = interaction.options.getAttachment("file");
-    if (uploadedFile) {
+    if (uploadedFile)
       filesToProcess.push({
         url: uploadedFile.url,
         name: uploadedFile.name,
         type: uploadedFile.contentType,
       });
-    }
   } else if (interaction.isStringSelectMenu()) {
     targetFormat = interaction.values[0];
     targetMsgId = interaction.customId.replace("conv_pick_", "");
-    await interaction.update({
+    await interaction.editReply({
       content: `### ${E_TIME} **Initializing Engine...**`,
       components: [],
     });
   }
 
   const inputId = `${Date.now()}`;
-  const outputName = `mave_conv_${inputId}.${targetFormat === "pdf" ? "pdf" : targetFormat}`;
+  let ext = targetFormat;
+  if (targetFormat.includes("mp4")) ext = "mp4";
+  if (targetFormat.includes("gif")) ext = "gif";
+  if (targetFormat.includes("pdf")) ext = "pdf";
+
+  const outputName = `mave_conv_${inputId}.${ext}`;
   const outputPath = path.join(rootTempDir, outputName);
   const localPaths = [];
 
@@ -170,7 +125,7 @@ module.exports = async function converterHandler(interaction) {
         .catch(() => null);
       let depth = 0;
       while (currentMsg && depth < 2) {
-        if (currentMsg.attachments.size > 0) {
+        if (currentMsg.attachments.size > 0)
           currentMsg.attachments.forEach((att) =>
             filesToProcess.push({
               url: att.url,
@@ -178,7 +133,6 @@ module.exports = async function converterHandler(interaction) {
               type: att.contentType,
             }),
           );
-        }
         if (filesToProcess.length === 0 && currentMsg.embeds.length > 0) {
           currentMsg.embeds.forEach((embed) => {
             const mediaUrl =
@@ -188,13 +142,12 @@ module.exports = async function converterHandler(interaction) {
               (embed.url?.match(/\.(mp4|mkv|gif|png|jpg|jpeg|webp)$/i)
                 ? embed.url
                 : null);
-            if (mediaUrl && mediaUrl.startsWith("http")) {
+            if (mediaUrl && mediaUrl.startsWith("http"))
               filesToProcess.push({
                 url: mediaUrl,
                 name: `media_${Date.now()}`,
                 type: "image/unknown",
               });
-            }
           });
         }
         if (filesToProcess.length > 0) {
@@ -211,79 +164,56 @@ module.exports = async function converterHandler(interaction) {
       }
     }
 
-    if (filesToProcess.length === 0) {
-      throw new Error(
-        "Could not locate media file. Try using right-click -> Apps -> Convert Media again.",
-      );
-    }
+    if (filesToProcess.length === 0) throw new Error("Media source not found.");
 
-    const isVideoInput = filesToProcess.some(
+    const isVideo = filesToProcess.some(
       (f) =>
         f.type?.startsWith("video/") ||
         f.name.match(/\.(mp4|mkv|mov|avi|flv|wmv)$/i),
     );
-    const isAudioInput = filesToProcess.some(
+    const isAudio = filesToProcess.some(
       (f) =>
         f.type?.startsWith("audio/") ||
         f.name.match(/\.(mp3|wav|ogg|m4a|flac)$/i),
     );
-    const isDocInput = filesToProcess.some((f) =>
-      f.name.match(/\.(docx|doc)$/i),
-    );
+    const isDoc = filesToProcess.some((f) => f.name.match(/\.(docx|doc)$/i));
 
-    if (targetFormat === "pdf" && isVideoInput) {
-      throw new Error(
-        "'Images to PDF' requires photos, but a video was detected.",
-      );
-    }
-    if (targetFormat === "word_to_pdf" && !isDocInput) {
+    if (targetFormat === "pdf" && isVideo)
+      throw new Error("'Images to PDF' doesn't support video.");
+    if (targetFormat === "word_to_pdf" && !isDoc)
       throw new Error("'Word to PDF' requires a .docx file.");
-    }
-    if (
-      ["mp3", "ogg", "wav"].includes(targetFormat) &&
-      !isVideoInput &&
-      !isAudioInput
-    ) {
-      throw new Error(
-        "Audio extraction requires a video or audio file source.",
-      );
-    }
+    if (["mp3", "ogg", "wav"].includes(targetFormat) && !isVideo && !isAudio)
+      throw new Error("Audio extraction requires a video or audio source.");
     if (
       ["mp4", "mp4_small", "gif", "gif_small", "png", "jpg", "webp"].includes(
         targetFormat,
       ) &&
-      isDocInput
-    ) {
-      throw new Error("Cannot convert a document into a media format.");
-    }
-
-    if (!interaction.deferred && !interaction.replied)
-      await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+      isDoc
+    )
+      throw new Error("Cannot convert document to media format.");
 
     await interaction.editReply({
       embeds: [
         new EmbedBuilder()
           .setColor("#6c5ce7")
           .setDescription(
-            `### ${E_TIME} **Preparing Engine...**\n${E_ARROW} **Source:** *${sourceLabel}*\n${E_ARROW} **Task:** *Downloading media...*`,
+            `### ${E_TIME} **Preparing Engine...**\n${E_ARROW} **Source:** *${sourceLabel}*\n${E_ARROW} **Task:** *Downloading...*`,
           ),
       ],
     });
-
-    if (interaction.client.setTempStatus) {
+    if (interaction.client.setTempStatus)
       interaction.client.setTempStatus(
         "Converting Media...",
         ActivityType.Watching,
         60000,
       );
-    }
 
     for (let i = 0; i < filesToProcess.length; i++) {
-      const f = filesToProcess[i];
-      const p = path.join(
-        rootTempDir,
-        `in_${inputId}_${i}_${f.name.replace(/[^\w.-]/g, "_")}`,
-      );
+      const f = filesToProcess[i],
+        p = path.join(
+          rootTempDir,
+          `in_${inputId}_${i}_${f.name.replace(/[^\w.-]/g, "_")}`,
+        );
       const res = await axios.get(f.url, { responseType: "stream" });
       const writer = fs.createWriteStream(p);
       res.data.pipe(writer);
@@ -316,13 +246,11 @@ module.exports = async function converterHandler(interaction) {
       } else {
         const pdfDoc = await PDFDocument.create();
         const imgBytes = fs.readFileSync(localPaths[0]);
-        let pageImg;
-        if (
+        let pageImg =
           filesToProcess[0].type?.includes("png") ||
           filesToProcess[0].name.toLowerCase().endsWith(".png")
-        )
-          pageImg = await pdfDoc.embedPng(imgBytes);
-        else pageImg = await pdfDoc.embedJpg(imgBytes);
+            ? await pdfDoc.embedPng(imgBytes)
+            : await pdfDoc.embedJpg(imgBytes);
         const page = pdfDoc.addPage([pageImg.width, pageImg.height]);
         page.drawImage(pageImg, {
           x: 0,
@@ -330,15 +258,14 @@ module.exports = async function converterHandler(interaction) {
           width: pageImg.width,
           height: pageImg.height,
         });
-        const pdfBytes = await pdfDoc.save();
-        fs.writeFileSync(outputPath, pdfBytes);
+        fs.writeFileSync(outputPath, await pdfDoc.save());
       }
     } else if (targetFormat === "word_to_pdf") {
       const { value: html } = await mammoth.convertToHtml({
         path: localPaths[0],
       });
-      const browser = await chromium.launch({ headless: true });
-      const page = await browser.newPage();
+      const browser = await chromium.launch({ headless: true }),
+        page = await browser.newPage();
       await page.setContent(
         `<style>body{font-family:sans-serif;padding:40px;line-height:1.6}img{max-width:100%}</style>${html}`,
       );
@@ -359,6 +286,8 @@ module.exports = async function converterHandler(interaction) {
           "24",
           "-preset",
           "faster",
+          "-pix_fmt",
+          "yuv420p",
           "-c:a",
           "aac",
           "-b:a",
@@ -374,9 +303,11 @@ module.exports = async function converterHandler(interaction) {
           "-crf",
           "32",
           "-vf",
-          "scale=-2:480",
+          "scale=-2:'min(480,ih)'",
           "-preset",
           "ultrafast",
+          "-pix_fmt",
+          "yuv420p",
           "-c:a",
           "aac",
           "-b:a",
@@ -410,9 +341,17 @@ module.exports = async function converterHandler(interaction) {
       ffmpegArgs.push(outputPath);
 
       const ffmpegProc = spawn("ffmpeg", ffmpegArgs);
+      let stderr = "";
+      ffmpegProc.stderr.on("data", (data) => (stderr += data.toString()));
       await new Promise((resolve, reject) => {
         ffmpegProc.on("close", (code) =>
-          code === 0 ? resolve() : reject(new Error(`FFmpeg engine failed.`)),
+          code === 0
+            ? resolve()
+            : reject(
+                new Error(
+                  `FFmpeg Failed (Code ${code}). Log: ${stderr.slice(-100)}`,
+                ),
+              ),
         );
         ffmpegProc.on("error", reject);
       });
@@ -420,40 +359,38 @@ module.exports = async function converterHandler(interaction) {
 
     if (interaction.client.clearTempStatus)
       interaction.client.clearTempStatus();
-    const stats = fs.statSync(outputPath);
-    const sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
-    const limitMB = targetFormat === "mp4_small" ? 8 : 25;
+    const stats = fs.statSync(outputPath),
+      sizeMB = (stats.size / (1024 * 1024)).toFixed(2);
+    const limitMB = targetFormat === "mp4_small" ? 7.8 : 23;
     const isLarge = stats.size > limitMB * 1024 * 1024;
-
-    const cleanupStatus = () =>
+    const clean = () =>
       setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
 
     if (isLarge) {
       const tunnelLink = getAssetUrl(outputName);
-      const deliveryEmbed = new EmbedBuilder()
-        .setColor("#6c5ce7")
-        .setTitle(`${E_FIRE} **Media Ready (Tunnel)**`)
-        .setDescription(
-          `### ${E_DIAMOND} **Large File Processing**\n${E_ARROW} **Format:** \`${targetFormat.toUpperCase()}\`\n${E_ARROW} **Final Size:** \`${sizeMB} MB\`\n\n${E_ARROW} **[${E_PING_GREEN} DOWNLOAD VIA CLOUDFLARE](${tunnelLink})**\n\n*Note: Link expires in 10 minutes.*`,
-        );
-      await interaction.editReply({ embeds: [deliveryEmbed] });
-      cleanupStatus();
+      await interaction.editReply({
+        embeds: [
+          new EmbedBuilder()
+            .setColor("#6c5ce7")
+            .setTitle(`${E_FIRE} **Media Delivered**`)
+            .setDescription(
+              `### ${E_DIAMOND} **Large File Mode**\n${E_ARROW} **Format:** \`${targetFormat.toUpperCase()}\`\n${E_ARROW} **Size:** \`${sizeMB} MB\`\n\n${E_ARROW} **[${E_PING_GREEN} DOWNLOAD VIA CLOUDFLARE](${tunnelLink})**`,
+            ),
+        ],
+      });
+      clean();
       setTimeout(
         () => fs.existsSync(outputPath) && fs.unlinkSync(outputPath),
         600000,
       );
     } else {
-      const resultFile = new AttachmentBuilder(outputPath, {
-        name: outputName,
-      });
       await interaction.editReply({
         content: `### ${E_ROCKET} **Conversion Success!**\n${E_ARROW} **Target:** \`${targetFormat.toUpperCase()}\`\n${E_ARROW} **Size:** \`${sizeMB} MB\``,
-        files: [resultFile],
+        files: [new AttachmentBuilder(outputPath, { name: outputName })],
         embeds: [],
       });
       if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
     }
-
     localPaths.forEach((p) => fs.existsSync(p) && fs.unlinkSync(p));
   } catch (err) {
     if (interaction.client.clearTempStatus)
@@ -461,6 +398,8 @@ module.exports = async function converterHandler(interaction) {
     console.error("[CONVERTER] Error:", err.message);
     await interaction.editReply({
       content: `### ${E_PING_RED} **Engine Error**\n${E_ARROW} *Details: ${err.message}*`,
+      embeds: [],
+      components: [],
     });
     setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
     localPaths.forEach((p) => fs.existsSync(p) && fs.unlinkSync(p));

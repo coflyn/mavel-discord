@@ -30,11 +30,12 @@ async function advanceLog(client, data) {
     const PC = getEmoji("pc", "💻");
     const LOCK = getEmoji("cash", "🔐");
 
+    const botIcon = client.user.displayAvatarURL();
     const embed = new EmbedBuilder()
       .setColor(data.type === "error" ? "#ff4757" : "#6c5ce7")
       .setAuthor({
         name: `MaveL | ${data.type?.toUpperCase() || "ACTIVITY"}`,
-        iconURL: client.user.displayAvatarURL(),
+        iconURL: botIcon.startsWith("http") ? botIcon : null,
       })
       .setTitle(`${FIRE} **${data.title || "Advance Log Report"}**`)
       .setDescription(
@@ -54,7 +55,10 @@ async function advanceLog(client, data) {
           inline: true,
         },
       )
-      .setFooter({ text: "MaveL Intelligence System" })
+      .setFooter({
+        text: "MaveL Intelligence System",
+        iconURL: botIcon.startsWith("http") ? botIcon : null,
+      })
       .setTimestamp();
 
     if (data.extra) {

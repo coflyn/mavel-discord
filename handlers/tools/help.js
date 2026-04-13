@@ -47,7 +47,7 @@ module.exports = async function helpHandler(interaction) {
         name: `${DIAMOND || "✨"} **Main Features**`,
         value:
           `${ARROW} **/dl** — *Download media from various sites*\n` +
-          `${ARROW} **/harvest** — *Extract intelligence from profiles*\n` +
+          `${ARROW} **/harvest** — *Analyze and extract data from profiles*\n` +
           `${ARROW} **/convert** — *Transform Video/Audio/Image formats*\n` +
           `${ARROW} **/search** — *Search for songs (YouTube/Spotify/etc)*\n` +
           `${ARROW} **/lyrics** — *Get song lyrics and info*`,
@@ -60,8 +60,10 @@ module.exports = async function helpHandler(interaction) {
           `${ARROW} **/banner** — *Get server/user banner link*\n` +
           `${ARROW} **/emoji list** — *List all server emojis*\n` +
           `${ARROW} **/emoji** ${LOCK} — *Manage server emojis (add/rename/delete)*\n` +
-          `${ARROW} **/emoji needs** ${LOCK} — *Add missing system emojis*\n` +
-          `${ARROW} **/info** — *Check user info and profile*`,
+           `${ARROW} **/emoji needs** ${LOCK} — *Add missing system emojis*\n` +
+          `${ARROW} **/info** — *Check user info and profile*\n` +
+          `${ARROW} **/ss** — *Capture a screenshot of any website*\n` +
+          `${ARROW} **/inspect** — *Expose deep metadata & EXIF data*`,
         inline: false,
       },
       {

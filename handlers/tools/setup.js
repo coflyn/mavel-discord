@@ -50,7 +50,8 @@ module.exports = async function setupHandler(interaction) {
         value:
           `${ARROW} **Download:** <#${config.allowedChannelId || "Not Set"}>\n` +
           `${ARROW} **Logs:** <#${config.logsChannelId || "Not Set"}>\n` +
-          `${ARROW} **Music:** <#${config.musicChannelId || "Not Set"}>`,
+          `${ARROW} **Music:** <#${config.musicChannelId || "Not Set"}>\n` +
+          `${ARROW} **Private Admin:** <#${config.adminChannelId || "Not Set"}>`,
       })
       .setFooter({ text: "Use selection menus below to change settings." });
   };
@@ -65,13 +66,19 @@ module.exports = async function setupHandler(interaction) {
     new ActionRowBuilder().addComponents(
       new ChannelSelectMenuBuilder()
         .setCustomId("setup_logs")
-        .setPlaceholder("Select Logs/Admin Channel...")
+        .setPlaceholder("Select General Logs Channel...")
         .addChannelTypes(ChannelType.GuildText),
     ),
     new ActionRowBuilder().addComponents(
       new ChannelSelectMenuBuilder()
         .setCustomId("setup_music")
         .setPlaceholder("Select Music Control Channel...")
+        .addChannelTypes(ChannelType.GuildText),
+    ),
+    new ActionRowBuilder().addComponents(
+      new ChannelSelectMenuBuilder()
+        .setCustomId("setup_private")
+        .setPlaceholder("Select Private Admin Channel...")
         .addChannelTypes(ChannelType.GuildText),
     ),
     new ActionRowBuilder().addComponents(
@@ -82,6 +89,7 @@ module.exports = async function setupHandler(interaction) {
     ),
   ];
 
+  /* ... (reply logic remains same) ... */
   const replyOptions = {
     embeds: [generateEmbed()],
     components: rows,
@@ -135,6 +143,9 @@ module.exports = async function setupHandler(interaction) {
       } else if (i.customId === "setup_music") {
         settings.musicChannelId = channelId;
         config.musicChannelId = channelId;
+      } else if (i.customId === "setup_private") {
+        settings.adminChannelId = channelId;
+        config.adminChannelId = channelId;
       }
 
       fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
