@@ -12,6 +12,7 @@ const {
 const fs = require("fs");
 const path = require("path");
 const config = require("../../config");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 
 const settingsPath = path.join(
   __dirname,
@@ -29,14 +30,8 @@ module.exports = async function setupHandler(interaction) {
     });
   }
 
-  const NOTIF =
-    interaction.guild.emojis.cache
-      .find((e) => e.name === "notif")
-      ?.toString() || "🔔";
-  const ARROW =
-    interaction.guild.emojis.cache
-      .find((e) => e.name === "arrow")
-      ?.toString() || "•";
+  const NOTIF = resolveEmoji(interaction.guild, "notif", "🔔");
+  const ARROW = resolveEmoji(interaction.guild, "arrow", "•");
 
   const generateEmbed = () => {
     return new EmbedBuilder()

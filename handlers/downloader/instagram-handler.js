@@ -7,71 +7,25 @@ const {
   ButtonStyle,
   MessageFlags,
 } = require("discord.js");
-const { loadDB, saveDB, formatNumber } = require("./core-helpers");
+const { loadDB, saveDB } = require("./core-helpers");
+const { resolveEmoji } = require("../../utils/emoji-helper");
+const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
 async function runInstagramFlow(target, url, options = {}) {
-  let statusMsg = options.statusMsg;
   const guild = target.guild || target.client?.guilds?.cache.first();
-  const guildEmojis = guild
-    ? await guild.emojis.fetch().catch(() => null)
-    : null;
-  const getEmoji = (name, fallback) => {
-    const emoji = guildEmojis?.find((e) => e.name === name);
-    return emoji ? emoji.toString() : fallback;
-  };
-
+  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
   const ARROW = getEmoji("arrow", "•");
-  const FIRE = getEmoji("purple_fire", "🔥");
 
-  const getStatusEmbed = (status, info) => {
-    return new EmbedBuilder()
-      .setColor("#e17055")
-      .setDescription(
-        `### ${FIRE} **${status}**\n${ARROW} **Info:** *${info}*`,
-      );
-  };
+  const FIRE = resolveEmoji(guild, "purple_fire", "🔥");
+  let statusMsg;
+  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
 
-  const initialEmbed = getStatusEmbed(
-    "Instagram Link Found",
-    "Getting post info...",
-  );
-
-  if (!statusMsg) {
-    if (target.replied || target.deferred) {
-      statusMsg = await target.editReply({
-        embeds: [initialEmbed],
-        withResponse: true,
-      });
-    } else if (target.isChatInputCommand && target.isChatInputCommand()) {
-      statusMsg = await target.reply({
-        embeds: [initialEmbed],
-        flags: [MessageFlags.Ephemeral],
-        withResponse: true,
-      });
-    } else {
-      statusMsg = target.reply
-        ? await target.reply({ embeds: [initialEmbed], withResponse: true })
-        : await target.channel.send({ embeds: [initialEmbed] });
-    }
+  if (options.statusMsg) {
+    statusMsg = options.statusMsg;
+    await _editResponse({ embeds: [getStatusEmbed(guild, "Instagram Link Found", "Getting post info...")] }).catch(() => {});
   } else {
-    const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
-    if (msg && msg.edit)
-      await msg.edit({ embeds: [initialEmbed] }).catch(() => {});
+    statusMsg = await sendInitialStatus(target, "Instagram Link Found", "Getting post info...");
   }
-
-  const editResponse = async (data) => {
-    try {
-      const payload = typeof data === "string" ? { content: data } : data;
-      if (target.editReply) {
-        return await target.editReply(payload);
-      } else {
-        const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
-        return await msg.edit(payload);
-      }
-    } catch (e) {
-      console.error("[INSTA-EDIT] Error:", e.message);
-    }
-  };
 
   try {
     const cleanUrl = url.includes("?") ? url.split("?")[0] : url;
@@ -101,32 +55,38 @@ async function runInstagramFlow(target, url, options = {}) {
       ytTarget = ytTarget.replace("/p/", "/reels/");
     }
 
-    const { exec } = require("child_process");
-    const { getCookiesArgs, getYtDlp } = require("../../utils/dlp-helpers");
-    const cookies = getCookiesArgs().join(" ");
+    const { spawn } = require("child_process");
+    const { getCookiesArgs, getYtDlp, getDlpEnv } = require("../../utils/dlp-helpers");
 
     const ytCheckData = await new Promise((resolve) => {
       const timeout = setTimeout(() => resolve(null), 8000);
-      exec(
-        `${getYtDlp()} ${cookies} --simulate --print "%(url)s|%(_type)s" --add-header "Referer:https://www.instagram.com/" "${ytTarget}"`,
-        (err, stdout) => {
-          clearTimeout(timeout);
-          const out = stdout?.trim();
-          if (err || !out || out.includes("login") || out.length < 10)
-            resolve(null);
-          else resolve(out.split("\n")[0]);
-        },
-      );
+      const proc = spawn(getYtDlp(), [
+        ...getCookiesArgs(),
+        "--simulate",
+        "--print", "%(webpage_url)s|%(_type)s|%(ext)s",
+        "--add-header", "Referer:https://www.instagram.com/",
+        ytTarget,
+      ], { env: getDlpEnv() });
+      let stdout = "";
+      proc.stdout.on("data", (d) => { stdout += d.toString(); });
+      proc.on("close", (code) => {
+        clearTimeout(timeout);
+        const out = stdout.trim();
+        if (code !== 0 || !out || out.includes("login") || out.length < 10)
+          resolve(null);
+        else resolve(out.split("\n")[0]);
+      });
+      proc.on("error", () => { clearTimeout(timeout); resolve(null); });
     });
 
     console.log(`[INSTA-FLOW] Phase 1 Raw: ${ytCheckData}`);
-    const [ytUrl, ytType] = (ytCheckData || "").split("|");
+    const [ytUrl, ytType, ytExt] = (ytCheckData || "").split("|");
     const isYtPlaylist = ytType?.toLowerCase().includes("playlist");
 
     if (
       ytUrl &&
       !isYtPlaylist &&
-      (ytUrl.includes(".mp4") || ytUrl.includes(".m3u8"))
+      (ytExt === "mp4" || ytExt === "webm" || ytUrl.includes(".mp4") || ytUrl.includes(".m3u8"))
     ) {
       console.log("[INSTA-FLOW] Phase 1 Success: Video metadata confirmed.");
       isVideo = true;
@@ -135,12 +95,16 @@ async function runInstagramFlow(target, url, options = {}) {
 
       try {
         const meta = await new Promise((resolve) => {
-          exec(
-            `${getYtDlp()} ${cookies} --simulate --print "%(uploader)s|%(title)s|%(thumbnail)s|%(duration)s|%(like_count)s|%(comment_count)s|%(view_count)s" "${cleanUrl}"`,
-            (err, stdout) => {
-              resolve(stdout?.trim() || "||||||");
-            },
-          );
+          const metaProc = spawn(getYtDlp(), [
+            ...getCookiesArgs(),
+            "--simulate",
+            "--print", "%(uploader)s|%(title)s|%(thumbnail)s|%(duration)s|%(like_count)s|%(comment_count)s|%(view_count)s",
+            cleanUrl,
+          ], { env: getDlpEnv() });
+          let stdout = "";
+          metaProc.stdout.on("data", (d) => { stdout += d.toString(); });
+          metaProc.on("close", () => resolve(stdout.trim() || "||||||"));
+          metaProc.on("error", () => resolve("||||||"));
         });
         const [u, t, thumb, dur, l, c, v] = meta.split("|");
         if (u && u !== "NA") author = u;
@@ -227,9 +191,9 @@ async function runInstagramFlow(target, url, options = {}) {
               : "Proxy (Photo/Gallery)";
         }
       } catch (e) {
-        await editResponse({
+        await _editResponse({
           embeds: [
-            getStatusEmbed("Instagram Link Lost", "Starting the download..."),
+            getStatusEmbed(guild, "Instagram Link Lost", "Starting the download..."),
           ],
         });
 
@@ -426,9 +390,10 @@ async function runInstagramFlow(target, url, options = {}) {
     }
 
     if (!scrapeSuccess) {
-      await editResponse({
+      await _editResponse({
         embeds: [
           getStatusEmbed(
+            guild,
             "Download Failed",
             "Could not capture media resources from this link. Platform may be restricted or content is private.",
           ),
@@ -551,7 +516,7 @@ async function runInstagramFlow(target, url, options = {}) {
       );
     }
 
-    const resMsg = await editResponse({
+    const resMsg = await _editResponse({
       embeds: [foundEmbed],
       components: options.isCommand ? components : [],
     });

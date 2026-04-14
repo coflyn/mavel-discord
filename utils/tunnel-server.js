@@ -40,12 +40,10 @@ function launchCloudflared(port, resolve) {
     }
   });
 
-  cfProcess.on("close", (code) => {
-    if (code !== null) {
-      console.log(`[TUNNEL] Tunnel closed (${code}). Reconnecting...`);
-      tunnelUrl = null;
-      setTimeout(() => launchCloudflared(port), 5000);
-    }
+  cfProcess.on("close", (code, signal) => {
+    console.log(`[TUNNEL] Tunnel closed (code: ${code}, signal: ${signal}). Reconnecting...`);
+    tunnelUrl = null;
+    setTimeout(() => launchCloudflared(port), 5000);
   });
 }
 
@@ -81,10 +79,18 @@ async function resetTunnel() {
   if (cfProcess) {
     cfProcess.kill();
     return new Promise((resolve) => {
+      let timeoutCounter = 0;
       const check = setInterval(() => {
         if (tunnelUrl) {
           clearInterval(check);
           resolve(tunnelUrl);
+        }
+
+        timeoutCounter++;
+        if (timeoutCounter >= 30) {
+          console.error("[TUNNEL] Failed to reset tunnel after 30 seconds.");
+          clearInterval(check);
+          resolve(null);
         }
       }, 1000);
     });
@@ -97,8 +103,17 @@ function getAssetUrl(filename) {
   return `${tunnelUrl}/v/${encodeURIComponent(filename)}`;
 }
 
+function stopTunnel() {
+  if (cfProcess) {
+    cfProcess.removeAllListeners("close");
+    cfProcess.kill();
+    cfProcess = null;
+  }
+}
+
 module.exports = {
   startTunnel,
   resetTunnel,
+  stopTunnel,
   getAssetUrl,
 };

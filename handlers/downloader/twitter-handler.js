@@ -3,7 +3,9 @@ const fs = require("fs");
 const path = require("path");
 const cheerio = require("cheerio");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
-const { loadDB, saveDB, formatNumber } = require("./core-helpers");
+const { loadDB, saveDB } = require("./core-helpers");
+const { resolveEmoji } = require("../../utils/emoji-helper");
+const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
 function formatDuration(seconds) {
   if (!seconds || seconds === "---") return "---";
@@ -16,64 +18,19 @@ function formatDuration(seconds) {
 }
 
 async function runTwitterFlow(target, url, options = {}) {
-  let statusMsg = options.statusMsg;
   const guild = target.guild || target.client?.guilds?.cache.first();
-  const guildEmojis = guild
-    ? await guild.emojis.fetch().catch(() => null)
-    : null;
-  const getEmoji = (name, fallback) => {
-    const emoji = guildEmojis?.find((e) => e.name === name);
-    return emoji ? emoji.toString() : fallback;
-  };
-
+  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
   const ARROW = getEmoji("arrow", "•");
-  const FIRE = getEmoji("purple_fire", "🔥");
 
-  const getStatusEmbed = (status, info) => {
-    return new EmbedBuilder()
-      .setColor("#e17055")
-      .setDescription(
-        `### ${FIRE} **${status}**\n${ARROW} **Info:** *${info}*`,
-      );
-  };
+  let statusMsg;
+  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
 
-  const initialEmbed = getStatusEmbed("X / Twitter", "Searching for media...");
-
-  if (!statusMsg) {
-    if (target.replied || target.deferred) {
-      statusMsg = await target.editReply({
-        embeds: [initialEmbed],
-        withResponse: true,
-      });
-    } else if (target.isChatInputCommand && target.isChatInputCommand()) {
-      statusMsg = await target.reply({
-        embeds: [initialEmbed],
-        flags: [MessageFlags.Ephemeral],
-        withResponse: true,
-      });
-    } else {
-      statusMsg = target.reply
-        ? await target.reply({ embeds: [initialEmbed], withResponse: true })
-        : await target.channel.send({ embeds: [initialEmbed] });
-    }
+  if (options.statusMsg) {
+    statusMsg = options.statusMsg;
+    await _editResponse({ embeds: [getStatusEmbed(guild, "X / Twitter", "Searching for media...")] }).catch(() => {});
   } else {
-    const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
-    await msg.edit({ embeds: [initialEmbed] }).catch(() => {});
+    statusMsg = await sendInitialStatus(target, "X / Twitter", "Searching for media...");
   }
-
-  const editResponse = async (data) => {
-    try {
-      const payload = typeof data === "string" ? { content: data } : data;
-      if (target.editReply) {
-        return await target.editReply(payload);
-      } else {
-        const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
-        return await msg.edit(payload);
-      }
-    } catch (e) {
-      console.error("[TWITTER-EDIT] Error:", e.message);
-    }
-  };
 
   try {
     const statusIdMatch = url.match(/status\/(\d+)/);
@@ -89,22 +46,30 @@ async function runTwitterFlow(target, url, options = {}) {
     let allImages = [];
     let scrapeSuccess = false;
 
-    const { exec } = require("child_process");
-    const { getCookiesArgs, getYtDlp } = require("../../utils/dlp-helpers");
-    const cookies = getCookiesArgs("twitter").join(" ");
+    const { spawn } = require("child_process");
+    const { getCookiesArgs, getYtDlp, getDlpEnv } = require("../../utils/dlp-helpers");
 
     try {
       const ytTarget = url;
       const ytCheck = await new Promise((resolve) => {
         const timeout = setTimeout(() => resolve(null), 12000);
-        const command = `${getYtDlp()} ${cookies} --simulate --get-url --format "bestvideo+bestaudio/best" --add-header "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36" "${ytTarget}"`;
-        exec(command, (err, stdout) => {
+        const proc = spawn(getYtDlp(), [
+          ...getCookiesArgs("twitter"),
+          "--simulate", "--get-url",
+          "--format", "bestvideo+bestaudio/best",
+          "--add-header", "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+          ytTarget,
+        ], { env: getDlpEnv() });
+        let stdout = "";
+        proc.stdout.on("data", (d) => { stdout += d.toString(); });
+        proc.on("close", (code) => {
           clearTimeout(timeout);
-          const out = stdout?.trim();
-          if (!err && out && !out.includes("login") && out.length > 10)
+          const out = stdout.trim();
+          if (code === 0 && out && !out.includes("login") && out.length > 10)
             resolve(out.split("\n")[0]);
           else resolve(null);
         });
+        proc.on("error", () => { clearTimeout(timeout); resolve(null); });
       });
 
       if (
@@ -119,8 +84,16 @@ async function runTwitterFlow(target, url, options = {}) {
         scrapeSuccess = true;
 
         const meta = await new Promise((resolve) => {
-          const mCmd = `${getYtDlp()} ${cookies} --simulate --print "%(uploader)s|%(title)s|%(thumbnail)s|%(duration)s" "${ytTarget}"`;
-          exec(mCmd, (err, stdout) => resolve(stdout?.trim() || "|||"));
+          const metaProc = spawn(getYtDlp(), [
+            ...getCookiesArgs("twitter"),
+            "--simulate",
+            "--print", "%(uploader)s|%(title)s|%(thumbnail)s|%(duration)s",
+            ytTarget,
+          ], { env: getDlpEnv() });
+          let stdout = "";
+          metaProc.stdout.on("data", (d) => { stdout += d.toString(); });
+          metaProc.on("close", () => resolve(stdout.trim() || "|||"));
+          metaProc.on("error", () => resolve("|||"));
         });
         const [u, t, thumb, dur] = meta.split("|");
         if (u && u !== "NA") author = u;
@@ -322,7 +295,7 @@ async function runTwitterFlow(target, url, options = {}) {
       foundEmbed.setThumbnail(thumbnail);
     }
 
-    await editResponse({ embeds: [foundEmbed] });
+    await _editResponse({ embeds: [foundEmbed] });
     return {
       jobId,
       statusMsg: statusMsg,

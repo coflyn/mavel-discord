@@ -686,7 +686,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             });
 
           const finalMsg = await interaction.channel.send({
-            content: job?.hasVideo ? "" : "",
+            content: "",
             embeds: [doneEmbed],
             files: [attachment],
           });
@@ -1386,7 +1386,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
             ? "https://x.com/"
             : "https://www.google.com/";
 
-      const cleanTitleMatch = false;
 
       const dlArgs =
         format === "mp4"
@@ -1396,18 +1395,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 ? "best[ext=mp4]/best"
                 : `bv*[height<=${resolution}]+ba/b[height<=${resolution}] / best[height<=${resolution}] / best`,
               "--no-playlist",
-              cleanTitleMatch &&
-              !job?.directUrl &&
-              !url.includes("youtube") &&
-              !url.includes("youtu.be")
-                ? "--match-title"
-                : null,
-              cleanTitleMatch &&
-              !job?.directUrl &&
-              !url.includes("youtube") &&
-              !url.includes("youtu.be")
-                ? `(?i)${cleanTitleMatch.split(" - ").pop()}`
-                : null,
               "--newline",
               "--embed-metadata",
               "--embed-thumbnail",
@@ -1440,18 +1427,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
               "--audio-format",
               "mp3",
               "--no-playlist",
-              cleanTitleMatch &&
-              !job?.directUrl &&
-              !url.includes("youtube") &&
-              !url.includes("youtu.be")
-                ? "--match-title"
-                : null,
-              cleanTitleMatch &&
-              !job?.directUrl &&
-              !url.includes("youtube") &&
-              !url.includes("youtu.be")
-                ? `(?i)${cleanTitleMatch.split(" - ").pop()}`
-                : null,
               "--newline",
               "--embed-metadata",
               "--embed-thumbnail",

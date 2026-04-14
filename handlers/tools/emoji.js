@@ -6,6 +6,7 @@ const {
   ButtonStyle,
 } = require("discord.js");
 const { REQUIRED_EMOJIS } = require("../../utils/emoji-registry");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 
 module.exports = async function emojiHandler(interaction) {
   const subcommand = interaction.options.getSubcommand();
@@ -303,8 +304,7 @@ async function handleNeeds(interaction) {
     (req) => !guildEmojis.some((e) => e.name === req.name),
   );
 
-  const getEmoji = (name, fallback) =>
-    guildEmojis.find((e) => e.name === name)?.toString() || fallback;
+  const getEmoji = (name, fallback) => resolveEmoji(interaction.guild, name, fallback);
 
   const ARROW = getEmoji("arrow", "•");
   const AMOGUS = getEmoji("amogus", "🛰️");

@@ -6,6 +6,7 @@ const {
 const os = require("os");
 const process = require("process");
 const axios = require("axios");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 
 module.exports = async function diagnosticsHandler(interaction) {
   if (interaction.deferReply) {
@@ -15,11 +16,7 @@ module.exports = async function diagnosticsHandler(interaction) {
   }
 
   const guild = interaction.guild || interaction.client.guilds.cache.first();
-  const guildEmojis = await guild.emojis.fetch().catch(() => null);
-  const getEmoji = (name, fallback) => {
-    const emoji = guildEmojis?.find((e) => e.name === name);
-    return emoji ? emoji.toString() : fallback;
-  };
+  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
 
   const ARROW = getEmoji("arrow", "•");
   const AMOGUS = getEmoji("amogus", "🛰️");

@@ -2,6 +2,7 @@ const { EmbedBuilder, MessageFlags } = require("discord.js");
 const { runYtDlpFlow } = require("./core");
 const { handleDownloadCallback } = require("./callbacks");
 const config = require("../../config");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 
 module.exports = async function downloaderHandler(target, manualOptions = {}) {
   let url = manualOptions.manualUrl || "";
@@ -51,11 +52,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
   }
 
   if (!url) {
-    const guildEmojis = await target.guild.emojis.fetch();
-    const getEmoji = (name, fallback) => {
-      const emoji = guildEmojis.find((e) => e.name === name);
-      return emoji ? emoji.toString() : fallback;
-    };
+    const getEmoji = (name, fallback) => resolveEmoji(target.guild, name, fallback);
 
     const ARROW = getEmoji("arrow", "•");
     const ANNO = getEmoji("anno", "🚀");

@@ -1,55 +1,26 @@
 const axios = require("axios");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
-const { loadDB, saveDB, formatNumber } = require("./core-helpers");
+const { loadDB, saveDB } = require("./core-helpers");
+const { resolveEmoji } = require("../../utils/emoji-helper");
+const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
 async function runSpotifyFlow(target, url, options = {}) {
-    let statusMsg = options.statusMsg;
     const guild = target.guild || target.client?.guilds?.cache.first();
-    const guildEmojis = guild ? await guild.emojis.fetch().catch(() => null) : null;
-    const getEmoji = (name, fallback) => {
-        const emoji = guildEmojis?.find((e) => e.name === name);
-        return emoji ? emoji.toString() : fallback;
-    };
-
+    const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
     const ARROW = getEmoji("arrow", "•");
     const FIRE = getEmoji("purple_fire", "🔥");
 
-    const getStatusEmbed = (status, details) => {
-        return new EmbedBuilder()
-            .setColor("#00b894")
-            .setDescription(`### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`);
-    };
+    let statusMsg;
+    const _editResponse = async (data) => await editResponse(target, statusMsg, data);
 
-    const initialEmbed = getStatusEmbed("Spotify Search", "Looking up track on YouTube...");
-
-    if (!statusMsg) {
-        if (target.replied || target.deferred) {
-            statusMsg = await target.editReply({ embeds: [initialEmbed], withResponse: true });
-        } else if (target.isChatInputCommand && target.isChatInputCommand()) {
-            statusMsg = await target.reply({ embeds: [initialEmbed], flags: [MessageFlags.Ephemeral], withResponse: true });
-        } else {
-            statusMsg = target.reply
-                ? await target.reply({ embeds: [initialEmbed], withResponse: true })
-                : await target.channel.send({ embeds: [initialEmbed] });
-        }
+    if (options.statusMsg) {
+        statusMsg = options.statusMsg;
+        await _editResponse({
+            embeds: [getStatusEmbed(guild, "Spotify Search", "Looking up track on YouTube...")],
+        }).catch(() => {});
     } else {
-        const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
-        if (msg && msg.edit) await msg.edit({ embeds: [initialEmbed] }).catch(() => {});
+        statusMsg = await sendInitialStatus(target, "Spotify Search", "Looking up track on YouTube...");
     }
-
-    const editResponse = async (data) => {
-        try {
-            const payload = typeof data === "string" ? { content: data } : data;
-            if (target.editReply) {
-                return await target.editReply(payload);
-            } else {
-                const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
-                return await msg.edit(payload);
-            }
-        } catch (e) {
-            console.error("[SPOTIFY-EDIT] Error:", e.message);
-        }
-    };
 
     try {
         const cleanUrl = url.split("?")[0].split("#")[0];
@@ -102,12 +73,12 @@ async function runSpotifyFlow(target, url, options = {}) {
                 iconURL: target.client.user.displayAvatarURL()
             });
 
-        await editResponse({ embeds: [foundEmbed] });
+        await _editResponse({ embeds: [foundEmbed] });
         return { jobId, statusMsg };
 
     } catch (e) {
         console.error("[SPOTIFY-FLOW] Error:", e.message);
-        await editResponse({
+        await _editResponse({
             embeds: [getStatusEmbed("Spotify Error", "Could not get info from Spotify servers.")]
         });
     }

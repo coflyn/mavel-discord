@@ -3,45 +3,27 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 const { loadDB, saveDB } = require("./core-helpers");
-const { EmbedBuilder } = require("discord.js");
+const { resolveEmoji } = require("../../utils/emoji-helper");
+const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
 async function runSlideshareFlow(target, url, options = {}) {
-  let statusMsg = options.statusMsg || null;
   let browser;
-
-  const editResponse = async (data) => {
-    try {
-      if (statusMsg && statusMsg.edit) {
-        return await statusMsg.edit(data);
-      }
-      if (target.editReply) {
-        return await target.editReply(data);
-      }
-    } catch (e) {}
-  };
-
-  const getEmoji = (name, fallback) => {
-    const guild = target.guild || target.client?.guilds?.cache.first();
-    return (
-      guild?.emojis?.cache.find((e) => e.name === name)?.toString() || fallback
-    );
-  };
-
+  const guild = target.guild || target.client?.guilds?.cache.first();
+  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
   const ARROW = getEmoji("arrow", "•");
   const ARCHIVE = getEmoji("camera", "📷");
-  const LOADING = getEmoji("loading_pulse", "⚙️");
 
-  const getStatusEmbed = (status, info) => {
-    return new EmbedBuilder()
-      .setColor("#636e72")
-      .setDescription(
-        `### ${ARCHIVE} **${status}**\n${ARROW} **Info:** *${info}*`,
-      );
-  };
+  let statusMsg;
+  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
 
-  await editResponse({
-    embeds: [getStatusEmbed("Processing SlideShare", "Getting info...")],
-  });
+  if (options.statusMsg) {
+    statusMsg = options.statusMsg;
+    await _editResponse({
+      embeds: [getStatusEmbed(guild, "Processing SlideShare", "Getting info...")],
+    }).catch(() => {});
+  } else {
+    statusMsg = await sendInitialStatus(target, "Processing SlideShare", "Getting info...");
+  }
 
   try {
     browser = await chromium.launch({ headless: true });
@@ -103,9 +85,10 @@ async function runSlideshareFlow(target, url, options = {}) {
     const localPaths = [];
     const jobId = Math.random().toString(36).substring(2, 10);
 
-    await editResponse({
+    await _editResponse({
       embeds: [
         getStatusEmbed(
+          guild,
           "Download Active",
           `Downloading ${filteredUrls.length} HD Slides (with Retry Safety)...`,
         ),
@@ -175,10 +158,9 @@ async function runSlideshareFlow(target, url, options = {}) {
     return { jobId, statusMsg };
   } catch (e) {
     if (browser) await browser.close();
-    await editResponse({
-      content: `${LOADING} **Error:** *${e.message}*`,
-      embeds: [],
-    });
+    await _editResponse({
+      embeds: [getStatusEmbed(guild, "Download Failed", e.message)],
+    }).catch(() => {});
     return null;
   }
 }

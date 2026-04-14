@@ -13,6 +13,8 @@ const {
   getVpsArgs,
 } = require("../../utils/dlp-helpers");
 const axios = require("axios");
+const config = require("../../config");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 const cheerio = require("cheerio");
 const searchCache = new Map();
 const CACHE_TTL = 10 * 60 * 1000;
@@ -52,14 +54,7 @@ module.exports = async function searchHandler(interaction) {
     }
   }
 
-  const guild = interaction.guild;
-  const guildEmojis =
-    (await interaction.client.getGuildEmojis?.(guild.id)) ||
-    (await guild.emojis.fetch().catch(() => null));
-  const getEmoji = (name, fallback) => {
-    const emoji = guildEmojis?.find((e) => e.name === name);
-    return emoji ? emoji.toString() : fallback;
-  };
+  const getEmoji = (name, fallback) => resolveEmoji(interaction.guild, name, fallback);
 
   const ARROW = getEmoji("arrow", "•");
   const FIRE = getEmoji("purple_fire", "🔥");

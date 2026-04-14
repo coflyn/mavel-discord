@@ -1,4 +1,5 @@
 const { EmbedBuilder, MessageFlags } = require("discord.js");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 
 module.exports = async function helpHandler(interaction) {
   if (interaction.deferReply && (interaction.isChatInputCommand?.() || interaction.isButton?.() || interaction.isStringSelectMenu?.())) {
@@ -6,11 +7,7 @@ module.exports = async function helpHandler(interaction) {
   }
 
   const guild = interaction.guild || interaction.client.guilds.cache.first();
-  const guildEmojis = await guild.emojis.fetch().catch(() => null);
-  const getEmoji = (name, fallback) => {
-    const emoji = guildEmojis?.find((e) => e.name === name);
-    return emoji ? emoji.toString() : fallback;
-  };
+  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
 
   const ARROW = getEmoji("arrow", "•");
   const DIAMOND = getEmoji("diamond", "✨");

@@ -50,10 +50,25 @@ function getDlpEnv() {
   const nodeBinary = process.execPath;
   const nodeDir = path.dirname(nodeBinary);
 
+  const pythonPaths = [
+    "/opt/homebrew/opt/python@3.12/libexec/bin",
+    "/opt/homebrew/opt/python@3.13/libexec/bin",
+    "/opt/homebrew/opt/python@3.11/libexec/bin",
+    "/opt/homebrew/bin",
+    "/usr/local/bin",
+  ];
+  const prependPaths = pythonPaths.filter((p) => fs.existsSync(p));
+
   if (env.PATH) {
     if (!env.PATH.includes(nodeDir)) env.PATH = `${nodeDir}:${env.PATH}`;
   } else {
     env.PATH = nodeDir;
+  }
+
+  for (const p of prependPaths.reverse()) {
+    if (!env.PATH.includes(p)) {
+      env.PATH = `${p}:${env.PATH}`;
+    }
   }
 
   env.YT_DLP_JS_RUNTIME = "node";

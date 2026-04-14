@@ -2,53 +2,30 @@ const axios = require("axios");
 const cheerio = require("cheerio");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const { loadDB, saveDB } = require("./core-helpers");
-const { exec } = require("child_process");
+const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
+const { resolveEmoji } = require("../../utils/emoji-helper");
+const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
 async function runSoundcloudFlow(target, url, options = {}) {
-  let statusMsg = options.statusMsg;
   const guild = target.guild || target.client?.guilds?.cache.first();
-  const guildEmojis = guild
-    ? await guild.emojis.fetch().catch(() => null)
-    : null;
-
-  const getEmoji = (name, fallback) => {
-    const emoji = guildEmojis?.find((e) => e.name === name);
-    return emoji ? emoji.toString() : fallback;
-  };
-
+  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
   const ARROW = getEmoji("arrow", "•");
   const AUDIO = getEmoji("three_dots", "🎵");
   const FIRE = getEmoji("purple_fire", "🔥");
 
-  const getStatusEmbed = (status, details) => {
-    return new EmbedBuilder()
-      .setColor("#00b894")
-      .setDescription(
-        `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
-      );
-  };
+  let statusMsg;
+  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
 
-  const editResponse = async (data) => {
-    try {
-      const payload = typeof data === "string" ? { content: data } : data;
-      if (statusMsg) {
-        const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
-        return await msg.edit(payload);
-      }
-      if (target.editReply) {
-        return await target.editReply(payload);
-      }
-    } catch (e) {
-      console.error("[SC-EDIT] Error:", e.message);
-    }
-  };
-
-  const initialEmbed = getStatusEmbed(
-    "SoundCloud Music",
-    "Searching for song...",
-  );
+  if (options.statusMsg) {
+    statusMsg = options.statusMsg;
+    await _editResponse({
+      embeds: [getStatusEmbed(guild, "SoundCloud Music", "Searching for song...")],
+    }).catch(() => {});
+  } else {
+    statusMsg = await sendInitialStatus(target, "SoundCloud Music", "Searching for song...");
+  }
 
   if (!statusMsg) {
     if (target.replied || target.deferred) {
@@ -74,8 +51,8 @@ async function runSoundcloudFlow(target, url, options = {}) {
       getYtDlp,
       getCookiesArgs,
       getCookiesPath,
+      getDlpEnv,
     } = require("../../utils/dlp-helpers");
-    const cookiesArgs = getCookiesArgs().join(" ");
 
     let scrapeSuccess = false;
     let title = "SoundCloud Track";
@@ -92,17 +69,22 @@ async function runSoundcloudFlow(target, url, options = {}) {
 
     const ytData = await new Promise((resolve) => {
       const timeout = setTimeout(() => resolve(null), 12000);
-      exec(
-        `${getYtDlp()} ${cookiesArgs} --simulate --dump-json --no-check-certificate "${url}"`,
-        (err, stdout) => {
-          clearTimeout(timeout);
-          try {
-            resolve(JSON.parse(stdout));
-          } catch (e) {
-            resolve(null);
-          }
-        },
-      );
+      const proc = spawn(getYtDlp(), [
+        ...getCookiesArgs(),
+        "--simulate", "--dump-json", "--no-check-certificate",
+        url,
+      ], { env: getDlpEnv() });
+      let stdout = "";
+      proc.stdout.on("data", (d) => { stdout += d.toString(); });
+      proc.on("close", () => {
+        clearTimeout(timeout);
+        try {
+          resolve(JSON.parse(stdout));
+        } catch (e) {
+          resolve(null);
+        }
+      });
+      proc.on("error", () => { clearTimeout(timeout); resolve(null); });
     });
 
     if (ytData) {
@@ -255,13 +237,14 @@ async function runSoundcloudFlow(target, url, options = {}) {
         iconURL: target.client.user.displayAvatarURL(),
       });
 
-    const resMsg = await editResponse({ embeds: [foundEmbed] });
+    const resMsg = await _editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg: resMsg };
   } catch (e) {
     console.error("[SC-FLOW] Error:", e.message);
-    await editResponse({
+    await _editResponse({
       embeds: [
         getStatusEmbed(
+          target.guild,
           "Download Failed",
           e.message || "Could not retrieve the song.",
         ),

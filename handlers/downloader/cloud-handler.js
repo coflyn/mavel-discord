@@ -9,70 +9,33 @@ const {
   ButtonStyle,
   MessageFlags,
 } = require("discord.js");
-const { loadDB, saveDB, formatNumber } = require("./core-helpers");
+const { loadDB, saveDB } = require("./core-helpers");
+const { resolveEmoji } = require("../../utils/emoji-helper");
+const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
-async function runCloudFlow(target, url) {
-  let statusMsg;
+async function runCloudFlow(target, url, options = {}) {
   const guild = target.guild || target.client?.guilds?.cache.first();
-  const guildEmojis = guild
-    ? await guild.emojis.fetch().catch(() => null)
-    : null;
-  const getEmoji = (name, fallback) => {
-    const emoji = guildEmojis?.find((e) => e.name === name);
-    return emoji ? emoji.toString() : fallback;
-  };
-
+  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
   const ARROW = getEmoji("arrow", "•");
   const FIRE = getEmoji("purple_fire", "🔥");
 
-  const getStatusEmbed = (status, details) => {
-    return new EmbedBuilder()
-      .setColor("#636e72")
-      .setDescription(
-        `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
-      );
-  };
+  let statusMsg;
+  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
 
   const platform = url.includes("mediafire.com")
     ? "Mediafire"
     : url.includes("drive.google.com")
       ? "GDrive"
       : "MEGA";
-  const initialEmbed = getStatusEmbed(
-    `${platform} Cloud Storage`,
-    "Looking for the link...",
-  );
 
-  if (target.replied || target.deferred) {
-    statusMsg = await target.editReply({
-      embeds: [initialEmbed],
-      withResponse: true,
-    });
-  } else if (target.isChatInputCommand && target.isChatInputCommand()) {
-    statusMsg = await target.reply({
-      embeds: [initialEmbed],
-      flags: [MessageFlags.Ephemeral],
-      withResponse: true,
-    });
+  if (options.statusMsg) {
+    statusMsg = options.statusMsg;
+    await _editResponse({
+      embeds: [getStatusEmbed(guild, `${platform} Cloud Storage`, "Looking for the link...")],
+    }).catch(() => {});
   } else {
-    statusMsg = target.reply
-      ? await target.reply({ embeds: [initialEmbed], withResponse: true })
-      : await target.channel.send({ embeds: [initialEmbed] });
+    statusMsg = await sendInitialStatus(target, `${platform} Cloud Storage`, "Looking for the link...");
   }
-
-  const editResponse = async (data) => {
-    try {
-      const payload = typeof data === "string" ? { content: data } : data;
-      if (target.editReply) {
-        return await target.editReply(payload);
-      } else {
-        const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
-        return await msg.edit(payload);
-      }
-    } catch (e) {
-      console.error("[CLOUD-EDIT] Error:", e.message);
-    }
-  };
 
   try {
     let title = "Cloud File";
@@ -160,12 +123,13 @@ async function runCloudFlow(target, url) {
         .setStyle(ButtonStyle.Success),
     );
 
-    await editResponse({ embeds: [foundEmbed], components: [row] });
+    await _editResponse({ embeds: [foundEmbed], components: [row] });
   } catch (e) {
     console.error("[CLOUD-FLOW] Error:", e.message);
-    await editResponse({
+    await _editResponse({
       embeds: [
         getStatusEmbed(
+          guild,
           "Cloud Download Failed",
           e.message || "Access blocked or link dead.",
         ),

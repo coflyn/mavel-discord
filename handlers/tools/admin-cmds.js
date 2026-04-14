@@ -7,6 +7,7 @@ const {
 const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 const { advanceLog } = require("../../utils/logger");
 
 const settingsPath = path.join(__dirname, "../../database/settings.json");
@@ -55,8 +56,8 @@ async function toggleHibernate(interaction, status) {
 
   const db = fs.existsSync(settingsPath)
     ? JSON.parse(fs.readFileSync(settingsPath))
-    : { hibernate: false };
-  db.hibernate = status;
+    : { isHibernating: false };
+  db.isHibernating = status;
   fs.writeFileSync(settingsPath, JSON.stringify(db, null, 2));
 
   advanceLog(interaction.client, {
@@ -149,14 +150,24 @@ async function handlePurge(interaction) {
   const files = fs.readdirSync(tempDir);
   let count = 0;
 
-  files.forEach((file) => {
-    try {
-      if (file !== ".gitkeep") {
-        fs.unlinkSync(path.join(tempDir, file));
+  const rmRecursive = (dir) => {
+    const items = fs.readdirSync(dir);
+    items.forEach((item) => {
+      const itemPath = path.join(dir, item);
+      if (item === ".gitkeep") return;
+      try {
+        if (fs.statSync(itemPath).isDirectory()) {
+          rmRecursive(itemPath);
+          fs.rmdirSync(itemPath);
+        } else {
+          fs.unlinkSync(itemPath);
+        }
         count++;
-      }
-    } catch (e) {}
-  });
+      } catch (e) {}
+    });
+  };
+
+  rmRecursive(tempDir);
 
   await (interaction.deferred
     ? interaction.editReply({
@@ -216,14 +227,9 @@ async function handleBackup(interaction) {
 async function handleScan(interaction) {
   await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-  const getEmoji = (name, fallback) => {
-    const emoji = interaction.guild.emojis.cache.find((e) => e.name === name);
-    return emoji ? emoji.toString() : fallback;
-  };
-
   const EMOJIS = {
-    FIRE: getEmoji("purple_fire", "🔥"),
-    CROSS: getEmoji("ping_red", "🔴"),
+    FIRE: resolveEmoji(interaction.guild, "purple_fire", "🔥"),
+    CROSS: resolveEmoji(interaction.guild, "ping_red", "🔴"),
   };
 
   const results = [];
@@ -239,7 +245,14 @@ async function handleScan(interaction) {
   for (const p of platforms) {
     const start = Date.now();
     try {
-      await exec(`curl -s -L -m 5 ${p.url}`);
+      await new Promise((resolve, reject) => {
+        const child = exec(`curl -s -L -m 5 ${p.url}`);
+        child.on("close", (code) => {
+          if (code === 0) resolve();
+          else reject(new Error(`Exit code ${code}`));
+        });
+        child.on("error", reject);
+      });
       results.push(`${EMOJIS.FIRE} **${p.name}:** \`${Date.now() - start}ms\``);
     } catch (e) {
       results.push(`${EMOJIS.CROSS} **${p.name}:** \`Timed Out / Blocked\``);

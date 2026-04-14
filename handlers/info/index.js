@@ -1,4 +1,5 @@
 const { EmbedBuilder, MessageFlags, ChannelType } = require("discord.js");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 
 module.exports = async function infoHandler(interaction) {
   const { commandName } = interaction;
@@ -7,11 +8,7 @@ module.exports = async function infoHandler(interaction) {
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(e => console.error("[INFO-DEFER]", e.message));
   }
 
-  const guildEmojis = await interaction.guild.emojis.fetch().catch(() => null);
-  const getEmoji = (name, fallback) => {
-    const emoji = guildEmojis?.find((e) => e.name === name);
-    return emoji ? emoji.toString() : fallback;
-  };
+  const getEmoji = (name, fallback) => resolveEmoji(interaction.guild, name, fallback);
 
   const EMOJIS = {
     GENERAL: getEmoji("purple_fire", "✨"),

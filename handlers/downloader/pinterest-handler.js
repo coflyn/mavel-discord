@@ -3,45 +3,28 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 const { loadDB, saveDB } = require("./core-helpers");
-const { EmbedBuilder } = require("discord.js");
+const { resolveEmoji } = require("../../utils/emoji-helper");
+const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
 async function runPinterestFlow(target, url, options = {}) {
-  let statusMsg = options.statusMsg || null;
   let browser;
-
-  const editResponse = async (data) => {
-    try {
-      if (statusMsg && statusMsg.edit) {
-        return await statusMsg.edit(data);
-      }
-      if (target.editReply) {
-        return await target.editReply(data);
-      }
-    } catch (e) {}
-  };
-
-  const getEmoji = (name, fallback) => {
-    const guild = target.guild || target.client?.guilds?.cache.first();
-    return (
-      guild?.emojis?.cache.find((e) => e.name === name)?.toString() || fallback
-    );
-  };
-
+  const guild = target.guild || target.client?.guilds?.cache.first();
+  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
   const ARROW = getEmoji("arrow", "•");
   const ARCHIVE = getEmoji("camera", "📷");
   const NOTIF = getEmoji("notif", "🔔");
 
-  const getStatusEmbed = (status, info) => {
-    return new EmbedBuilder()
-      .setColor("#e17055")
-      .setDescription(
-        `### ${ARCHIVE} **${status}**\n${ARROW} **Info:** *${info}*`,
-      );
-  };
+  let statusMsg;
+  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
 
-  await editResponse({
-    embeds: [getStatusEmbed("Pinterest", "Getting Pinterest Pin info...")],
-  });
+  if (options.statusMsg) {
+    statusMsg = options.statusMsg;
+    await _editResponse({
+      embeds: [getStatusEmbed(guild, "Pinterest", "Getting Pinterest Pin info...")],
+    }).catch(() => {});
+  } else {
+    statusMsg = await sendInitialStatus(target, "Pinterest", "Getting Pinterest Pin info...");
+  }
 
   try {
     browser = await chromium.launch({ headless: true });
@@ -180,9 +163,10 @@ async function runPinterestFlow(target, url, options = {}) {
       return { jobId, statusMsg, isGallery: false };
     }
 
-    await editResponse({
+    await _editResponse({
       embeds: [
         getStatusEmbed(
+          guild,
           "Downloading HD Image/GIF",
           "Downloading Original High Quality File...",
         ),
@@ -215,7 +199,9 @@ async function runPinterestFlow(target, url, options = {}) {
   } catch (e) {
     if (browser) await browser.close();
     console.error(`[PINTEREST-FAIL] ${e.message}`);
-    await editResponse({ content: `:ping_red: **Error:** *${e.message}*`, embeds: [] });
+    await _editResponse({
+      embeds: [getStatusEmbed(guild, "Download Failed", e.message)],
+    }).catch(() => {});
     return null;
   }
 }

@@ -23,6 +23,7 @@ const {
   getVpsArgs,
   getJsRuntimeArgs,
 } = require("../../utils/dlp-helpers");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 const { REQUIRED_EMOJIS } = require("../../utils/emoji-registry");
 const { advanceLog } = require("../../utils/logger");
 const CACHE_DIR = path.join(__dirname, "../../temp/cache");
@@ -32,7 +33,6 @@ class MusicPlayer {
   constructor() {
     this.queues = new Map();
   }
-
   getQueue(guildId) {
     if (!this.queues.has(guildId)) {
       this.queues.set(guildId, {
@@ -50,6 +50,10 @@ class MusicPlayer {
       });
     }
     return this.queues.get(guildId);
+  }
+
+  getE(guild, name, fallback) {
+    return resolveEmoji(guild, name, fallback);
   }
 
   async play(target, url, title = "Unknown Title") {
@@ -486,16 +490,10 @@ class MusicPlayer {
     const track = state.current;
     const requester = state.channel.client.users.cache.get(track.requestedBy);
     const guild = state.channel.guild;
-    const getEmoji = (name, fallback) => {
-      const emoji = guild.emojis.cache.find((e) => e.name === name);
-      if (emoji) return emoji.toString();
-      const registry = REQUIRED_EMOJIS.find((e) => e.name === name);
-      return registry ? `<:${registry.name}:${registry.id}>` : fallback;
-    };
 
-    const FIRE = getEmoji("purple_fire", "🔥");
-    const LEA = getEmoji("lea", "✅");
-    const ARROW = getEmoji("arrow", ">");
+    const FIRE = this.getE(guild, "purple_fire", "🔥");
+    const LEA = this.getE(guild, "lea", "✅");
+    const ARROW = this.getE(guild, "arrow", ">");
 
     const source =
       track.webpage_url?.includes("bandcamp.com") ||
@@ -565,22 +563,16 @@ class MusicPlayer {
     if (!state || !state.channel) return null;
 
     const guild = state.channel.guild;
-    const getEmoji = (name, fallback) => {
-      const emoji = guild.emojis.cache.find((e) => e.name === name);
-      if (emoji) return emoji.toString();
-      const registry = REQUIRED_EMOJIS.find((e) => e.name === name);
-      return registry ? `<:${registry.name}:${registry.id}>` : fallback;
-    };
 
-    const E_LYRICS = getEmoji("book", "📋");
-    const E_SKIP = getEmoji("blue_arrow_right", "⏭️");
-    const E_STOP = getEmoji("ping_red", "⏹️");
-    const E_SHUFFLE = getEmoji("diamond", "🔀");
-    const E_REPEAT = getEmoji("rocket", "🔁");
-    const E_PAUSE = getEmoji("time", "⏸️");
-    const E_QUEUE = getEmoji("anno", "📜");
-    const E_CLEAR = getEmoji("lea", "🗑️");
-    const E_PLAYLIST = getEmoji("three_dots", "📂");
+    const E_LYRICS = this.getE(guild, "book", "📋");
+    const E_SKIP = this.getE(guild, "blue_arrow_right", "⏭️");
+    const E_STOP = this.getE(guild, "ping_red", "⏹️");
+    const E_SHUFFLE = this.getE(guild, "diamond", "🔀");
+    const E_REPEAT = this.getE(guild, "rocket", "🔁");
+    const E_PAUSE = this.getE(guild, "time", "⏸️");
+    const E_QUEUE = this.getE(guild, "anno", "📜");
+    const E_CLEAR = this.getE(guild, "lea", "🗑️");
+    const E_PLAYLIST = this.getE(guild, "three_dots", "📂");
 
     return new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()

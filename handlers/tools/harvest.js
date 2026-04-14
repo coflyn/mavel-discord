@@ -8,6 +8,7 @@ const {
 } = require("../../utils/scrapers/social");
 const { scrapeGitHub } = require("../../utils/scrapers/web");
 const EC = require("../../utils/embed-colors");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 
 const { REQUIRED_EMOJIS } = require("../../utils/emoji-registry");
 
@@ -15,15 +16,7 @@ async function harvestHandler(interaction) {
   const target = interaction.options.getString("target");
   const query = interaction.options.getString("query");
 
-  const getEmoji = (name, fallback) => {
-    const emoji = interaction.client.emojis.cache.find((e) => e.name === name);
-    if (emoji) return emoji.toString();
-
-    const custom = REQUIRED_EMOJIS.find((e) => e.name === name);
-    if (custom) return `<:${custom.name}:${custom.id}>`;
-
-    return fallback;
-  };
+  const getEmoji = (name, fallback) => resolveEmoji(interaction.guild, name, fallback);
 
   const FIRE = getEmoji("purple_fire", "🔥");
   const ARROW = getEmoji("arrow", "»");

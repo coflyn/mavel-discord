@@ -1,70 +1,27 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
-const { loadDB, saveDB, formatNumber } = require("./core-helpers");
+const { loadDB, saveDB } = require("./core-helpers");
+const { resolveEmoji } = require("../../utils/emoji-helper");
+const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
 async function runThreadsFlow(target, url, options = {}) {
-  let statusMsg = options.statusMsg;
   const guild = target.guild || target.client?.guilds?.cache.first();
-  const guildEmojis = guild
-    ? await guild.emojis.fetch().catch(() => null)
-    : null;
-  const getEmoji = (name, fallback) => {
-    const emoji = guildEmojis?.find((e) => e.name === name);
-    return emoji ? emoji.toString() : fallback;
-  };
-
+  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
   const ARROW = getEmoji("arrow", "•");
   const FIRE = getEmoji("purple_fire", "🔥");
 
-  const getStatusEmbed = (status, details) => {
-    return new EmbedBuilder()
-      .setColor("#e17055")
-      .setDescription(
-        `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
-      );
-  };
+  let statusMsg;
+  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
 
-  const initialEmbed = getStatusEmbed(
-    "Threads",
-    "Getting post info...",
-  );
-
-  if (!statusMsg) {
-    if (target.replied || target.deferred) {
-      statusMsg = await target.editReply({
-        embeds: [initialEmbed],
-        withResponse: true,
-      });
-    } else if (target.isChatInputCommand && target.isChatInputCommand()) {
-      statusMsg = await target.reply({
-        embeds: [initialEmbed],
-        flags: [MessageFlags.Ephemeral],
-        withResponse: true,
-      });
-    } else {
-      statusMsg = target.reply
-        ? await target.reply({ embeds: [initialEmbed], withResponse: true })
-        : await target.channel.send({ embeds: [initialEmbed] });
-    }
+  if (options.statusMsg) {
+    statusMsg = options.statusMsg;
+    await _editResponse({
+      embeds: [getStatusEmbed(guild, "Threads", "Getting post info...")],
+    }).catch(() => {});
   } else {
-    const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
-    await msg.edit({ embeds: [initialEmbed] }).catch(() => {});
+    statusMsg = await sendInitialStatus(target, "Threads", "Getting post info...");
   }
-
-  const editResponse = async (data) => {
-    try {
-      const payload = typeof data === "string" ? { content: data } : data;
-      if (target.editReply) {
-        return await target.editReply(payload);
-      } else {
-        const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
-        return await msg.edit(payload);
-      }
-    } catch (e) {
-      console.error("[THREADS-EDIT] Error:", e.message);
-    }
-  };
 
   try {
     const threadsBase = url.includes("/post/")
@@ -179,7 +136,7 @@ async function runThreadsFlow(target, url, options = {}) {
         .setDescription(
           `*Security settings blocked the download: ${lastError || "Connection Lost"}*`,
         );
-      await editResponse({ embeds: [errorEmbed] });
+      await _editResponse({ embeds: [errorEmbed] });
       return { jobId: null, statusMsg };
     }
 
@@ -228,7 +185,7 @@ async function runThreadsFlow(target, url, options = {}) {
           `*Everything is ready. Starting the download...*`,
       );
 
-    const resMsg = await editResponse({ embeds: [foundEmbed] });
+    const resMsg = await _editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg: resMsg };
   } catch (e) {
     console.error("[THREADS-FLOW] Error:", e.message);

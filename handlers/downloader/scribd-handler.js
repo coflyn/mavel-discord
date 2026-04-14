@@ -3,61 +3,26 @@ const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const { loadDB, saveDB } = require("./core-helpers");
+const { resolveEmoji } = require("../../utils/emoji-helper");
+const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
 async function runScribdFlow(target, url, options = {}) {
-  let statusMsg = options.statusMsg;
   const guild = target.guild || target.client?.guilds?.cache.first();
-  const guildEmojis = guild
-    ? await guild.emojis.fetch().catch(() => null)
-    : null;
-  const getEmoji = (name, fallback) => {
-    const emoji = guildEmojis?.find((e) => e.name === name);
-    return emoji ? emoji.toString() : fallback;
-  };
-
+  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
   const ARROW = getEmoji("arrow", "•");
   const ARCHIVE = getEmoji("camera", "📷");
-  const LOADING = getEmoji("loading_pulse", "⚙️");
 
-  const getStatusEmbed = (status, info) => {
-    return new EmbedBuilder()
-      .setColor("#636e72")
-      .setDescription(
-        `### ${ARCHIVE} **${status}**\n${ARROW} **Info:** *${info}*`,
-      );
-  };
+  let statusMsg;
+  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
 
-  const initialEmbed = getStatusEmbed(
-    "Processing Scribd Link",
-    "Opening browser...",
-  );
-
-  if (!statusMsg) {
-    if (target.replied || target.deferred) {
-      statusMsg = await target.editReply({
-        embeds: [initialEmbed],
-        withResponse: true,
-      });
-    } else {
-      statusMsg = target.reply
-        ? await target.reply({ embeds: [initialEmbed], withResponse: true })
-        : await target.channel.send({ embeds: [initialEmbed] });
-    }
+  if (options.statusMsg) {
+    statusMsg = options.statusMsg;
+    await _editResponse({
+      embeds: [getStatusEmbed(guild, "Processing Scribd Link", "Opening browser...")],
+    }).catch(() => {});
   } else {
-    const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
-    await msg.edit({ embeds: [initialEmbed] }).catch(() => {});
+    statusMsg = await sendInitialStatus(target, "Processing Scribd Link", "Opening browser...");
   }
-
-  const editResponse = async (data) => {
-    try {
-      const payload = typeof data === "string" ? { content: data } : data;
-      if (target.editReply) return await target.editReply(payload);
-      const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
-      return await msg.edit(payload);
-    } catch (e) {
-      console.error("[SCRIBD-EDIT] Error:", e.message);
-    }
-  };
 
   let browser;
   try {
@@ -98,7 +63,11 @@ async function runScribdFlow(target, url, options = {}) {
       ],
     });
 
-    await page.goto(embedUrl, { waitUntil: "networkidle", timeout: 60000 });
+    await _editResponse({
+      embeds: [
+        getStatusEmbed(guild, "Getting File Info...", "Getting document info..."),
+      ],
+    });
 
     try {
       await page.waitForSelector(".outer_page", { timeout: 15000 });
@@ -135,9 +104,10 @@ async function runScribdFlow(target, url, options = {}) {
     const imageUrls = [];
     const jobId = Math.random().toString(36).substring(2, 10);
 
-    await editResponse({
+    await _editResponse({
       embeds: [
         getStatusEmbed(
+          guild,
           "Downloading Document",
           `Getting ${pageCount} High Quality Pages...`,
         ),
@@ -207,13 +177,13 @@ async function runScribdFlow(target, url, options = {}) {
           `*Creating your PDF with high quality...*`,
       );
 
-    const resMsg = await editResponse({ embeds: [foundEmbed] });
+    const resMsg = await _editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg: resMsg };
   } catch (e) {
     if (browser) await browser.close();
     console.error("[SCRIBD-FLOW] Error:", e.message);
-    await editResponse({
-      embeds: [getStatusEmbed("Download Failed", e.message)],
+    await _editResponse({
+      embeds: [getStatusEmbed(guild, "Download Failed", e.message)],
     }).catch(() => {});
     return null;
   }

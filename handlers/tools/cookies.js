@@ -11,6 +11,7 @@ const {
 } = require("discord.js");
 const fs = require("fs");
 const path = require("path");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 
 module.exports = async function cookiesHandler(interaction) {
   if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -20,10 +21,7 @@ module.exports = async function cookiesHandler(interaction) {
     });
   }
 
-  const getEmoji = (name, fallback) => {
-    const emoji = interaction.guild.emojis.cache.find((e) => e.name === name);
-    return emoji ? emoji.toString() : fallback;
-  };
+  const getEmoji = (name, fallback) => resolveEmoji(interaction.guild, name, fallback);
 
   const NOTIF = getEmoji("notif", "🔔");
   const ARROW = getEmoji("arrow", "•");
@@ -35,9 +33,11 @@ module.exports = async function cookiesHandler(interaction) {
   const generateEmbed = () => {
     const filePath = path.join(__dirname, "../../cookies.txt");
     const exists = fs.existsSync(filePath);
+    const E_PING_RED = interaction.guild.emojis.cache
+      .find((e) => e.name === "ping_red")?.toString() || "🔴";
     let status = exists
       ? `${STATUS} **Active**`
-      : `:ping_red: **Cookies not found**`;
+      : `${E_PING_RED} **Cookies not found**`;
     let stats = "---";
 
     if (exists) {
@@ -230,7 +230,7 @@ module.exports = async function cookiesHandler(interaction) {
         } catch (err) {
           await submission
             .editReply({
-              content: `:ping_red: **Failed to update cookies:** *${err.message}*`,
+              content: `🔴 **Failed to update cookies:** *${err.message}*`,
             })
             .catch(() => {});
         }

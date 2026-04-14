@@ -1,4 +1,5 @@
 const fs = require("fs");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 const path = require("path");
 const config = require("../../config");
 const { EmbedBuilder } = require("discord.js");
@@ -82,14 +83,7 @@ function createProgressUpdater(target, title) {
     lastUpdate = now;
 
     const guild = target.guild || target.client?.guilds?.cache.first();
-    if (guild && !cachedEmojis) {
-      cachedEmojis = await target.client.getGuildEmojis?.(guild.id) || await guild.emojis.fetch().catch(() => null);
-    }
-
-    const getEmoji = (name, fallback) => {
-      const emoji = cachedEmojis?.find((e) => e.name === name);
-      return emoji ? emoji.toString() : fallback;
-    };
+    const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
 
     const ARROW = getEmoji("arrow", "•");
     const FIRE = getEmoji("purple_fire", "🔥");
@@ -166,12 +160,8 @@ async function sendAdminLog(client, data) {
     const channel = await client.channels.fetch(config.logsChannelId);
     if (!channel) return;
 
-    const guild = client.guilds.cache.first();
-    const guildEmojis = guild ? (await client.getGuildEmojis?.(guild.id) || await guild.emojis.fetch()) : null;
-    const getEmoji = (name, fallback) => {
-      const emoji = guildEmojis?.find((e) => e.name === name);
-      return emoji ? emoji.toString() : fallback;
-    };
+    const guild = channel.guild;
+    const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
 
     const ARROW = getEmoji("arrow", "•");
     const FIRE = getEmoji("purple_fire", "✨");

@@ -78,7 +78,7 @@ module.exports = async function ssHandler(interaction) {
   } catch (err) {
     console.error("[SS] Error:", err.message);
     await interaction.editReply({
-      content: `### :ping_red: **Render Failed**\n> *Error: ${err.message}*\n> *Make sure the URL is valid and accessible.*`,
+      content: `### ${E_PING_RED} **Render Failed**\n> *Error: ${err.message}*\n> *Make sure the URL is valid and accessible.*`,
       embeds: [],
     });
   }

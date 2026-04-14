@@ -19,12 +19,15 @@ const {
   formatNumber,
   sendAdminLog,
 } = require("./core-helpers");
+const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 const { startDownload } = require("./callbacks");
 const { runPixivFlow } = require("./pixiv-handler");
 const { runTikTokFlow } = require("./tiktok-handler");
 const { runCloudFlow } = require("./cloud-handler");
 const { runSpotifyFlow } = require("./spotify-handler");
+const { runSlideshareFlow } = require("./slideshare-handler");
 const { runTwitterFlow } = require("./twitter-handler");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 const { runThreadsFlow } = require("./threads-handler");
 const { runFacebookFlow } = require("./facebook-handler");
 const { runScribdFlow } = require("./scribd-handler");
@@ -46,47 +49,14 @@ async function runYtDlpFlow(target, url, options = {}) {
   let statusMsg;
 
   const guild = target.guild || target.client?.guilds?.cache.first();
-  const guildEmojis = guild
-    ? await guild.emojis.fetch().catch(() => null)
-    : null;
-  const getEmoji = (name, fallback) => {
-    const emoji = guildEmojis?.find((e) => e.name === name);
-    return emoji ? emoji.toString() : fallback;
-  };
+  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
 
   const ARROW = getEmoji("arrow", "•");
   const AMOGUS = getEmoji("amogus", "🛰️");
   const FIRE = getEmoji("purple_fire", "🔥");
 
-  const getStatusEmbed = (status, details) => {
-    return new EmbedBuilder()
-      .setColor("#6c5ce7")
-      .setDescription(
-        `### ${FIRE} **${status}**\n${ARROW} **Details:** *${details}*`,
-      );
-  };
-
-  const initialEmbed = getStatusEmbed(
-    "Checking link...",
-    "Getting link info...",
-  );
-
-  if (target.replied || target.deferred) {
-    statusMsg = await target.editReply({
-      embeds: [initialEmbed],
-      withResponse: true,
-    });
-  } else if (target.isChatInputCommand && target.isChatInputCommand()) {
-    statusMsg = await target.reply({
-      embeds: [initialEmbed],
-      flags: [MessageFlags.Ephemeral],
-      withResponse: true,
-    });
-  } else {
-    statusMsg = target.reply
-      ? await target.reply({ embeds: [initialEmbed], withResponse: true })
-      : await target.channel.send({ embeds: [initialEmbed] });
-  }
+  const initialEmbed = getStatusEmbed(guild, "Checking link...", "Getting link info...");
+  statusMsg = await sendInitialStatus(target, "Checking link...", "Getting link info...");
 
   await sendAdminLog(target.client, {
     title: "Link Detected",
@@ -96,19 +66,7 @@ async function runYtDlpFlow(target, url, options = {}) {
     url: url,
   });
 
-  const editResponse = async (data) => {
-    try {
-      const payload = typeof data === "string" ? { content: data } : data;
-      if (target.editReply) {
-        return await target.editReply(payload);
-      } else {
-        const msg = statusMsg.resource ? statusMsg.resource.message : statusMsg;
-        return await msg.edit(payload);
-      }
-    } catch (e) {
-      console.error("[EDIT-RESPONSE] Error:", e.message);
-    }
-  };
+  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
 
   if (url.includes("pixiv.net")) {
     const jobResult = await runPixivFlow(target, url, { statusMsg });
@@ -260,18 +218,22 @@ async function runYtDlpFlow(target, url, options = {}) {
   }
 
   if (finalUrl.includes("pinterest.com") || finalUrl.includes("pin.it")) {
-    const { exec } = require("child_process");
-    const checkCmd = `yt-dlp --simulate --get-url "${finalUrl}"`;
-
     const isVideo = await new Promise((resolve) => {
       const timeout = setTimeout(() => {
         resolve(false);
       }, 5000);
 
-      exec(checkCmd, (error, stdout, stderr) => {
+      const checkProcess = spawn(getYtDlp(), ["--simulate", "--get-url", finalUrl], { env: getDlpEnv() });
+      let stdout = "";
+      checkProcess.stdout.on("data", (data) => { stdout += data.toString(); });
+      checkProcess.on("close", (code) => {
         clearTimeout(timeout);
-        if (error || !stdout || stdout.trim() === "") resolve(false);
+        if (code !== 0 || !stdout || stdout.trim() === "") resolve(false);
         else resolve(true);
+      });
+      checkProcess.on("error", () => {
+        clearTimeout(timeout);
+        resolve(false);
       });
     });
 
@@ -279,12 +241,15 @@ async function runYtDlpFlow(target, url, options = {}) {
       let jobId = Math.random().toString(36).substring(2, 10);
       const db = loadDB();
 
-      const metaCmd = `yt-dlp --simulate --print "%(duration)s|%(uploader)s|%(title)s" "${finalUrl}"`;
       const meta = await new Promise((resolve) => {
-        exec(metaCmd, (error, stdout) => {
-          if (error || !stdout) resolve("||");
+        const metaProcess = spawn(getYtDlp(), ["--simulate", "--print", "%(duration)s|%(uploader)s|%(title)s", finalUrl], { env: getDlpEnv() });
+        let stdout = "";
+        metaProcess.stdout.on("data", (data) => { stdout += data.toString(); });
+        metaProcess.on("close", (code) => {
+          if (code !== 0 || !stdout) resolve("||");
           else resolve(stdout.trim());
         });
+        metaProcess.on("error", () => resolve("||"));
       });
       const [dur, uploader, rawTitle] = meta.split("|");
 
@@ -462,9 +427,10 @@ async function runYtDlpFlow(target, url, options = {}) {
 
       if (code !== 0 || !metadata.trim()) {
         if (url.includes("instagram.com")) {
-          await editResponse({
+          await _editResponse({
             embeds: [
               getStatusEmbed(
+                guild,
                 "Instagram Link Found",
                 "Checking link details. Starting the download...",
               ),
@@ -488,9 +454,10 @@ async function runYtDlpFlow(target, url, options = {}) {
             (cleanError.includes("No video") ||
               cleanError.includes("not found"));
 
-          return await editResponse({
+          return await _editResponse({
             embeds: [
               getStatusEmbed(
+                guild,
                 isX ? "X Post Not Found" : "Download Failed",
                 xError
                   ? "No video found in this tweet. If this is an Image post, it's currently not supported by the video extractor."
@@ -615,6 +582,7 @@ async function runYtDlpFlow(target, url, options = {}) {
 
       const isMusic = musicKeywords.some((keyword) => url.includes(keyword));
       const isTikTok = url.includes("tiktok.com");
+      const isCommand = target.isChatInputCommand && target.isChatInputCommand();
       const shouldDirect = !isTikTok || !isCommand || isMusic;
 
       if (shouldDirect && options.type) {
@@ -627,15 +595,16 @@ async function runYtDlpFlow(target, url, options = {}) {
         return await startDownload(target, jobId, finalFormat, { statusMsg });
       }
 
-      await editResponse({
+      await _editResponse({
         embeds: [foundEmbed],
         components: [row],
       });
     } catch (e) {
       console.error("[CORE-CLOSE] Callback error:", e.message);
-      await editResponse({
+      await _editResponse({
         embeds: [
           getStatusEmbed(
+            guild,
             "Processing Error",
             e.message || "An unexpected error occurred.",
           ),
