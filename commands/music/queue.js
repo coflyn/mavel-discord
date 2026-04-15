@@ -1,13 +1,15 @@
 const { player } = require("../../handlers/music");
 const { EmbedBuilder } = require("discord.js");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 const config = require("../../config");
 
 module.exports = {
   name: "queue",
   async execute(interaction, client) {
     const list = player.getQueueList(interaction.guild.id);
-    const E_ANNO = interaction.guild.emojis.cache.find((e) => e.name === "anno")?.toString() || "📜";
-    const E_FIRE = interaction.guild.emojis.cache.find((e) => e.name === "purple_fire")?.toString() || "🔥";
+    const guild = interaction.guild;
+    const E_ANNO = resolveEmoji(guild, "anno", "📜");
+    const E_FIRE = resolveEmoji(guild, "purple_fire", "🔥");
 
     if (list.length === 0) {
       const emptyEmbed = new EmbedBuilder()

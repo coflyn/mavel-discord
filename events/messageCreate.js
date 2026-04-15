@@ -27,10 +27,10 @@ module.exports = {
     const isAdminChannel =
       config.adminChannelId && message.channel.id === config.adminChannelId;
 
+    const cleanContent = message.content.replace(/<@!?[0-9]+>/g, "").trim();
     const isHelpRequest =
       commandName === "help" ||
-      (message.mentions.has(client.user.id) &&
-        !message.content.includes("http"));
+      (message.mentions.has(client.user.id) && cleanContent.length === 0);
 
     if (isHelpRequest) {
       if (isAllowed || isMusicChannel || isLogsChannel || isAdminChannel) {

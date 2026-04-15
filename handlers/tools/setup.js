@@ -5,6 +5,7 @@ const {
   EmbedBuilder,
   ActionRowBuilder,
   ChannelSelectMenuBuilder,
+  StringSelectMenuBuilder,
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
@@ -14,13 +15,7 @@ const path = require("path");
 const config = require("../../config");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 
-const settingsPath = path.join(
-  __dirname,
-  "..",
-  "..",
-  "database",
-  "settings.json",
-);
+const settingsPath = path.join(__dirname, "..", "..", "database", "settings.json");
 
 module.exports = async function setupHandler(interaction) {
   if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -32,129 +27,170 @@ module.exports = async function setupHandler(interaction) {
 
   const NOTIF = resolveEmoji(interaction.guild, "notif", "🔔");
   const ARROW = resolveEmoji(interaction.guild, "arrow", "•");
+  const FIRE = resolveEmoji(interaction.guild, "purple_fire", "🔥");
+  const CHANNEL = resolveEmoji(interaction.guild, "pc", "💾");
+  const LOGS = resolveEmoji(interaction.guild, "book", "📜");
+  const MUSIC = resolveEmoji(interaction.guild, "notif", "🎵");
+  const TEMPLE = resolveEmoji(interaction.guild, "megaphone", "🏛️");
+  const ADMIN = resolveEmoji(interaction.guild, "diamond", "🛡️");
+  const CHECK = resolveEmoji(interaction.guild, "check", "✅");
+  const LEA = resolveEmoji(interaction.guild, "lea", "👥");
+
+  let currentCategory = "download";
 
   const generateEmbed = () => {
+    const catNames = {
+      download: "Downloader",
+      logs: "General Logs",
+      music: "Music Control",
+      gateway: "Gateway (Welcome/Goodbye)",
+      private: "Private Admin",
+      autorole: "Auto Role (New Members)",
+    };
+
+    const roleName = config.autoRoleId ? (interaction.guild.roles.cache.get(config.autoRoleId)?.name || "Unknown Role") : "Not Set";
+
     return new EmbedBuilder()
-      .setColor("#d63031")
-      .setTitle(`${NOTIF} **Server Setup**`)
-      .setDescription(
-        `*Configure the main channels for the bot in this server.*`,
-      )
+      .setColor("#6c5ce7")
+      .setTitle(`${NOTIF} **MaveL Server Setup**`)
+      .setDescription(`${ARROW} *Current Category:* **${catNames[currentCategory]}**`)
       .addFields({
         name: "**Current Settings**",
         value:
           `${ARROW} **Download:** <#${config.allowedChannelId || "Not Set"}>\n` +
           `${ARROW} **Logs:** <#${config.logsChannelId || "Not Set"}>\n` +
           `${ARROW} **Music:** <#${config.musicChannelId || "Not Set"}>\n` +
-          `${ARROW} **Private Admin:** <#${config.adminChannelId || "Not Set"}>`,
+          `${ARROW} **Gateway:** <#${config.gatewayChannelId || "Not Set"}>\n` +
+          `${ARROW} **Private Admin:** <#${config.adminChannelId || "Not Set"}>\n` +
+          `${ARROW} **Auto Role:** \`${roleName}\``,
       })
-      .setFooter({ text: "Use selection menus below to change settings." });
+      .setFooter({ text: "1. Pick Category -> 2. Select Channel/Role -> 3. Finish" });
   };
 
-  const rows = [
-    new ActionRowBuilder().addComponents(
-      new ChannelSelectMenuBuilder()
-        .setCustomId("setup_download")
-        .setPlaceholder("Select Downloader Channel...")
-        .addChannelTypes(ChannelType.GuildText),
-    ),
-    new ActionRowBuilder().addComponents(
-      new ChannelSelectMenuBuilder()
-        .setCustomId("setup_logs")
-        .setPlaceholder("Select General Logs Channel...")
-        .addChannelTypes(ChannelType.GuildText),
-    ),
-    new ActionRowBuilder().addComponents(
-      new ChannelSelectMenuBuilder()
-        .setCustomId("setup_music")
-        .setPlaceholder("Select Music Control Channel...")
-        .addChannelTypes(ChannelType.GuildText),
-    ),
-    new ActionRowBuilder().addComponents(
-      new ChannelSelectMenuBuilder()
-        .setCustomId("setup_private")
-        .setPlaceholder("Select Private Admin Channel...")
-        .addChannelTypes(ChannelType.GuildText),
-    ),
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("setup_done")
-        .setLabel("Finish Setup")
-        .setStyle(ButtonStyle.Success),
-    ),
-  ];
+  const generateRows = () => {
+    const rows = [
+      new ActionRowBuilder().addComponents(
+        new StringSelectMenuBuilder()
+          .setCustomId("setup_category")
+          .setPlaceholder("Step 1: Pick Category to Configure...")
+          .addOptions([
+            { label: "Downloader Channel", value: "download", emoji: CHANNEL, default: currentCategory === "download" },
+            { label: "General Logs Channel", value: "logs", emoji: LOGS, default: currentCategory === "logs" },
+            { label: "Music Control Channel", value: "music", emoji: MUSIC, default: currentCategory === "music" },
+            { label: "Gateway (Welcome/Env)", value: "gateway", emoji: TEMPLE, default: currentCategory === "gateway" },
+            { label: "Private Admin Channel", value: "private", emoji: ADMIN, default: currentCategory === "private" },
+            { label: "Auto Role Member", value: "autorole", emoji: LEA, default: currentCategory === "autorole" },
+          ])
+      )
+    ];
 
-  /* ... (reply logic remains same) ... */
-  const replyOptions = {
+    if (currentCategory === "autorole") {
+      const { RoleSelectMenuBuilder } = require("discord.js");
+      rows.push(
+        new ActionRowBuilder().addComponents(
+          new RoleSelectMenuBuilder()
+            .setCustomId("setup_role")
+            .setPlaceholder("Step 2: Select Auto-Role for New Members...")
+            .setMinValues(1)
+            .setMaxValues(1)
+        )
+      );
+    } else {
+      rows.push(
+        new ActionRowBuilder().addComponents(
+          new ChannelSelectMenuBuilder()
+            .setCustomId("setup_channel")
+            .setPlaceholder(`Step 2: Select Channel...`)
+            .addChannelTypes(ChannelType.GuildText)
+        )
+      );
+    }
+
+    rows.push(
+      new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("setup_done")
+          .setLabel("Finish & Save Setup")
+          .setStyle(ButtonStyle.Success)
+          .setEmoji(CHECK)
+      )
+    );
+
+    return rows;
+  };
+
+  await interaction.reply({
     embeds: [generateEmbed()],
-    components: rows,
+    components: generateRows(),
     flags: [MessageFlags.Ephemeral],
     withResponse: true,
-  };
-
-  await interaction.reply(replyOptions);
-
-  const response = await interaction.fetchReply().catch(() => null);
-
-  if (!response) {
-    console.warn("[SETUP] Failed to fetch reply for collector.");
-    return;
-  }
-
-  const collector = response.createMessageComponentCollector({
-    time: 300000,
   });
 
-  let isProcessing = false;
+  const response = await interaction.fetchReply().catch(() => null);
+  if (!response) return;
+
+  const collector = response.createMessageComponentCollector({ time: 600000 });
+
   collector.on("collect", async (i) => {
-    if (isProcessing) return;
-    isProcessing = true;
-
     try {
-      await i.deferUpdate().catch(() => {});
-
       if (i.customId === "setup_done") {
-        await i
-          .editReply({
-            content: "*Setup complete! System is ready.*",
-            components: [],
-            embeds: [generateEmbed()],
-          })
-          .catch(() => {});
+        await i.update({
+          content: `${FIRE} **Setup complete!** Your server is now fully configured.`,
+          components: [],
+          embeds: [generateEmbed().setColor("#27ae60")],
+        }).catch(() => {});
         return collector.stop();
       }
 
-      const channelId = i.values[0];
       const settings = fs.existsSync(settingsPath)
         ? JSON.parse(fs.readFileSync(settingsPath, "utf-8"))
         : {};
 
-      if (i.customId === "setup_download") {
-        settings.downloadChannelId = channelId;
-        config.allowedChannelId = channelId;
-      } else if (i.customId === "setup_logs") {
-        settings.logsChannelId = channelId;
-        config.logsChannelId = channelId;
-      } else if (i.customId === "setup_music") {
-        settings.musicChannelId = channelId;
-        config.musicChannelId = channelId;
-      } else if (i.customId === "setup_private") {
-        settings.adminChannelId = channelId;
-        config.adminChannelId = channelId;
+      if (i.customId === "setup_category") {
+        currentCategory = i.values[0];
+        await i.update({
+          embeds: [generateEmbed()],
+          components: generateRows(),
+        }).catch(() => {});
+      } 
+      
+      else if (i.customId === "setup_channel") {
+        const channelId = i.values[0];
+        
+        if (currentCategory === "download") {
+          settings.downloadChannelId = channelId;
+          config.allowedChannelId = channelId;
+        } else if (currentCategory === "logs") {
+          settings.logsChannelId = channelId;
+          config.logsChannelId = channelId;
+        } else if (currentCategory === "music") {
+          settings.musicChannelId = channelId;
+          config.musicChannelId = channelId;
+        } else if (currentCategory === "gateway") {
+          settings.gatewayChannelId = channelId;
+          config.gatewayChannelId = channelId;
+        } else if (currentCategory === "private") {
+          settings.adminChannelId = channelId;
+          config.adminChannelId = channelId;
+        }
+
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+        await i.update({ embeds: [generateEmbed()], components: generateRows() }).catch(() => {});
       }
 
-      fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+      else if (i.customId === "setup_role") {
+        const roleId = i.values[0];
+        settings.autoRoleId = roleId;
+        config.autoRoleId = roleId;
 
-      await i
-        .editReply({
+        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+        await i.update({
           embeds: [generateEmbed()],
-          components: rows,
-        })
-        .catch(() => {});
+          components: generateRows(),
+        }).catch(() => {});
+      }
     } catch (err) {
-      console.error("[SETUP-COLLECT] Error:", err.message);
-    } finally {
-      isProcessing = false;
+      console.error("[SETUP-ERROR]", err.message);
     }
   });
 };

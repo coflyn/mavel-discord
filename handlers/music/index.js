@@ -17,6 +17,8 @@ const cheerio = require("cheerio");
 
 const searchCache = new Map();
 
+const { resolveEmoji } = require("../../utils/emoji-helper");
+
 async function musicHandler(target, manualData = null) {
   const isInteraction =
     !!target.isChatInputCommand || !!target.isStringSelectMenu;
@@ -47,10 +49,13 @@ async function musicHandler(target, manualData = null) {
   const source = (manualData && manualData.source) || "yt";
 
   if (!url && query) {
+    const E_PC = resolveEmoji(target.guild, "pc", "📡");
+    const E_ROCKET = resolveEmoji(target.guild, "rocket", "🚀");
+
     const searchingMsg =
       source === "bc"
-        ? "*Searching Bandcamp...*"
-        : "*Searching YouTube Music...*";
+        ? `${E_PC} *Engaging Bandcamp intelligence... Searching for tracks...*`
+        : `${E_PC} *Connecting to YouTube Music... Buffering metadata...*`;
 
     if (isInteraction) {
       await target.reply({
@@ -194,10 +199,8 @@ async function musicHandler(target, manualData = null) {
     }
 
     const guild = target.guild;
-    const E_FIRE =
-      guild.emojis.cache.find((e) => e.name === "purple_fire")?.toString() ||
-      "🔥";
-    const arrowEmoji = guild.emojis.cache.find((e) => e.name === "arrow");
+    const E_FIRE = resolveEmoji(guild, "purple_fire", "🔥");
+    const E_ARROW = resolveEmoji(guild, "arrow", "»");
 
     const menu = new StringSelectMenuBuilder()
       .setCustomId(`music_select_${author.id}`)
@@ -221,7 +224,7 @@ async function musicHandler(target, manualData = null) {
             label: labelText,
             description: `By ${cleanUploader}`.substring(0, 100),
             value: shortId,
-            emoji: arrowEmoji?.id || "»",
+            emoji: E_ARROW,
           };
         }),
       );

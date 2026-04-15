@@ -9,7 +9,11 @@ const {
 } = require("discord.js");
 const { loadDB, saveDB } = require("./core-helpers");
 const { resolveEmoji } = require("../../utils/emoji-helper");
-const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
+const {
+  getStatusEmbed,
+  editResponse,
+  sendInitialStatus,
+} = require("../../utils/response-helper");
 
 async function runInstagramFlow(target, url, options = {}) {
   const guild = target.guild || target.client?.guilds?.cache.first();
@@ -18,13 +22,22 @@ async function runInstagramFlow(target, url, options = {}) {
 
   const FIRE = resolveEmoji(guild, "purple_fire", "🔥");
   let statusMsg;
-  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
+  const _editResponse = async (data) =>
+    await editResponse(target, statusMsg, data);
 
   if (options.statusMsg) {
     statusMsg = options.statusMsg;
-    await _editResponse({ embeds: [getStatusEmbed(guild, "Instagram Link Found", "Getting post info...")] }).catch(() => {});
+    await _editResponse({
+      embeds: [
+        getStatusEmbed(guild, "Instagram Link Found", "Getting post info..."),
+      ],
+    }).catch(() => {});
   } else {
-    statusMsg = await sendInitialStatus(target, "Instagram Link Found", "Getting post info...");
+    statusMsg = await sendInitialStatus(
+      target,
+      "Instagram Link Found",
+      "Getting post info...",
+    );
   }
 
   try {
@@ -51,70 +64,155 @@ async function runInstagramFlow(target, url, options = {}) {
     let discoveryPath = "YT-DLP";
 
     let ytTarget = cleanUrl;
-    if (isReel && !ytTarget.includes("/reels/")) {
-      ytTarget = ytTarget.replace("/p/", "/reels/");
-    }
 
     const { spawn } = require("child_process");
-    const { getCookiesArgs, getYtDlp, getDlpEnv } = require("../../utils/dlp-helpers");
+    const {
+      getCookiesArgs,
+      getYtDlp,
+      getDlpEnv,
+    } = require("../../utils/dlp-helpers");
 
     const ytCheckData = await new Promise((resolve) => {
-      const timeout = setTimeout(() => resolve(null), 8000);
-      const proc = spawn(getYtDlp(), [
-        ...getCookiesArgs(),
-        "--simulate",
-        "--print", "%(webpage_url)s|%(_type)s|%(ext)s",
-        "--add-header", "Referer:https://www.instagram.com/",
-        ytTarget,
-      ], { env: getDlpEnv() });
+      const timeout = setTimeout(() => resolve(null), 15000);
+      const proc = spawn(
+        getYtDlp(),
+        [
+          ...getCookiesArgs(),
+          "--simulate",
+          "--dump-json",
+          "--add-header",
+          "Referer:https://www.instagram.com/",
+          ytTarget,
+        ],
+        { env: getDlpEnv() },
+      );
       let stdout = "";
-      proc.stdout.on("data", (d) => { stdout += d.toString(); });
-      proc.on("close", (code) => {
-        clearTimeout(timeout);
-        const out = stdout.trim();
-        if (code !== 0 || !out || out.includes("login") || out.length < 10)
-          resolve(null);
-        else resolve(out.split("\n")[0]);
+      proc.stdout.on("data", (d) => {
+        stdout += d.toString();
       });
-      proc.on("error", () => { clearTimeout(timeout); resolve(null); });
+      proc.on("close", () => {
+        clearTimeout(timeout);
+        try {
+          const json = JSON.parse(stdout.trim());
+          resolve(json);
+        } catch (e) {
+          resolve(null);
+        }
+      });
+      proc.on("error", () => {
+        clearTimeout(timeout);
+        resolve(null);
+      });
     });
 
-    console.log(`[INSTA-FLOW] Phase 1 Raw: ${ytCheckData}`);
-    const [ytUrl, ytType, ytExt] = (ytCheckData || "").split("|");
-    const isYtPlaylist = ytType?.toLowerCase().includes("playlist");
-
-    if (
-      ytUrl &&
-      !isYtPlaylist &&
-      (ytExt === "mp4" || ytExt === "webm" || ytUrl.includes(".mp4") || ytUrl.includes(".m3u8"))
-    ) {
-      console.log("[INSTA-FLOW] Phase 1 Success: Video metadata confirmed.");
-      isVideo = true;
+    if (ytCheckData) {
+      console.log(
+        "[INSTA-FLOW] Phase 1 Success: Metadata extracted via YT-DLP.",
+      );
       scrapeSuccess = true;
       discoveryPath = "YT-DLP";
 
-      try {
-        const meta = await new Promise((resolve) => {
-          const metaProc = spawn(getYtDlp(), [
-            ...getCookiesArgs(),
-            "--simulate",
-            "--print", "%(uploader)s|%(title)s|%(thumbnail)s|%(duration)s|%(like_count)s|%(comment_count)s|%(view_count)s",
-            cleanUrl,
-          ], { env: getDlpEnv() });
-          let stdout = "";
-          metaProc.stdout.on("data", (d) => { stdout += d.toString(); });
-          metaProc.on("close", () => resolve(stdout.trim() || "||||||"));
-          metaProc.on("error", () => resolve("||||||"));
+      const entries =
+        ytCheckData.entries || (ytCheckData._type === "playlist" ? [] : null);
+
+      if (entries) {
+        console.log(
+          `[INSTA-FLOW] Detected potential playlist with ${entries.length} items. Fetching main ID...`,
+        );
+        scrapeSuccess = true;
+
+        const mainShortcode = ytCheckData.id;
+        const mainUploader = ytCheckData.uploader_id || ytCheckData.uploader;
+
+        console.log(`[INSTA-FLOW] Filtering for Shortcode: ${mainShortcode}`);
+
+        const filteredEntries = entries.filter((e) => {
+          const entryId = e.id || "";
+          const entryUrl = e.webpage_url || "";
+          const entryUploader = e.uploader_id || e.uploader;
+
+          const isMatch =
+            (mainShortcode &&
+              (entryId.includes(mainShortcode) ||
+                entryUrl.includes(mainShortcode))) ||
+            (!mainShortcode && entryUploader === mainUploader);
+
+          return isMatch;
         });
-        const [u, t, thumb, dur, l, c, v] = meta.split("|");
-        if (u && u !== "NA") author = u;
-        if (t && t !== "NA") title = t;
-        if (thumb && thumb !== "NA") thumbnail = thumb;
-        if (dur && dur !== "NA") stats.duration = parseFloat(dur);
-        if (l && l !== "NA") stats.likes = l;
-        if (c && c !== "NA") stats.comments = c;
-        if (v && v !== "NA") stats.views = v;
-      } catch (e) {}
+
+        console.log(
+          `[INSTA-FLOW] Filtered down to ${filteredEntries.length} items from ${entries.length}`,
+        );
+
+        if (filteredEntries.length > 1) {
+          isMix = true;
+          allImages = filteredEntries
+            .map((e) => e.url || (e.thumbnails && e.thumbnails[0]?.url))
+            .filter(Boolean);
+          allImages = [...new Set(allImages)].filter(
+            (img) =>
+              (img.includes("cdninstagram.com") || img.includes("fbcdn.net")) &&
+              !img.includes("profile"),
+          );
+          mediaUrl = filteredEntries[0].url || allImages[0];
+        } else if (
+          filteredEntries.length === 1 ||
+          (filteredEntries.length === 0 && entries.length > 0)
+        ) {
+          const e = filteredEntries[0] || entries[0];
+          title = e.title || ytCheckData.title || title;
+          author = e.uploader || ytCheckData.uploader || author;
+          mediaUrl =
+            e.url || (e.thumbnails && e.thumbnails[0]?.url) || ytCheckData.url;
+          isVideo = e.ext !== "jpg" && e.ext !== "png";
+          allImages = [mediaUrl].filter(Boolean);
+        } else {
+          mediaUrl =
+            ytCheckData.url ||
+            (ytCheckData.thumbnails && ytCheckData.thumbnails[0]?.url);
+          allImages = [mediaUrl].filter(Boolean);
+        }
+
+        title = ytCheckData.title || title;
+        author = ytCheckData.uploader || ytCheckData.uploader_id || author;
+      } else {
+        title = ytCheckData.title || title;
+        author = ytCheckData.uploader || ytCheckData.uploader_id || author;
+        thumbnail = ytCheckData.thumbnail || "";
+
+        if (ytCheckData.duration) stats.duration = ytCheckData.duration;
+        if (ytCheckData.like_count)
+          stats.likes = ytCheckData.like_count.toString();
+        if (ytCheckData.comment_count)
+          stats.comments = ytCheckData.comment_count.toString();
+        if (ytCheckData.view_count)
+          stats.views = ytCheckData.view_count.toString();
+
+        const hasFormats =
+          ytCheckData.formats && ytCheckData.formats.length > 0;
+        const hasDirectUrl = !!ytCheckData.url;
+
+        isVideo =
+          (ytCheckData._type === "video" || hasFormats || hasDirectUrl) &&
+          ytCheckData.ext !== "jpg" &&
+          ytCheckData.ext !== "png";
+
+        console.log(
+          `[INSTA-FLOW] isVideo: ${isVideo}, hasFormats: ${hasFormats}, ext: ${ytCheckData.ext}`,
+        );
+
+        if (isVideo) {
+          mediaUrl = ytCheckData.url || null;
+        } else {
+          if (ytCheckData.thumbnails && ytCheckData.thumbnails.length > 0) {
+            const bestThumb = ytCheckData.thumbnails.sort(
+              (a, b) => b.width * b.height - a.width * a.height,
+            )[0];
+            allImages = [bestThumb.url];
+            mediaUrl = bestThumb.url;
+          }
+        }
+      }
     }
 
     if (!scrapeSuccess) {
@@ -153,11 +251,18 @@ async function runInstagramFlow(target, url, options = {}) {
           $('meta[property="og:video:url"]').attr("content") ||
           $('meta[property="og:video"]').attr("content");
 
+        const isValidIgGroup = (url) =>
+          url &&
+          (url.includes("cdninstagram.com") || url.includes("fbcdn.net")) &&
+          !url.includes("profile") &&
+          !url.includes("avatar");
+
+        const tempImages = [];
         for (let i = 1; i <= 10; i++) {
           const img =
             $(`meta[property="og:image:${i}"]`).attr("content") ||
             $(`meta[name="twitter:image:${i}"]`).attr("content");
-          if (img) allImages.push(img);
+          if (img && isValidIgGroup(img)) tempImages.push(img);
         }
 
         const fallbackImage =
@@ -167,8 +272,34 @@ async function runInstagramFlow(target, url, options = {}) {
           $('meta[name="twitter:image"]').attr("content") ||
           $('meta[name="twitter:image:src"]').attr("content");
 
-        if (allImages.length === 0 && fallbackImage) {
-          allImages.push(fallbackImage);
+        if (
+          tempImages.length === 0 &&
+          fallbackImage &&
+          isValidIgGroup(fallbackImage)
+        ) {
+          tempImages.push(fallbackImage);
+        }
+
+        if (tempImages.length > 1) {
+          const domainCounts = {};
+          tempImages.forEach((img) => {
+            try {
+              const domain = new URL(img).hostname;
+              domainCounts[domain] = (domainCounts[domain] || 0) + 1;
+            } catch (e) {}
+          });
+          const topDomain = Object.keys(domainCounts).sort(
+            (a, b) => domainCounts[b] - domainCounts[a],
+          )[0];
+          allImages = tempImages.filter((img) => {
+            try {
+              return new URL(img).hostname === topDomain;
+            } catch (e) {
+              return false;
+            }
+          });
+        } else {
+          allImages = tempImages;
         }
 
         const isReel = cleanUrl.includes("/reel/");
@@ -193,7 +324,11 @@ async function runInstagramFlow(target, url, options = {}) {
       } catch (e) {
         await _editResponse({
           embeds: [
-            getStatusEmbed(guild, "Instagram Link Lost", "Starting the download..."),
+            getStatusEmbed(
+              guild,
+              "Instagram Link Lost",
+              "Starting the download...",
+            ),
           ],
         });
 
@@ -425,7 +560,7 @@ async function runInstagramFlow(target, url, options = {}) {
       isVideo,
       isMix,
       discovery: discoveryPath,
-      directUrl: isVideo && discoveryPath === "YT-DLP" ? null : mediaUrl,
+      directUrl: mediaUrl,
       allImages,
     };
     saveDB(db);

@@ -294,7 +294,6 @@ class MusicPlayer {
       state.current = { ...info, ...track, title: finalTitle };
       const streamUrl = info.url;
 
-      // Advance Log for Music
       if (state.channel) {
         advanceLog(state.channel.client, {
           type: "music",
@@ -303,7 +302,7 @@ class MusicPlayer {
           message: `Now playing: **${finalTitle}**`,
           user: `<@${track.requestedBy}>`,
           guild: state.channel.guild.name,
-          extra: `URL: ${track.url}\nSource: ${info.extractor_key || "Unknown"}`
+          extra: `URL: ${track.url}\nSource: ${info.extractor_key || "Unknown"}`,
         });
       }
 
@@ -469,9 +468,7 @@ class MusicPlayer {
         state.player.once(AudioPlayerStatus.Playing, () => {
           bufferingMsg
             .edit({
-              embeds: [
-                this.getNowPlayingEmbed(guildId, "Now Playing"),
-              ],
+              embeds: [this.getNowPlayingEmbed(guildId, "Now Playing")],
               components: [this.getPlaybackComponents(guildId)],
             })
             .catch(() => {});
@@ -493,7 +490,7 @@ class MusicPlayer {
 
     const FIRE = this.getE(guild, "purple_fire", "🔥");
     const LEA = this.getE(guild, "lea", "✅");
-    const ARROW = this.getE(guild, "arrow", ">");
+    const ARROW = this.getE(guild, "arrow", "»");
 
     const source =
       track.webpage_url?.includes("bandcamp.com") ||
@@ -661,10 +658,12 @@ class MusicPlayer {
       }
       if (state.lastNowPlayingMsg) {
         const stoppedEmbed = this.getNowPlayingEmbed(guildId, "Stopped");
-        state.lastNowPlayingMsg.edit({ 
-          embeds: stoppedEmbed ? [stoppedEmbed] : [],
-          components: [] 
-        }).catch(() => {});
+        state.lastNowPlayingMsg
+          .edit({
+            embeds: stoppedEmbed ? [stoppedEmbed] : [],
+            components: [],
+          })
+          .catch(() => {});
       }
       if (state.activeProcesses) {
         state.activeProcesses.forEach((p) => {

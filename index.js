@@ -3,6 +3,7 @@ const {
   GatewayIntentBits,
   Partials,
   Collection,
+  ActivityType,
 } = require("discord.js");
 const config = require("./config");
 const fs = require("fs");
@@ -96,6 +97,27 @@ client.getGuildEmojis = async (guildId) => {
     return null;
   }
 };
+
+// 4. Initialization Events
+client.once("clientReady", async () => {
+  console.log(`[BOOT] Logged in as ${client.user.tag}`);
+  
+  // Update Server Stats on Startup
+  const { updateServerStats } = require("./utils/stats-handler");
+  client.guilds.cache.forEach(guild => updateServerStats(guild));
+
+  // Regular Interval Update (Every 10 Minutes to avoid rate limits)
+  setInterval(() => {
+    client.guilds.cache.forEach(guild => updateServerStats(guild));
+  }, 10 * 60 * 1000);
+
+  // Set Activity
+  client.user.setActivity({
+    name: "MaveL | .help",
+    type: ActivityType.Streaming,
+    url: "https://www.twitch.tv/discord",
+  });
+});
 
 // 5. System Error Handlers
 process.on("uncaughtException", (err) => {

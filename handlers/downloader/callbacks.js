@@ -351,7 +351,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 `*Local storage link expires in 10 minutes.*`,
             );
             doneEmbed.setImage(null);
-            const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+            const finalMsg = await interaction.channel.send({
+              embeds: [doneEmbed],
+            });
             await finalMsg.react(CHECK).catch(() => {});
             await cleanupStatus();
             if (interaction.deleteReply)
@@ -516,7 +518,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 `*Local storage link expires in 10 minutes.*`,
             );
             doneEmbed.setImage(null);
-            const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+            const finalMsg = await interaction.channel.send({
+              embeds: [doneEmbed],
+            });
             await finalMsg.react(CHECK).catch(() => {});
             await cleanupStatus();
             if (interaction.deleteReply)
@@ -634,7 +638,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
                     `${ARROW} **[DOWNLOAD HD VIDEO](${publicUrl})**\n\n` +
                     `*Local host link expires in 10 minutes.*`,
                 );
-              const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+              const finalMsg = await interaction.channel.send({
+                embeds: [doneEmbed],
+              });
               await finalMsg.react(CHECK).catch(() => {});
               await cleanupStatus();
               if (interaction.deleteReply)
@@ -775,7 +781,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 `${ARROW} **[DOWNLOAD FILE](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
             );
-            const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+            const finalMsg = await interaction.channel.send({
+              embeds: [doneEmbed],
+            });
             await finalMsg.react(CHECK).catch(() => {});
             await cleanupStatus();
             if (interaction.deleteReply)
@@ -893,7 +901,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 `${ARROW} **[${PING_GREEN} DOWNLOAD MUSIC](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
             );
-            const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+            const finalMsg = await interaction.channel.send({
+              embeds: [doneEmbed],
+            });
             await finalMsg.react(CHECK).catch(() => {});
             await cleanupStatus();
             if (interaction.deleteReply)
@@ -1057,7 +1067,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
             );
             doneEmbed.setImage(null);
 
-            const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+            const finalMsg = await interaction.channel.send({
+              embeds: [doneEmbed],
+            });
             await finalMsg.react(CHECK).catch(() => {});
             await cleanupStatus();
             if (interaction.deleteReply)
@@ -1148,7 +1160,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 `${ARROW} **[DOWNLOAD UGOIRA VIDEO](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
             );
-            const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+            const finalMsg = await interaction.channel.send({
+              embeds: [doneEmbed],
+            });
             await finalMsg.react(CHECK).catch(() => {});
             await cleanupStatus();
             if (interaction.deleteReply)
@@ -1338,7 +1352,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 `${ARROW} **[DOWNLOAD GALLERY ASSETS](${publicUrl})**\n\n` +
                 `*Local storage link expires in 10 minutes.*`,
             );
-            const finalMsg = await interaction.channel.send({ embeds: [doneEmbed] });
+            const finalMsg = await interaction.channel.send({
+              embeds: [doneEmbed],
+            });
             await finalMsg.react(CHECK).catch(() => {});
             await cleanupStatus();
             if (interaction.deleteReply)
@@ -1386,7 +1402,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
             ? "https://x.com/"
             : "https://www.google.com/";
 
-
       const dlArgs =
         format === "mp4"
           ? [
@@ -1420,36 +1435,46 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 ? url
                 : job?.directUrl || url,
             ].filter(Boolean)
-          : [
-              "-f",
-              "ba/best",
-              "-x",
-              "--audio-format",
-              "mp3",
-              "--no-playlist",
-              "--newline",
-              "--embed-metadata",
-              "--embed-thumbnail",
-              ...getJsRuntimeArgs(),
-              ...getCookiesArgs(),
-              ...getVpsArgs(),
-              "--user-agent",
-              ua,
-              "--referer",
-              referer,
-              "--add-header",
-              "Sec-Fetch-Mode:navigate",
-              "--add-header",
-              "Sec-Fetch-Site:same-origin",
-              "--add-header",
-              "Sec-Fetch-Dest:document",
-              "-o",
-              outputFile,
-              (url.includes("twitter.com") || url.includes("x.com")) &&
-              !job?.directUrl
-                ? url
-                : job?.directUrl || url,
-            ].filter(Boolean);
+          : format === "photo"
+            ? [
+                "--skip-download",
+                "--write-thumbnail",
+                "--convert-thumbnails",
+                "jpg",
+                "-o",
+                outputBase,
+                job?.directUrl || url,
+              ]
+            : [
+                "-f",
+                "ba/best",
+                "-x",
+                "--audio-format",
+                "mp3",
+                "--no-playlist",
+                "--newline",
+                "--embed-metadata",
+                "--embed-thumbnail",
+                ...getJsRuntimeArgs(),
+                ...getCookiesArgs(),
+                ...getVpsArgs(),
+                "--user-agent",
+                ua,
+                "--referer",
+                referer,
+                "--add-header",
+                "Sec-Fetch-Mode:navigate",
+                "--add-header",
+                "Sec-Fetch-Site:same-origin",
+                "--add-header",
+                "Sec-Fetch-Dest:document",
+                "-o",
+                outputFile,
+                (url.includes("twitter.com") || url.includes("x.com")) &&
+                !job?.directUrl
+                  ? url
+                  : job?.directUrl || url,
+              ].filter(Boolean);
 
       const skipAxiosPlatforms = [
         "tiktok",
@@ -1470,6 +1495,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
       let stdoutOutput = "";
       let stderrOutput = "";
 
+      console.log(
+        `[DL-CALLBACK] format: ${format}, isSkip: ${isSkipPlatform}, hasDirectUrl: ${!!job?.directUrl}, platform: ${job?.platform}`,
+      );
       const directUrl = job?.directUrl || options.url;
       if (
         job?.directUrl &&
