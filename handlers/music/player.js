@@ -282,8 +282,15 @@ class MusicPlayer {
       const lines = out.trim().split("\n");
       const jsonLine = lines.find((l) => l.trim().startsWith("{"));
       if (!jsonLine) {
-        console.error(`[MUSIC-DLP] Stderr Output on failure: ${err.trim()}`);
-        console.error(`[MUSIC-DLP] Stdout Output on failure: ${out.trim()}`);
+        if (state.channel) {
+          const { resolveEmoji } = require("../../utils/emoji-helper");
+          const E_WARN = resolveEmoji(state.channel.guild, "ping_red", "🔴");
+          state.channel
+            .send(
+              `${E_WARN} **[AUDIO ERROR]** Failed to load track details. Skipping...`,
+            )
+            .catch(() => {});
+        }
         throw new Error("No metadata JSON found in yt-dlp output");
       }
       const info = JSON.parse(jsonLine);
@@ -346,8 +353,8 @@ class MusicPlayer {
                   this.getNowPlayingEmbed(
                     guildId,
                     fs.existsSync(cachePath)
-                      ? "🚀 Instant Sync Active"
-                      : "Loading Music (Please wait...)",
+                      ? "🚀 Ready to play"
+                      : "Loading track... (Please wait)",
                   ),
                 ],
                 components: [this.getPlaybackComponents(guildId)],
@@ -370,14 +377,19 @@ class MusicPlayer {
             .catch(() => null);
         }
         state.lastNowPlayingMsg = bufferingMsg;
+        const artist = track.uploader || track.artist || "";
+        const cleanName = this.clean(track.title, artist);
+        const presence =
+          artist && artist !== "---" ? `${artist} - ${cleanName}` : cleanName;
+
         if (state.channel.client.setTempStatus) {
           state.channel.client.setTempStatus(
-            track.title,
+            presence,
             ActivityType.Listening,
             null,
           );
         } else {
-          state.channel.client.user.setActivity(track.title, {
+          state.channel.client.user.setActivity(presence, {
             type: ActivityType.Listening,
           });
         }
@@ -509,35 +521,17 @@ class MusicPlayer {
     const shuffleMode = state.shuffle ? "ON" : "OFF";
 
     const artist = track.uploader || track.artist || "---";
-    const cleanTitle = (str) => {
-      let cleaned = str
-        .replace(/\s*[\(\[][^)\]]*[\)\]]/g, "")
-        .replace(
-          /\s*[-|:]?\s*(?:official|lyrics|video|audio|hd|4k|hq|music video|visualizer|full video|lyric video)[^\s]*/gi,
-          "",
-        );
-
-      if (artist && artist !== "---") {
-        const escapedArtist = artist.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-        const artistPatterns = [
-          new RegExp(`^${escapedArtist}\\s*[-|:]\\s*`, "i"),
-          new RegExp(`\\s*[-|:]\\s*${escapedArtist}$`, "i"),
-        ];
-        artistPatterns.forEach((p) => (cleaned = cleaned.replace(p, "")));
-      }
-
-      return cleaned.replace(/\s\s+/g, " ").trim();
-    };
+    const cleanTitle = this.clean(track.title, artist);
 
     return new EmbedBuilder()
       .setColor("#a29bfe")
       .setAuthor({
-        name: "Audio Stream Active",
+        name: "MaveL Player",
         iconURL: requester?.displayAvatarURL() || undefined,
       })
       .setDescription(
         `### ${FIRE} **Now Streaming**\n` +
-          `${ARROW} **Track:** [${cleanTitle(track.title).substring(0, 100)}](<${track.webpage_url || track.url}>)\n` +
+          `${ARROW} **Track:** [${cleanTitle.substring(0, 100)}](<${track.webpage_url || track.url}>)\n` +
           `${ARROW} **Artist:** *${artist}*\n` +
           `${ARROW} **Source:** *${source}*\n` +
           `${ARROW} **Added by:** <@${track.requestedBy}>\n` +
@@ -731,6 +725,30 @@ class MusicPlayer {
       return true;
     }
     return false;
+  }
+  clean(str, artist = "---") {
+    let cleaned = str
+      .replace(/\s*[\(\[][^)\]]*[\)\]]/g, "")
+      .replace(
+        /\s*[-|:»]?\s*(?:official|lyrics?|video|audio|hd|4k|hq|music video|visualizer|full video|lyric video|lirik|lagu|video lirik|terjemahan)[^\s]*/gi,
+        "",
+      )
+      .replace(/\s*\|\s*$/, "")
+      .replace(/\s*\|\s*/g, " | ");
+
+    if (artist && artist !== "---") {
+      const escapedArtist = artist.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const artistPatterns = [
+        new RegExp(`^${escapedArtist}\\s*[-|:]\\s*`, "i"),
+        new RegExp(`\\s*[-|:]\\s*${escapedArtist}$`, "i"),
+      ];
+      artistPatterns.forEach((p) => (cleaned = cleaned.replace(p, "")));
+    }
+
+    return cleaned
+      .replace(/\s*[-|:]\s*$/, "")
+      .replace(/\s\s+/g, " ")
+      .trim();
   }
 }
 

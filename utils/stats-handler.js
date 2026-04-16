@@ -1,30 +1,46 @@
 const { ChannelType, PermissionFlagsBits } = require("discord.js");
+const { getMarketData } = require("./analytics");
 
 /**
- * Updates or Creates the server statistics channels with strict ordering
+ * Updates or Creates the Market Pulse channels
  * @param {import('discord.js').Guild} guild
  */
 async function updateServerStats(guild) {
   try {
-    const totalMembers = guild.memberCount;
-    const botCount = guild.members.cache.filter((m) => m.user.bot).size;
-    const humanCount = totalMembers - botCount;
+    const market = await getMarketData(guild);
 
     const statsData = [
-      { name: `👥 • Everyone : ${totalMembers}`, prefix: "👥" },
-      { name: `👤 • Humans : ${humanCount}`, prefix: "👤" },
-      { name: `🤖 • Bots : ${botCount}`, prefix: "🤖" },
+      { name: `💵 • USD/IDR : ${market.usdIdr}`, prefix: "💵" },
+      { name: `🪙 • Bitcoin : ${market.btcUsd}`, prefix: "🪙" },
+      { name: `🏅 • Gold : ${market.goldIdr}`, prefix: "🏅" },
+      { name: `🛢️ • Brent Oil : ${market.brentOil}`, prefix: "🛢️" },
+      { name: `☕ • Coffee : ${market.coffeeIndex}`, prefix: "☕" },
+      {
+        name: `${market.moonIcon || "🌑"} • Moon : ${market.moonName || "---"}`,
+        prefix: "Moon",
+      },
+      { name: `🛰️ • ISS : ${market.issLocation}`, prefix: "🛰️" },
+      { name: `🌧️ • Rain : ${market.rainChance}`, prefix: "🌧️" },
+      {
+        name: `👥 • Citizens : ${guild.memberCount.toLocaleString("id-ID")}`,
+        prefix: "👥",
+      },
+      { name: `📊 • Requests : ${market.totalRequests}`, prefix: "📊" },
     ];
 
     let category = guild.channels.cache.find(
       (c) =>
         c.type === ChannelType.GuildCategory &&
-        (c.name.includes("SERVER STATS") || c.name.includes("Analytics")),
+        (c.name.includes("MARKET PULSE") || c.name.includes("Analytics")),
     );
+
+    if (category && !guild.channels.cache.has(category.id)) {
+      category = null;
+    }
 
     if (!category) {
       category = await guild.channels.create({
-        name: "📊 | Analytics",
+        name: "Analytics",
         type: ChannelType.GuildCategory,
         position: 0,
         permissionOverwrites: [
@@ -34,57 +50,49 @@ async function updateServerStats(guild) {
     } else {
       if (category.position !== 0)
         await category.setPosition(0).catch(() => {});
-      if (category.name !== "📊 | Analytics")
-        await category.setName("📊 | Analytics").catch(() => {});
+      if (category.name !== "Analytics")
+        await category.setName("Analytics").catch(() => {});
     }
 
-    const oldMavel = guild.channels.cache.find(
-      (c) => c.parentId === category.id && c.name.includes("🍀"),
+    const validPrefixes = statsData.map((item) => item.prefix);
+    const allMatching = guild.channels.cache.filter((c) =>
+      validPrefixes.some((p) => c.name.includes(p)),
     );
-    if (oldMavel) await oldMavel.delete().catch(() => {});
+
+    for (const [id, ch] of allMatching) {
+      if (ch.parentId !== category.id) {
+        await ch.delete().catch(() => {});
+      }
+    }
 
     for (let i = 0; i < statsData.length; i++) {
       const item = statsData[i];
 
       let channel = guild.channels.cache.find(
-        (c) => c.parentId === category.id && c.name.startsWith(item.prefix),
+        (c) => c.parentId === category.id && c.name.includes(item.prefix),
       );
 
       if (!channel) {
-        channel = guild.channels.cache.find((c) =>
-          c.name.startsWith(item.prefix),
-        );
-      }
-
-      if (!channel) {
-        await guild.channels.create({
+        channel = await guild.channels.create({
           name: item.name,
           type: ChannelType.GuildVoice,
-          parentId: category.id,
+          parent: category.id,
           position: i,
           permissionOverwrites: [
             { id: guild.id, deny: [PermissionFlagsBits.Connect] },
           ],
         });
       } else {
-        const needsUpdate =
-          channel.name !== item.name || channel.parentId !== category.id;
-
-        if (needsUpdate) {
-          await channel
-            .edit({
-              name: item.name,
-              parentId: category.id,
-              position: i,
-            })
-            .catch(() => {});
+        if (channel.name !== item.name) {
+          await channel.setName(item.name).catch(() => {});
         }
-
-        await channel.setPosition(i).catch(() => {});
+        if (channel.position !== i) {
+          await channel.setPosition(i).catch(() => {});
+        }
       }
     }
   } catch (e) {
-    console.error("[STATS-ERROR]", e.message);
+    console.error("[MARKET-STATS-ERROR]", e.message);
   }
 }
 

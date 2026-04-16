@@ -39,18 +39,18 @@ async function advanceLog(client, data) {
       })
       .setTitle(`${FIRE} **${data.title || "Advance Log Report"}**`)
       .setDescription(
-        `### ${ROCKET} **Movement Detected**\n` +
-          `${ARROW} **Activity:** \`${data.activity || "---"}\`\n` +
-          `${ARROW} **Details:** *${data.message || "No additional data."}*`,
+        `### ${ROCKET} **Activity Details**\n` +
+          `${ARROW} **Action:** \`${data.activity || "---"}\`\n` +
+          `${ARROW} **Note:** *${data.message || "No additional detail."}*`,
       )
       .addFields(
         {
-          name: `${LEA} **Executor**`,
+          name: `${LEA} **Action By**`,
           value: `${ARROW} ${data.user || "System"}`,
           inline: true,
         },
         {
-          name: `${PC} **Source**`,
+          name: `${PC} **Location**`,
           value: `${ARROW} ${data.guild || "Direct Message"}`,
           inline: true,
         },

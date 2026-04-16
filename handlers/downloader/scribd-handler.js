@@ -18,10 +18,10 @@ async function runScribdFlow(target, url, options = {}) {
   if (options.statusMsg) {
     statusMsg = options.statusMsg;
     await _editResponse({
-      embeds: [getStatusEmbed(guild, "Processing Scribd Link", "Opening browser...")],
+      embeds: [getStatusEmbed(guild, "Reading Scribd", "Opening browser...")],
     }).catch(() => {});
   } else {
-    statusMsg = await sendInitialStatus(target, "Processing Scribd Link", "Opening browser...");
+    statusMsg = await sendInitialStatus(target, "Reading Scribd", "Opening browser...");
   }
 
   let browser;

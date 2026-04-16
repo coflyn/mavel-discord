@@ -31,6 +31,11 @@ const MAX_COMMANDS_PER_WINDOW = 2;
 module.exports = {
   name: "interactionCreate",
   async execute(interaction, client) {
+    const { increment } = require("../utils/counter-handler");
+    if (interaction.isChatInputCommand() || interaction.isButton() || interaction.isStringSelectMenu()) {
+      increment("totalRequests");
+    }
+
     try {
       // 1. Autocomplete
       if (interaction.isAutocomplete()) {
@@ -134,14 +139,9 @@ module.exports = {
           };
 
           if (value === "lyrics") {
-            await interaction
-              .update({ components: [player.getPlaybackComponents(guildId)] })
-              .catch(() => {});
+            await interaction.update({ components: [player.getPlaybackComponents(guildId)] }).catch(() => {});
             const E_PC = resolveEmoji(interaction.guild, "pc", "📡");
-            const statusMsg = await interaction.followUp({
-              content: `${E_PC} *Fetching intelligence report from lyrics database...*`,
-              flags: [MessageFlags.Ephemeral],
-            });
+            const statusMsg = await interaction.followUp({ content: `${E_PC} *Searching for song lyrics...*`, flags: [MessageFlags.Ephemeral] });
             const state = player.queues.get(guildId);
             if (!state || !state.current)
               return await interaction.webhook.editMessage(statusMsg.id, {
@@ -178,11 +178,7 @@ module.exports = {
             const state = player.queues.get(guildId);
             if (!state) return;
             const E_DIAMOND = resolveEmoji(interaction.guild, "diamond", "🔀");
-            if (state.queue.length === 0)
-              return interaction.reply({
-                content: `### ${E_DIAMOND} **Playback Queue: Empty**`,
-                flags: [MessageFlags.Ephemeral],
-              });
+            if (state.queue.length === 0) return interaction.reply({ content: `### ${E_DIAMOND} **Your list is currently empty**`, flags: [MessageFlags.Ephemeral] });
             const newMode = state.shuffle ? "off" : "on";
             await notifyControl(`Shuffle ${newMode.toUpperCase()}`);
             player.toggleShuffle(guildId, newMode);
@@ -212,21 +208,15 @@ module.exports = {
           if (value === "queue") {
             const list = player.getQueueList(guildId);
             const E_ANNO = resolveEmoji(interaction.guild, "anno", "📜");
-            await interaction.reply({
-              content: `### ${E_ANNO} **Upcoming Playback Queue**\n${list.join("\n").substring(0, 1900) || "*The queue is currently empty.*"}`,
-              flags: [64],
-            });
+            await interaction.reply({ content: `### ${E_ANNO} **Upcoming Songs**\n${list.join("\n").substring(0, 1900) || "*The list is currently empty.*"}`, flags: [64] });
             return;
           }
 
-          if (value === "clear") {
-            await notifyControl("Clear");
-            player.clear(guildId);
+          if (value === "clear") { 
+            await notifyControl("Clear"); 
+            player.clear(guildId); 
             const E_LEA = resolveEmoji(interaction.guild, "lea", "🗑️");
-            return interaction.reply({
-              content: `${E_LEA} **Queue Purged.**`,
-              flags: [64],
-            });
+            return interaction.reply({ content: `${E_LEA} **List cleared.**`, flags: [64] }); 
           }
 
           if (value === "playlist") {

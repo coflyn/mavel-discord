@@ -197,7 +197,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
     try {
       await editLocal({
-        embeds: [getStatusEmbed("Downloading", "Setting up download...")],
+        embeds: [getStatusEmbed("Downloading", "Getting things ready...")],
       });
 
       const updateProgress = createProgressUpdater(interaction, title);
@@ -300,9 +300,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
         doneEmbed.setDescription(
           (userMention ? `${userMention}\n\n` : "") +
-            `${LEA} **Content Delivered**\n` +
+            `${LEA} **Your media is ready**\n` +
             `${ARROW} **Title:** *${title}*\n` +
-            `${ARROW} **Platform:** *${shouldBundle ? (isDocumentPlatform ? "PDF File" : "Image Gallery") : "Direct Downloads"}*\n` +
+            `${ARROW} **Platform:** *${shouldBundle ? (isDocumentPlatform ? "PDF File" : "Image Gallery") : "Ready to save"}*\n` +
             `${ARROW} **Source:** *${platformName}*\n` +
             `${ARROW} **Files:** *${urls.length} Images*\n` +
             `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
@@ -468,7 +468,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           .setImage(botBanner)
           .setDescription(
             (userMention ? `${userMention}\n\n` : "") +
-              `${LEA} **Content Delivered**\n` +
+              `${LEA} **Your media is ready**\n` +
               `${ARROW} **Title:** *${title}*\n` +
               `${ARROW} **Platform:** *TikTok (${shouldBundle ? "PDF Bundle" : "Direct Photos"})*\n` +
               `${ARROW} **Source:** *${job?.platform || options.platform || "TikTok"}*\n` +
@@ -668,7 +668,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             .setImage(botBanner)
             .setDescription(
               (userMention ? `${userMention}\n\n` : "") +
-                `${LEA} **Content Delivered**\n` +
+                `${LEA} **Your media is ready**\n` +
                 `${ARROW} **Title:** *${title}*\n` +
                 `${ARROW} **Platform:** *${job?.hasVideo ? "Video Stream" : "Static Image"}*\n` +
                 `${ARROW} **Source:** *${job?.platform || options.platform || "X / Twitter"}*\n` +
@@ -866,7 +866,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           .setImage(botBanner)
           .setDescription(
             (userMention ? `${userMention}\n\n` : "") +
-              `${LEA} **Content Delivered**\n` +
+              `${LEA} **Your media is ready**\n` +
               `${ARROW} **Title:** *${title}*\n` +
               `${ARROW} **Platform:** *High-Fidelity Audio*\n` +
               `${ARROW} **Source:** *Spotify (Resolved)*\n` +
@@ -1024,7 +1024,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           .setImage(botBanner)
           .setDescription(
             (userMention ? `${userMention}\n\n` : "") +
-              `${LEA} **Content Delivered**\n` +
+              `${LEA} **Your media is ready**\n` +
               `${ARROW} **Title:** *${title}*\n` +
               `${ARROW} **Platform:** *Pixiv (${shouldBundle ? "PDF Bundle" : "Direct Photos"})*\n` +
               `${ARROW} **Source:** *Pixiv (Archive)*\n` +
@@ -1129,7 +1129,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           .setTitle(`${NOTIF} **Media Ready!**`)
           .setImage(botBanner)
           .setDescription(
-            `${LEA} **Content Delivered**\n` +
+            `${LEA} **Your media is ready**\n` +
               `${ARROW} **Title:** *${title}*\n` +
               `${ARROW} **Platform:** *Pixiv Animation*\n` +
               `${ARROW} **Source:** *Pixiv (Ugoira)*\n` +
@@ -1305,7 +1305,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           .setImage(botBanner)
           .setDescription(
             (userMention ? `${userMention}\n\n` : "") +
-              `${LEA} **Content Delivered**\n` +
+              `${LEA} **Your media is ready**\n` +
               `${ARROW} **Title:** *${title}*\n` +
               `${ARROW} **Platform:** *Gallery Album*\n` +
               `${ARROW} **Source:** *${uploader || "System"}*\n` +
@@ -1766,7 +1766,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         .setImage(botBanner)
         .setDescription(
           (userMention ? `${userMention}\n\n` : "") +
-            `${LEA} **Content Delivered**\n` +
+            `${LEA} **Your media is ready**\n` +
             `${ARROW} **Title:** *${title}*\n` +
             `${ARROW} **Type:** *${job?.isMix ? "Mixed Content" : job?.isVideo ? "Video/Reel" : job?.isGallery ? "Gallery" : "Photo"}*\n` +
             `${ARROW} **Platform:** *${format === "mp3" ? "Audio (MPEG-3)" : format === "photo" ? "Photo (JPG)" : job?.isGallery ? "Gallery (Batch)" : "Video (MP4)"}*\n` +
@@ -1820,10 +1820,10 @@ async function startDownload(interaction, jobId, format, options = {}) {
       await cleanupStatus();
       if (fs.existsSync(finalFile)) fs.unlinkSync(finalFile);
     } catch (e) {
-      console.error("[DOWNLOADER-ERROR] Critical Failure:", e);
+      console.error("[Downloader] Unexpected error occurred:", e);
       if (e.message.includes("413") || e.message.includes("large")) {
         console.error(
-          "[DOWNLOADER-ERROR] Detected payload size issue during SEND phase.",
+          "[Downloader] The file is too large for Discord's upload limit.",
         );
       }
       await editLocal({ content: `*Download failed: ${e.message}*` }).catch(

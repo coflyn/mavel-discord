@@ -54,8 +54,8 @@ async function musicHandler(target, manualData = null) {
 
     const searchingMsg =
       source === "bc"
-        ? `${E_PC} *Engaging Bandcamp intelligence... Searching for tracks...*`
-        : `${E_PC} *Connecting to YouTube Music... Buffering metadata...*`;
+        ? `${E_PC} *Searching Bandcamp for your tracks...*`
+        : `${E_PC} *Searching YouTube... Getting everything ready...*`;
 
     if (isInteraction) {
       await target.reply({

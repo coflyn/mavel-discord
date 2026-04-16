@@ -41,7 +41,7 @@ async function harvestHandler(interaction) {
       .setTitle(`${ANNO} **Target Analysis**`)
       .setImage(botBanner)
       .setDescription(
-        `*Deep scan and extract metadata from profiles, channels, and discussions across the web.*`,
+        `*Deep scan and collect details from profiles, channels, and discussions across the web.*`,
       )
       .addFields(
         {
@@ -312,7 +312,7 @@ async function harvestHandler(interaction) {
     console.error(`[HARVEST-HANDLER] Error:`, err.message);
     await interaction
       .editReply({
-        content: `${getEmoji("ping_red", "🔴")} **System Error:** ${err.message}`,
+        content: `${getEmoji("ping_red", "🔴")} **Something went wrong:** ${err.message}`,
       })
       .catch(() => {});
   }

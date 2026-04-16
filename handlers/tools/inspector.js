@@ -84,7 +84,7 @@ module.exports = async function inspectorHandler(interaction) {
         new EmbedBuilder()
           .setColor("#6c5ce7")
           .setDescription(
-            `### ${E_TIME} **Scanning Media...**\n*MaveL is analyzing technical specs and metadata...*`,
+            `### ${E_TIME} **Reading Media...**\n*MaveL is analyzing details...*`,
           ),
       ],
     });
@@ -184,7 +184,7 @@ module.exports = async function inspectorHandler(interaction) {
     if (locationLink) {
       embed.addFields({
         name: `${E_MAP} **Geolocation Detected**`,
-        value: `> **[View on Google Maps](${locationLink})**\n> *Coordinates found in embedded metadata.*`,
+        value: `> **[View on Google Maps](${locationLink})**\n> *Coordinates found in hidden details.*`,
         inline: false,
       });
     }
@@ -210,7 +210,7 @@ module.exports = async function inspectorHandler(interaction) {
       }
       if (intelStr) {
         embed.addFields({
-          name: `${E_INFO} **Expert Metadata**`,
+          name: `${E_INFO} **Detailed Info**`,
           value: intelStr.slice(0, 1024),
           inline: false,
         });
@@ -222,7 +222,7 @@ module.exports = async function inspectorHandler(interaction) {
   } catch (err) {
     console.error("[INSPECT] Error:", err.message);
     await interaction.editReply({
-      content: `### 🔴 **Expose Failed**\n> *Error: ${err.message}*`,
+      content: `### 🔴 **Something went wrong**\n> *Error: ${err.message}*`,
       embeds: [],
     });
   }

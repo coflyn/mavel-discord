@@ -19,10 +19,10 @@ async function runSlideshareFlow(target, url, options = {}) {
   if (options.statusMsg) {
     statusMsg = options.statusMsg;
     await _editResponse({
-      embeds: [getStatusEmbed(guild, "Processing SlideShare", "Getting info...")],
+      embeds: [getStatusEmbed(guild, "Reading SlideShare", "Getting info...")],
     }).catch(() => {});
   } else {
-    statusMsg = await sendInitialStatus(target, "Processing SlideShare", "Getting info...");
+    statusMsg = await sendInitialStatus(target, "Reading SlideShare", "Getting info...");
   }
 
   try {

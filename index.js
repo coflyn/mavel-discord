@@ -47,7 +47,6 @@ console.error = function (d) {
 
 // 3. Command & Event Loader
 const loadModular = () => {
-  // Load Commands recursively
   const loadCommands = (dir) => {
     const files = fs.readdirSync(path.join(__dirname, dir));
     for (const file of files) {
@@ -63,7 +62,6 @@ const loadModular = () => {
     }
   };
 
-  // Load Events
   const eventFiles = fs
     .readdirSync(path.join(__dirname, "events"))
     .filter((f) => f.endsWith(".js"));
@@ -101,17 +99,17 @@ client.getGuildEmojis = async (guildId) => {
 // 4. Initialization Events
 client.once("clientReady", async () => {
   console.log(`[BOOT] Logged in as ${client.user.tag}`);
-  
-  // Update Server Stats on Startup
+
   const { updateServerStats } = require("./utils/stats-handler");
-  client.guilds.cache.forEach(guild => updateServerStats(guild));
+  client.guilds.cache.forEach((guild) => updateServerStats(guild));
 
-  // Regular Interval Update (Every 10 Minutes to avoid rate limits)
-  setInterval(() => {
-    client.guilds.cache.forEach(guild => updateServerStats(guild));
-  }, 10 * 60 * 1000);
+  setInterval(
+    () => {
+      client.guilds.cache.forEach((guild) => updateServerStats(guild));
+    },
+    10 * 60 * 1000,
+  );
 
-  // Set Activity
   client.user.setActivity({
     name: "MaveL | .help",
     type: ActivityType.Streaming,
@@ -132,20 +130,24 @@ process.on("uncaughtException", (err) => {
 });
 
 process.on("unhandledRejection", (reason) => {
-  console.error("[UNHANDLED-REJECTION]", reason);
+  console.error("[INTERNAL-WARNING]", reason);
   advanceLog(client, {
     type: "error",
-    title: "System Warning",
-    activity: "Unhandled Promise Rejection",
+    title: "Operational Alert",
+    activity: "Internal Logic Warning",
     message:
-      typeof reason === "string" ? reason : reason.message || "Unknown error",
-    extra: reason.stack || "No stack trace available",
+      typeof reason === "string"
+        ? reason
+        : reason.message || "Something went wrong in the background.",
+    extra: reason.stack || "No additional trace available.",
   });
 });
 
 // 6. Graceful Shutdown
 async function gracefulShutdown(signal) {
-  console.log(`\n[SYSTEM] Received ${signal}. Shutting down gracefully...`);
+  console.log(
+    `\n[System] MaveL is going to sleep now. Everything is saved. Bye!`,
+  );
   if (player?.queues) {
     for (const guildId of player.queues.keys()) {
       try {

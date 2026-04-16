@@ -39,7 +39,7 @@ function setCacheResults(query, results) {
 
 module.exports = async function searchHandler(interaction) {
   const query = interaction.options.getString("query");
-  const typeSelection = interaction.options.getString("type") || "ytm";
+  const typeSelection = interaction.options.getString("type") || "yt";
 
   if (interaction.deferReply) {
     await interaction
@@ -72,9 +72,9 @@ module.exports = async function searchHandler(interaction) {
         name: "MaveL Search",
         iconURL: interaction.client.user.displayAvatarURL(),
       })
-      .setTitle(`${SEARCH} **Integrated Search**`)
+      .setTitle(`${SEARCH} **Find your media**`)
       .setImage(botBanner)
-      .setDescription(`*Search across multiple platforms to find your media.*`)
+      .setDescription(`*Type what you're looking for to find videos or music.*`)
       .addFields(
         {
           name: `${FIRE} **Visuals**`,
@@ -367,9 +367,9 @@ async function displaySearchResults(
   const resultEmbed = new EmbedBuilder()
     .setColor("#00cec9")
     .setDescription(
-      `### ${SEARCH} **Search Finished**\n` +
-        `*Query:* \`${refinedQuery}\`\n` +
-        `*Source:* \`${typeSelection.toUpperCase()}\``,
+      `### ${SEARCH} **Results Found**\n` +
+        `${ARROW} *Looking for:* \`${refinedQuery}\`\n` +
+        `${ARROW} *Platform:* \`${typeSelection.toUpperCase()}\``,
     )
     .setFooter({ text: "Select a result from the menu below to start" });
 

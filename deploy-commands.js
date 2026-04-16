@@ -373,7 +373,7 @@ const commands = [
     ),
   new SlashCommandBuilder()
     .setName("inspect")
-    .setDescription("Expose technical metadata and EXIF data of a file")
+    .setDescription("Expose detailed info and EXIF data of a file")
     .addAttachmentOption((opt) =>
       opt.setName("file").setDescription("The file to inspect").setRequired(true),
     ),

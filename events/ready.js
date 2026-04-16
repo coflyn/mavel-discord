@@ -1,6 +1,9 @@
 const { ActivityType, Events } = require("discord.js");
 const config = require("../config");
-const { cleanupTemp, sendAdminLog } = require("../handlers/downloader/core-helpers");
+const {
+  cleanupTemp,
+  sendAdminLog,
+} = require("../handlers/downloader/core-helpers");
 const { autoUpdateYtDlp, checkCookiesStatus } = require("../utils/dlp-helpers");
 const { startTunnel } = require("../utils/tunnel-server");
 const fs = require("fs");
@@ -19,7 +22,7 @@ const cleanupLogs = () => {
         .join("\n");
       fs.writeFileSync(logPath, data);
       console.log(
-        "[SYSTEM] Log rotated: File size exceeded 5MB. Trimmed to 1000 lines.",
+        "[System] Activity logs were getting too big, so I cleaned them up to keep things fast.",
       );
     }
   }
@@ -32,7 +35,7 @@ module.exports = {
     cleanupTemp();
     cleanupLogs();
 
-    console.log(`[BOT] Booting up...`);
+    console.log(`[MaveL] System starting...`);
     await startTunnel(config.tunnelPort);
 
     await autoUpdateYtDlp();
@@ -43,18 +46,18 @@ module.exports = {
     const cookieCheck = checkCookiesStatus();
     if (config.logsChannelId) {
       await sendAdminLog(client, {
-        title: "MaveL Status",
+        title: "Platform Initialization",
         color: cookieCheck.color,
-        message: `*System updated. Cookies: ${cookieCheck.status}${cookieCheck.exists ? ` (${cookieCheck.daysOld} days old)` : ""}.*`,
+        message: `*System check complete. Identity Status: ${cookieCheck.exists ? "Verified" : "Missing"} (${cookieCheck.daysOld} days old).*`,
       });
     }
 
     const activities = [
-      { name: "Music & Downloads", type: 3 },
-      { name: "Your requests", type: 3 },
-      { name: "Connected servers", type: 3 },
-      { name: "Active users", type: 3 },
-      { name: "/help | @MaveL", type: 3 },
+      { name: "The server", type: ActivityType.Watching },
+      { name: "Members", type: ActivityType.Watching },
+      { name: "For requests", type: ActivityType.Watching },
+      { name: "Ready to help", type: ActivityType.Streaming },
+      { name: "Type /help to start", type: ActivityType.Playing },
     ];
     let i = 0;
     const updateStatus = () => {
@@ -62,16 +65,23 @@ module.exports = {
       const activity = activities[i % activities.length];
       let name = activity.name;
 
-      if (name === "Active users") {
-        const users = client.users.cache.size || 0;
-        name = `${users} users`;
-      } else if (name === "Connected servers") {
-        const guilds = client.guilds.cache.size || 0;
-        name = `${guilds} servers`;
+      const mainGuild = client.guilds.cache.first();
+
+      if (name === "Members") {
+        const members = mainGuild?.memberCount || 0;
+        name = `${members} Members`;
+      } else if (name === "the server") {
+        name = `${mainGuild?.name || "the server"}`;
       }
 
       client.user.setPresence({
-        activities: [{ name, type: activity.type || ActivityType.Watching }],
+        activities: [
+          {
+            name,
+            type: activity.type || ActivityType.Watching,
+            url: "https://youtu.be/ORGgGHMyXmg?si=glh43Fy50xGSPcxQ",
+          },
+        ],
         status: "online",
       });
       i++;

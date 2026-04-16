@@ -4,6 +4,7 @@ temp/
 database/downloader.json
 database/playlists.json
 database/settings.json
+database/stats.json
 database/backups/
 *.log
 cookies.txt
