@@ -19,17 +19,16 @@ module.exports = {
       emoji.name === "☑️";
     if (!isCheck) return;
 
-    if (message.author.id !== client.user.id) return;
+    if (!message.author || !reaction.client.user) return;
+    if (message.author.id !== reaction.client.user.id) return;
 
     const embed = message.embeds[0];
-    if (
-      !embed ||
-      !(
-        embed.title?.includes("Media Ready") ||
-        embed.title?.includes("Media Link Ready")
-      )
-    )
-      return;
+    const isReport = embed && embed.title && (
+      embed.title.toLowerCase().includes("ready") || 
+      embed.title.toLowerCase().includes("large")
+    );
+    if (!embed || !isReport) return;
+    
 
     const desc = embed.description || "";
     const linkMatch = desc.match(/\[Original Link\]\(<([^>]+)>\)/);

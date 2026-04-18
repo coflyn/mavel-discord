@@ -36,6 +36,13 @@ const { runBandcampFlow } = require("./bandcamp-handler");
 const { runSoundcloudFlow } = require("./soundcloud-handler");
 const { runYoutubeFlow } = require("./youtube-handler");
 const { runYtmFlow } = require("./ytm-handler");
+const { runAcademiaFlow } = require("./academia-handler");
+const { runCalameoFlow } = require("./calameo-handler");
+const { runDPlayerFlow } = require("./dplayer-handler");
+const { runKomikuFlow } = require("./komiku-handler");
+const { runNSrvFlow } = require("./nsrv-handler");
+const { runPSrvFlow } = require("./psrv-handler");
+const { runDSrvFlow } = require("./dsrv-handler");
 
 const musicKeywords = [
   "music.youtube.com",
@@ -331,6 +338,76 @@ async function runYtDlpFlow(target, url, options = {}) {
     if (jobResult && jobResult.jobId) {
       return await startDownload(target, jobResult.jobId, "twgallery", {
         statusMsg: jobResult.statusMsg,
+      });
+    }
+    return;
+  }
+
+  if (finalUrl.includes("academia.edu")) {
+    const jobResult = await runAcademiaFlow(target, finalUrl, { statusMsg });
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(target, jobResult.jobId, "twgallery", {
+        statusMsg: jobResult.statusMsg,
+      });
+    }
+    return;
+  }
+
+  if (finalUrl.includes("calameo.com")) {
+    const jobResult = await runCalameoFlow(target, finalUrl, { statusMsg });
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(target, jobResult.jobId, "twgallery", {
+        statusMsg: jobResult.statusMsg,
+      });
+    }
+    return;
+  }
+
+  if (
+    finalUrl.includes("komiku.id") ||
+    finalUrl.includes("komiku.com") ||
+    finalUrl.includes("komiku.org")
+  ) {
+    const jobResult = await runKomikuFlow(target, finalUrl, { statusMsg });
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(target, jobResult.jobId, "twgallery", {
+        statusMsg: jobResult.statusMsg,
+      });
+    }
+    return;
+  }
+
+  if (finalUrl.includes("docplayer") || finalUrl.includes("dplayer")) {
+    const jobResult = await runDPlayerFlow(target, finalUrl, { statusMsg });
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(target, jobResult.jobId, "cloud", {
+        statusMsg: jobResult.statusMsg,
+      });
+    }
+    return;
+  }
+
+  if (finalUrl.includes("nhentai.net")) {
+    const jobResult = await runNSrvFlow(target, finalUrl, { statusMsg });
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(target, jobResult.jobId, "twgallery", {
+        statusMsg: jobResult.statusMsg,
+        platform: "Signal Archive"
+      });
+    }
+    return;
+  }
+
+  if (finalUrl.includes("pornhub.com")) {
+    return await runPSrvFlow(target, finalUrl, { statusMsg });
+  }
+
+  if (finalUrl.includes("doujindesu.tv")) {
+    const jobResult = await runDSrvFlow(target, finalUrl, { statusMsg });
+    if (jobResult && jobResult.jobId) {
+      return await startDownload(target, jobResult.jobId, "twgallery", {
+        statusMsg: jobResult.statusMsg,
+        platform: "Proxy Sync"
       });
     }
     return;

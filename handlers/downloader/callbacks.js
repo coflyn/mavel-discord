@@ -20,6 +20,7 @@ const {
   downloadQueue,
   sendAdminLog,
 } = require("./core-helpers");
+const ffmpegStatic = require("ffmpeg-static");
 const config = require("../../config");
 const { getAssetUrl } = require("../../utils/tunnel-server");
 const EC = require("../../utils/embed-colors");
@@ -247,9 +248,13 @@ async function startDownload(interaction, jobId, format, options = {}) {
           }
         }
 
-        const isDocumentPlatform = ["Scribd", "SlideShare"].includes(
-          platformName,
-        );
+        const isDocumentPlatform = [
+          "Scribd",
+          "SlideShare",
+          "Academia",
+          "Calaméo",
+          "Komiku",
+        ].includes(platformName);
         const shouldBundle = photoPaths.length > 5 || isDocumentPlatform;
         let pdfPath = null;
         let attachments = [];
@@ -712,7 +717,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const platform = job?.platform || options.platform || "Platform";
         const outputFile = path.join(
           tempDir,
-          job?.title || `cloud_${jobId || "direct"}.bin`,
+          job?.title
+            ? `${job.title.replace(/[^\w\s-]/gi, "")}.pdf`
+            : `cloud_${jobId || "direct"}.pdf`,
         );
 
         if (platform === "MEGA") {
@@ -728,6 +735,8 @@ async function startDownload(interaction, jobId, format, options = {}) {
             writer.on("finish", resolve);
             writer.on("error", reject);
           });
+        } else if (fs.existsSync(directUrl)) {
+          fs.copyFileSync(directUrl, outputFile);
         } else {
           const res = await axios.get(directUrl, {
             responseType: "arraybuffer",
@@ -1394,13 +1403,15 @@ async function startDownload(interaction, jobId, format, options = {}) {
             : `${outputBase}.mp3`;
       const ua =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
-      const referer = url.includes("tiktok.com")
-        ? "https://www.tiktok.com/"
-        : url.includes("instagram.com")
-          ? "https://www.instagram.com/"
-          : url.includes("twitter.com") || url.includes("x.com")
-            ? "https://x.com/"
-            : "https://www.google.com/";
+      const referer =
+        job?.referer ||
+        (url.includes("tiktok.com")
+          ? "https://www.tiktok.com/"
+          : url.includes("instagram.com")
+            ? "https://www.instagram.com/"
+            : url.includes("twitter.com") || url.includes("x.com")
+              ? "https://x.com/"
+              : "https://www.google.com/");
 
       const dlArgs =
         format === "mp4"
@@ -1411,6 +1422,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 : `bv*[height<=${resolution}]+ba/b[height<=${resolution}] / best[height<=${resolution}] / best`,
               "--no-playlist",
               "--newline",
+              "--no-check-certificate",
               "--embed-metadata",
               "--embed-thumbnail",
               ...getJsRuntimeArgs(),
@@ -1426,6 +1438,12 @@ async function startDownload(interaction, jobId, format, options = {}) {
               "Sec-Fetch-Site:same-origin",
               "--add-header",
               "Sec-Fetch-Dest:document",
+              ...(job?.headers
+                ? Object.entries(job.headers).flatMap(([k, v]) => [
+                    "--add-header",
+                    `${k}:${v}`,
+                  ])
+                : []),
               "--merge-output-format",
               "mp4",
               "-o",
@@ -1484,6 +1502,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         "ytm",
         "twitter",
         "x",
+        "pornhub",
       ];
       const isSkipPlatform =
         skipAxiosPlatforms.some((p) =>
@@ -1492,6 +1511,10 @@ async function startDownload(interaction, jobId, format, options = {}) {
         job?.hasVideo &&
         !(job?.platform?.toLowerCase().includes("instagram") && job?.directUrl);
 
+      const isHls =
+        job?.isHls ||
+        (typeof job?.directUrl === "string" && job.directUrl.includes(".m3u8"));
+
       let stdoutOutput = "";
       let stderrOutput = "";
 
@@ -1499,10 +1522,15 @@ async function startDownload(interaction, jobId, format, options = {}) {
         `[DL-CALLBACK] format: ${format}, isSkip: ${isSkipPlatform}, hasDirectUrl: ${!!job?.directUrl}, platform: ${job?.platform}`,
       );
       const directUrl = job?.directUrl || options.url;
-      if (
+
+      if (typeof directUrl === "string" && fs.existsSync(directUrl)) {
+        await editLocal({ content: "" });
+        fs.copyFileSync(directUrl, outputFile);
+      } else if (
         job?.directUrl &&
         (format === "mp4" || format === "photo") &&
-        !isSkipPlatform
+        !isSkipPlatform &&
+        !isHls
       ) {
         await editLocal({
           content: "",
@@ -1515,6 +1543,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             headers: {
               "User-Agent": ua,
               Referer: referer,
+              ...(job?.headers || {}),
             },
             timeout: 300000,
           });
@@ -1537,6 +1566,44 @@ async function startDownload(interaction, jobId, format, options = {}) {
           console.error("[AXIOS-DL] Error:", e.message);
           throw new Error(`Download failed: ${e.message}`);
         }
+      } else if (isHls && job?.directUrl) {
+        await editLocal({ content: "" });
+        const cookiesStr = job?.headers?.Cookie || "";
+        console.log(`[HLS-DL] Target: ${directUrl}`);
+        console.log(`[HLS-DL] Referer: ${referer}`);
+
+        const ffmpegArgs = [
+          "-headers",
+          `User-Agent: ${ua}\r\nReferer: ${referer}\r\nCookie: ${cookiesStr}\r\n`,
+          "-i",
+          directUrl,
+          "-c",
+          "copy",
+          "-bsf:a",
+          "aac_adtstoasc",
+          "-y",
+          outputFile,
+        ];
+
+        const ffmpegProc = spawn(ffmpegStatic, ffmpegArgs);
+
+        let ffmpegError = "";
+        ffmpegProc.stderr.on("data", (data) => {
+          ffmpegError += data.toString();
+        });
+
+        await new Promise((resolve, reject) => {
+          ffmpegProc.on("close", (code) => {
+            if (code === 0) {
+              console.log("[HLS-DL] Success!");
+              resolve();
+            } else {
+              console.error(`[HLS-DL] Failed. Error: ${ffmpegError}`);
+              reject(new Error(`FFmpeg failed with code ${code}`));
+            }
+          });
+          ffmpegProc.on("error", reject);
+        });
       } else {
         await editLocal({
           content: "",
@@ -1558,6 +1625,8 @@ async function startDownload(interaction, jobId, format, options = {}) {
         );
 
         if (code !== 0) {
+          console.error(`[YT-DLP] Failed. Exit Code: ${code}`);
+          console.error(`[YT-DLP] Error Output: ${stderrOutput}`);
           let smartError = "Download process failed.";
           if (stderrOutput.includes("Private video"))
             smartError = "This video is private.";

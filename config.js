@@ -32,8 +32,7 @@ module.exports = {
     savedSettings.adminChannelId || process.env.ADMIN_CHANNEL_ID || "",
   gatewayChannelId:
     savedSettings.gatewayChannelId || process.env.GATEWAY_CHANNEL_ID || "",
-  autoRoleId:
-    savedSettings.autoRoleId || process.env.AUTO_ROLE_ID || "",
+  autoRoleId: savedSettings.autoRoleId || process.env.AUTO_ROLE_ID || "",
 
   prefix: ".",
 

@@ -56,7 +56,6 @@ module.exports = {
 
         await gateChannel.send(msgData).catch(() => {});
 
-        // Note: This might fail if the user shares no other servers with the bot
         try {
           const dmData = {
             content: `**Farewell, ${member.user.username}** ${E_DEPART}\n${E_ARROW} We're sad to see you leave **${member.guild.name}**. Wishing you the best on your journey ahead! Hope we cross paths again.`,
@@ -66,9 +65,7 @@ module.exports = {
               new AttachmentBuilder(cardBuffer, { name: "goodbye.png" }),
             ];
           }
-          await member.user.send(dmData).catch(() => {
-            // This is expected if it was the only shared server
-          });
+          await member.user.send(dmData).catch(() => {});
         } catch (dmErr) {}
       }
 
@@ -79,10 +76,6 @@ module.exports = {
         message: `${member.user.tag} has departed`,
         user: `${member.user.id}`,
       });
-
-      // Update Server Stats
-      const { updateServerStats } = require("../utils/stats-handler");
-      updateServerStats(member.guild);
     } catch (e) {
       advanceLog(client, {
         type: "error",

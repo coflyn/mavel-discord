@@ -12,7 +12,6 @@ const { advanceLog } = require("./utils/logger");
 const { stopTunnel } = require("./utils/tunnel-server");
 const { player } = require("./handlers/music");
 
-// 1. Client Initialization
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -30,7 +29,6 @@ client.commands = new Collection();
 const emojiCache = new Map();
 const EMOJI_TTL = 5 * 60 * 1000;
 
-// 2. Logging Setup
 const logPath = path.join(__dirname, "bot.log");
 const logStream = fs.createWriteStream(logPath, { flags: "a" });
 const originalConsoleLog = console.log;
@@ -45,7 +43,6 @@ console.error = function (d) {
   originalConsoleError.apply(console, arguments);
 };
 
-// 3. Command & Event Loader
 const loadModular = () => {
   const loadCommands = (dir) => {
     const files = fs.readdirSync(path.join(__dirname, dir));
@@ -80,7 +77,6 @@ const loadModular = () => {
   );
 };
 
-// 4. Utility Methods on Client
 client.getGuildEmojis = async (guildId) => {
   const cached = emojiCache.get(guildId);
   if (cached && Date.now() - cached.timestamp < EMOJI_TTL) return cached.emojis;
@@ -96,19 +92,8 @@ client.getGuildEmojis = async (guildId) => {
   }
 };
 
-// 4. Initialization Events
 client.once("clientReady", async () => {
   console.log(`[BOOT] Logged in as ${client.user.tag}`);
-
-  const { updateServerStats } = require("./utils/stats-handler");
-  client.guilds.cache.forEach((guild) => updateServerStats(guild));
-
-  setInterval(
-    () => {
-      client.guilds.cache.forEach((guild) => updateServerStats(guild));
-    },
-    10 * 60 * 1000,
-  );
 
   client.user.setActivity({
     name: "MaveL | .help",
@@ -117,9 +102,25 @@ client.once("clientReady", async () => {
   });
 });
 
-// 5. System Error Handlers
 process.on("uncaughtException", (err) => {
-  console.error("[UNCAUGHT-EXCEPTION]", err.message);
+  console.error("[CRITICAL-ERROR]", err);
+
+  const isNetworkHiccup = [
+    "521",
+    "502",
+    "503",
+    "504",
+    "ETIMEDOUT",
+    "ECONNRESET",
+    "Unexpected server response",
+  ].some((code) => err.message?.includes(code));
+  if (isNetworkHiccup) {
+    console.log(
+      "[System] Connection hiccup detected. MaveL is attempting to stabilize...",
+    );
+    return;
+  }
+
   advanceLog(client, {
     type: "error",
     title: "Critical System Error",
@@ -131,19 +132,28 @@ process.on("uncaughtException", (err) => {
 
 process.on("unhandledRejection", (reason) => {
   console.error("[INTERNAL-WARNING]", reason);
+
+  const reasonMsg = typeof reason === "string" ? reason : reason.message || "";
+  const isNetworkHiccup = [
+    "521",
+    "502",
+    "503",
+    "504",
+    "ETIMEDOUT",
+    "ECONNRESET",
+    "Unexpected server response",
+  ].some((code) => reasonMsg.includes(code));
+  if (isNetworkHiccup) return;
+
   advanceLog(client, {
     type: "error",
     title: "Operational Alert",
     activity: "Internal Logic Warning",
-    message:
-      typeof reason === "string"
-        ? reason
-        : reason.message || "Something went wrong in the background.",
+    message: reasonMsg || "Something went wrong in the background.",
     extra: reason.stack || "No additional trace available.",
   });
 });
 
-// 6. Graceful Shutdown
 async function gracefulShutdown(signal) {
   console.log(
     `\n[System] MaveL is going to sleep now. Everything is saved. Bye!`,
@@ -165,6 +175,5 @@ async function gracefulShutdown(signal) {
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
-// 7. Initialize & Login
 loadModular();
 client.login(config.botToken);

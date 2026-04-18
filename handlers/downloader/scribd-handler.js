@@ -18,10 +18,10 @@ async function runScribdFlow(target, url, options = {}) {
   if (options.statusMsg) {
     statusMsg = options.statusMsg;
     await _editResponse({
-      embeds: [getStatusEmbed(guild, "Reading Scribd", "Opening browser...")],
+      embeds: [getStatusEmbed(guild, "Searching...", "Finding the document...")],
     }).catch(() => {});
   } else {
-    statusMsg = await sendInitialStatus(target, "Reading Scribd", "Opening browser...");
+    statusMsg = await sendInitialStatus(target, "Searching...", "Finding the document...");
   }
 
   let browser;
@@ -65,7 +65,7 @@ async function runScribdFlow(target, url, options = {}) {
 
     await _editResponse({
       embeds: [
-        getStatusEmbed(guild, "Getting File Info...", "Getting document info..."),
+        getStatusEmbed(guild, "Searching...", "Getting document info..."),
       ],
     });
 
@@ -95,7 +95,7 @@ async function runScribdFlow(target, url, options = {}) {
 
     if (pageCount === 0)
       throw new Error(
-        "No pages detected in browser view (Selector: .outer_page).",
+        "We couldn't find any pages in this document.",
       );
 
     const tempDir = path.join(__dirname, "../../temp");
@@ -108,8 +108,8 @@ async function runScribdFlow(target, url, options = {}) {
       embeds: [
         getStatusEmbed(
           guild,
-          "Downloading Document",
-          `Getting ${pageCount} High Quality Pages...`,
+          "Working...",
+          `Loading ${pageCount} pages, please wait...`,
         ),
       ],
     });

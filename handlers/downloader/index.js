@@ -61,6 +61,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
     const DOTS = getEmoji("three_dots", "🎵");
     const COIN = getEmoji("coin", "☁️");
     const FIRE = getEmoji("purple_fire", "✨");
+    const LEA = getEmoji("lea", "✅");
 
     const botUser = await target.client.user.fetch();
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
@@ -84,7 +85,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
         },
         {
           name: `${CAMERA} **Artistic & Creative**`,
-          value: `${ARROW} *Pinterest, Pixiv*`,
+          value: `${ARROW} *Pinterest, Pixiv, Komiku*`,
           inline: false,
         },
         {
@@ -99,7 +100,12 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
         },
         {
           name: `${FIRE} **PDF & Documents**`,
-          value: `${ARROW} *Scribd, Slideshare*`,
+          value: `${ARROW} *Scribd, Slideshare, Academia, Calaméo, DocPlayer*`,
+          inline: false,
+        },
+        {
+          name: `|| ${LEA} **Restricted Content** ||`,
+          value: `|| ${ARROW} *nhentai, Pornhub, DoujinDesu* ||`,
           inline: false,
         },
       )

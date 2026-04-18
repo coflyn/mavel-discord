@@ -19,10 +19,10 @@ async function runSlideshareFlow(target, url, options = {}) {
   if (options.statusMsg) {
     statusMsg = options.statusMsg;
     await _editResponse({
-      embeds: [getStatusEmbed(guild, "Reading SlideShare", "Getting info...")],
+      embeds: [getStatusEmbed(guild, "Searching...", "Opening the slides...")],
     }).catch(() => {});
   } else {
-    statusMsg = await sendInitialStatus(target, "Reading SlideShare", "Getting info...");
+    statusMsg = await sendInitialStatus(target, "Searching...", "Opening the slides...");
   }
 
   try {
@@ -89,8 +89,8 @@ async function runSlideshareFlow(target, url, options = {}) {
       embeds: [
         getStatusEmbed(
           guild,
-          "Download Active",
-          `Downloading ${filteredUrls.length} HD Slides (with Retry Safety)...`,
+          "Working...",
+          `Loading ${filteredUrls.length} pages, please wait...`,
         ),
       ],
     });

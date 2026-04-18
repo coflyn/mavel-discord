@@ -11,8 +11,10 @@ const { resolveEmoji } = require("../../utils/emoji-helper");
 module.exports = async function emojiHandler(interaction) {
   const subcommand = interaction.options.getSubcommand();
 
-  if (interaction.deferReply && (subcommand !== "add")) {
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(e => console.error("[EMOJI-DEFER]", e.message));
+  if (interaction.deferReply && subcommand !== "add") {
+    await interaction
+      .deferReply({ flags: [MessageFlags.Ephemeral] })
+      .catch((e) => console.error("[EMOJI-DEFER]", e.message));
   }
 
   if (subcommand === "add") {
@@ -54,15 +56,19 @@ async function handleAdd(interaction) {
   await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
   let emojiId = input;
-  if (input.includes("/")) {
-    emojiId = input.split("/").pop().split(".")[0];
-  }
-  if (input.includes(":")) {
-    emojiId = input.split(":").pop().replace(">", "");
-  }
+  let finalUrl = null;
 
-  const animatedUrl = `https://cdn.discordapp.com/emojis/${emojiId}.gif?quality=lossless`;
-  const staticUrl = `https://cdn.discordapp.com/emojis/${emojiId}.png?quality=lossless`;
+  if (input.startsWith("http") && !input.includes("cdn.discordapp.com")) {
+    finalUrl = input;
+  } else {
+    if (input.includes("/")) {
+      emojiId = input.split("/").pop().split(".")[0];
+    }
+    if (input.includes(":")) {
+      emojiId = input.split(":").pop().replace(">", "");
+    }
+    finalUrl = `https://cdn.discordapp.com/emojis/${emojiId}.gif?quality=lossless`;
+  }
 
   try {
     const fetchOptions = {
@@ -72,14 +78,16 @@ async function handleAdd(interaction) {
       },
     };
 
-    let response = await fetch(animatedUrl, fetchOptions);
-    if (!response.ok) {
-      response = await fetch(staticUrl, fetchOptions);
+    let response = await fetch(finalUrl, fetchOptions);
+
+    if (!response.ok && finalUrl.includes("cdn.discordapp.com")) {
+      finalUrl = `https://cdn.discordapp.com/emojis/${emojiId}.png?quality=lossless`;
+      response = await fetch(finalUrl, fetchOptions);
     }
 
     if (!response.ok) {
       return interaction.editReply(
-        "*Could not find a valid emoji with that ID or Link.*",
+        "*Could not find a valid emoji or image with that ID or Link.*",
       );
     }
 
@@ -102,10 +110,13 @@ async function handleAdd(interaction) {
 
 async function handleDelete(interaction) {
   if (!interaction.member.permissions.has("ManageGuildExpressions")) {
-    return interaction.reply({
+    const msg = {
       content: "*You do not have permission to manage emojis.*",
       flags: [MessageFlags.Ephemeral],
-    });
+    };
+    return interaction.deferred
+      ? interaction.editReply(msg)
+      : interaction.reply(msg);
   }
 
   const query = interaction.options.getString("query");
@@ -113,10 +124,13 @@ async function handleDelete(interaction) {
   const target = emojis.find((e) => e.name === query || e.id === query);
 
   if (!target) {
-    return interaction.reply({
+    const msg = {
       content: "*Emoji not found in this server.*",
       flags: [MessageFlags.Ephemeral],
-    });
+    };
+    return interaction.deferred
+      ? interaction.editReply(msg)
+      : interaction.reply(msg);
   }
 
   try {
@@ -148,10 +162,13 @@ async function handleRename(interaction) {
   const target = emojis.find((e) => e.name === current || e.id === current);
 
   if (!target) {
-    return interaction.reply({
+    const msg = {
       content: "*Emoji not found in this server.*",
       flags: [MessageFlags.Ephemeral],
-    });
+    };
+    return interaction.deferred
+      ? interaction.editReply(msg)
+      : interaction.reply(msg);
   }
 
   try {
@@ -206,13 +223,15 @@ async function handleInfo(interaction) {
     .setThumbnail(finalUrl)
     .setFooter({ text: "MaveL Emoji System" });
 
-  const res = await (interaction.deferred ? interaction.editReply({
-    embeds: [embed],
-  }) : interaction.reply({
-    embeds: [embed],
-    flags: [MessageFlags.Ephemeral],
-    withResponse: true,
-  }));
+  const res = await (interaction.deferred
+    ? interaction.editReply({
+        embeds: [embed],
+      })
+    : interaction.reply({
+        embeds: [embed],
+        flags: [MessageFlags.Ephemeral],
+        withResponse: true,
+      }));
 
   const reply = sent?.resource || sent;
   if (reply && reply.delete) {
@@ -246,11 +265,19 @@ async function handleList(interaction) {
 
   if (list.length > 3900) {
     const chunks = list.match(/[\s\S]{1,3900}/g);
-    await interaction.reply({
-      content:
-        "*Loading emoji list (Too many emojis, splitting messages)...*",
-      flags: [MessageFlags.Ephemeral],
-    });
+
+    if (interaction.deferred) {
+      await interaction.editReply({
+        content:
+          "*Loading emoji list (Too many emojis, splitting messages)...*",
+      });
+    } else {
+      await interaction.reply({
+        content:
+          "*Loading emoji list (Too many emojis, splitting messages)...*",
+        flags: [MessageFlags.Ephemeral],
+      });
+    }
 
     for (const chunk of chunks) {
       const embed = new EmbedBuilder()
@@ -277,13 +304,15 @@ async function handleList(interaction) {
       .setDescription(list)
       .setFooter({ text: `Total Emojis: ${emojis.size}` });
 
-    const sent = await (interaction.deferred ? interaction.editReply({
-      embeds: [embed],
-    }) : interaction.reply({
-      embeds: [embed],
-      flags: [MessageFlags.Ephemeral],
-      withResponse: true,
-    }));
+    const sent = await (interaction.deferred
+      ? interaction.editReply({
+          embeds: [embed],
+        })
+      : interaction.reply({
+          embeds: [embed],
+          flags: [MessageFlags.Ephemeral],
+          withResponse: true,
+        }));
 
     const response = sent?.resource || sent;
     if (response && response.delete) {
@@ -304,7 +333,8 @@ async function handleNeeds(interaction) {
     (req) => !guildEmojis.some((e) => e.name === req.name),
   );
 
-  const getEmoji = (name, fallback) => resolveEmoji(interaction.guild, name, fallback);
+  const getEmoji = (name, fallback) =>
+    resolveEmoji(interaction.guild, name, fallback);
 
   const ARROW = getEmoji("arrow", "•");
   const AMOGUS = getEmoji("amogus", "🛰️");
@@ -333,23 +363,27 @@ async function handleNeeds(interaction) {
         .setStyle(ButtonStyle.Primary),
     );
 
-    return (interaction.deferred ? interaction.editReply({
-      embeds: [embed],
-      components: [row],
-    }) : interaction.reply({
-      embeds: [embed],
-      components: [row],
-      flags: [MessageFlags.Ephemeral],
-    }));
+    return interaction.deferred
+      ? interaction.editReply({
+          embeds: [embed],
+          components: [row],
+        })
+      : interaction.reply({
+          embeds: [embed],
+          components: [row],
+          flags: [MessageFlags.Ephemeral],
+        });
   } else {
-    return (interaction.deferred ? interaction.editReply({
-      embeds: [embed],
-      content: "*All required emojis are already added and ready.*",
-    }) : interaction.reply({
-      embeds: [embed],
-      content: "*All required emojis are already added and ready.*",
-      flags: [MessageFlags.Ephemeral],
-    }));
+    return interaction.deferred
+      ? interaction.editReply({
+          embeds: [embed],
+          content: "*All required emojis are already added and ready.*",
+        })
+      : interaction.reply({
+          embeds: [embed],
+          content: "*All required emojis are already added and ready.*",
+          flags: [MessageFlags.Ephemeral],
+        });
   }
 }
 
