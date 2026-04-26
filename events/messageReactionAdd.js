@@ -23,21 +23,33 @@ module.exports = {
     if (message.author.id !== reaction.client.user.id) return;
 
     const embed = message.embeds[0];
-    const isReport = embed && embed.title && (
-      embed.title.toLowerCase().includes("ready") || 
-      embed.title.toLowerCase().includes("large")
-    );
-    if (!embed || !isReport) return;
-    
+    if (!embed) return;
+
+    const embedTitle = embed.title?.toLowerCase() || "";
+    const isMaveL =
+      embed.author?.name?.includes("MaveL") ||
+      embed.footer?.text?.includes("MaveL");
+    const isReport =
+      embedTitle.includes("ready") ||
+      embedTitle.includes("large") ||
+      embed.description?.includes("Original Link");
+
+    if (!isMaveL || !isReport) return;
 
     const desc = embed.description || "";
     const linkMatch = desc.match(/\[Original Link\]\(<([^>]+)>\)/);
     if (!linkMatch) return;
 
     const url = linkMatch[1];
+    let cleanTitle = "Media";
+
     const titleField = embed.fields?.find((f) => f.name.includes("Title"));
-    const cleanTitle =
-      titleField?.value.replace(/\*/g, "").substring(0, 100) || "Media";
+    if (titleField) {
+      cleanTitle = titleField.value.replace(/\*/g, "");
+    } else {
+      const descTitleMatch = desc.match(/\*\*Title:\*\* \*([^*]+)\*/);
+      if (descTitleMatch) cleanTitle = descTitleMatch[1];
+    }
 
     try {
       const guildEmojis = message.guild
@@ -53,24 +65,38 @@ module.exports = {
         .setColor(embed.color || "#6c5ce7")
         .setAuthor({
           name: "MaveL Bookmark Service",
-          iconURL: client.user.displayAvatarURL(),
+          iconURL: reaction.client.user.displayAvatarURL(),
         })
         .setTitle(`${E_ANNO} **Content Bookmarked**`);
-      const thumbnail = embed.thumbnail?.url || embed.image?.url;
-      if (thumbnail) dmEmbed.setThumbnail(thumbnail);
+
+      const thumbnailCandidate =
+        embed.thumbnail?.url ||
+        embed.image?.url ||
+        embed.author?.iconURL ||
+        message.client.user.displayAvatarURL();
+
+      dmEmbed.setThumbnail(thumbnailCandidate);
 
       dmEmbed
         .setDescription(
           `You bookmarked this media via reaction in **${message.guild?.name || "a server"}**.\n\n` +
-            `${E_ARROW} **Title:** *${cleanTitle}*\n` +
+            `${E_ARROW} **Title:** *${cleanTitle.substring(0, 100)}*\n` +
             `${E_ARROW} **Source:** ${url}`,
         )
-        .setFooter({ text: "MaveL", iconURL: client.user.displayAvatarURL() })
+        .setFooter({
+          text: "MaveL System",
+          iconURL: reaction.client.user.displayAvatarURL(),
+        })
         .setTimestamp();
 
-      await user.send({ embeds: [dmEmbed] }).catch(() => {});
+      await user.send({ embeds: [dmEmbed] }).catch((err) => {
+        console.error(
+          `[BOOKMARK-DM-FAIL] Could not send DM to ${user.tag}:`,
+          err.message,
+        );
+      });
     } catch (err) {
-      // Silent
+      console.error("[BOOKMARK-ERROR]", err);
     }
   },
 };

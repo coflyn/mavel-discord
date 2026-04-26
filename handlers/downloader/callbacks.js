@@ -86,6 +86,18 @@ async function startDownload(interaction, jobId, format, options = {}) {
   const title = job ? job.title : options.title || "External File";
   const userMention = job?.userId ? `<@${job.userId}>` : "";
 
+  const formatDuration = (input) => {
+    if (!input) return "---";
+    if (typeof input === "string" && input.includes(":")) {
+      return input.split(".")[0];
+    }
+    if (isNaN(input)) return input || "---";
+    const s = Math.floor(input);
+    const m = Math.floor(s / 60);
+    const rs = s % 60;
+    return `${m}:${rs.toString().padStart(2, "0")}`;
+  };
+
   const statusContent = `*Queued (${format.toUpperCase()}${format === "mp4" ? ` ${resolution}p` : ""})...*`;
 
   const cleanupStatus = async () => {
@@ -611,8 +623,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
           }
         } catch (axiosErr) {}
 
-        const guild = interaction.guild;
-
         if (fs.existsSync(outputFile) && fs.statSync(outputFile).size > 10000) {
           const stats = fs.statSync(outputFile);
           const limitMB = 25;
@@ -620,7 +630,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
           if (stats.size > limitMB * 1024 * 1024) {
             const publicUrl = getAssetUrl(path.basename(outputFile));
             if (publicUrl) {
-              const guild = interaction.guild;
               const DIAMOND =
                 guild.emojis.cache
                   .find((e) => e.name === "diamond")
@@ -747,7 +756,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
         }
 
         const attachment = new AttachmentBuilder(outputFile);
-        const guild = interaction.guild;
 
         const doneEmbed = new EmbedBuilder()
           .setColor(EC.DOCUMENT)
@@ -861,8 +869,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const attachment = new AttachmentBuilder(outputFile, {
           name: `${sanitizedTitle}.mp3`,
         });
-
-        const guild = interaction.guild;
 
         const doneEmbed = new EmbedBuilder()
           .setColor(EC.MUSIC_DL)
@@ -1127,8 +1133,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
           name: `pixiv_${jobId}.mp4`,
         });
 
-        const guild = interaction.guild;
-
         const doneEmbed = new EmbedBuilder()
           .setColor(EC.ARTWORK)
           .setAuthor({
@@ -1283,8 +1287,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
         );
         await new Promise((r) => dlAudio.on("close", r));
 
-        const guild = interaction.guild;
-
         const attachments = photoPaths.map((p) => new AttachmentBuilder(p));
         if (fs.existsSync(audioPath))
           attachments.push(new AttachmentBuilder(audioPath));
@@ -1298,10 +1300,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
             duration: "",
             uploader: "",
           };
-
-        const checkEmoji =
-          guild.emojis.cache.find((e) => e.name === "check")?.toString() ||
-          "✅";
 
         const doneEmbed = new EmbedBuilder()
           .setColor(platformColor)
@@ -1383,9 +1381,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
         });
         await finalMsg.react(CHECK).catch(() => {});
 
-        const msg = interaction.message || interaction;
-        await finalMsg.react(checkEmoji).catch(() => {});
-
         photoPaths.forEach((p) => fs.unlinkSync(p));
         if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
         if (interaction.deleteReply)
@@ -1413,6 +1408,29 @@ async function startDownload(interaction, jobId, format, options = {}) {
               ? "https://x.com/"
               : "https://www.google.com/");
 
+      const binDir = path.join(tempDir, "bin");
+      if (!fs.existsSync(binDir)) fs.mkdirSync(binDir, { recursive: true });
+
+      const ffmpegBin = path.join(binDir, "ffmpeg");
+      const ffprobeBin = path.join(binDir, "ffprobe");
+
+      const ffprobePath = require("ffprobe-static").path;
+
+      if (!fs.existsSync(ffmpegBin)) {
+        try {
+          fs.symlinkSync(ffmpegStatic, ffmpegBin);
+        } catch (e) {
+          fs.copyFileSync(ffmpegStatic, ffmpegBin);
+        }
+      }
+      if (!fs.existsSync(ffprobeBin)) {
+        try {
+          fs.symlinkSync(ffprobePath, ffprobeBin);
+        } catch (e) {
+          fs.copyFileSync(ffprobePath, ffprobeBin);
+        }
+      }
+
       const dlArgs =
         format === "mp4"
           ? [
@@ -1428,6 +1446,8 @@ async function startDownload(interaction, jobId, format, options = {}) {
               ...getJsRuntimeArgs(),
               ...getCookiesArgs(),
               ...getVpsArgs(),
+              "--ffmpeg-location",
+              binDir,
               "--user-agent",
               ua,
               "--referer",
@@ -1678,8 +1698,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
       if (statsSnapshot.size > limitMB * 1024 * 1024) {
         if (publicUrl) {
-          const guild = interaction.guild;
-
           const DIAMOND =
             guild.emojis.cache.find((e) => e.name === "diamond")?.toString() ||
             "💎";
@@ -1693,18 +1711,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
               duration: "",
               uploader: "",
             };
-
-          const formatDuration = (input) => {
-            if (!input) return "---";
-            if (typeof input === "string" && input.includes(":")) {
-              return input.split(".")[0];
-            }
-            if (isNaN(input)) return input || "---";
-            const s = Math.floor(input);
-            const m = Math.floor(s / 60);
-            const rs = s % 60;
-            return `${m}:${rs.toString().padStart(2, "0")}`;
-          };
 
           const linkEmbed = new EmbedBuilder()
             .setColor(platformColor)
@@ -1811,18 +1817,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
       const attachment = new AttachmentBuilder(finalFile, {
         name: `${cleanBase}.${finalExt}`,
       });
-
-      const formatDuration = (input) => {
-        if (!input) return "---";
-        if (typeof input === "string" && input.includes(":")) {
-          return input.split(".")[0];
-        }
-        if (isNaN(input)) return input || "---";
-        const s = Math.floor(input);
-        const m = Math.floor(s / 60);
-        const rs = s % 60;
-        return `${m}:${rs.toString().padStart(2, "0")}`;
-      };
 
       const doneEmbed = new EmbedBuilder()
         .setColor(platformColor)

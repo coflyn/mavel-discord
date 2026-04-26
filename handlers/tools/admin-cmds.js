@@ -14,12 +14,13 @@ const settingsPath = path.join(__dirname, "../../database/settings.json");
 
 module.exports = async function adminCmdsHandler(interaction) {
   if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+    const errorMsg = "*Error: Access Denied. You need Administrator permission to use this system command.*";
     return await (interaction.deferred
       ? interaction.editReply({
-          content: "*Error: Owner-only command. Permission denied.*",
+          content: errorMsg,
         })
       : interaction.reply({
-          content: "*Error: Owner-only command. Permission denied.*",
+          content: errorMsg,
           flags: [MessageFlags.Ephemeral],
         }));
   }
@@ -69,20 +70,12 @@ async function toggleHibernate(interaction, status) {
     guild: interaction.guild.name,
   });
 
-  const LOCK =
-    interaction.guild.emojis.cache.find((e) => e.name === "cash")?.toString() ||
-    interaction.guild.emojis.cache
-      .find((e) => e.name === "crowncyan")
-      ?.toString() ||
-    "🔒";
-  const POWER =
-    interaction.guild.emojis.cache
-      .find((e) => e.name === "ping_green")
-      ?.toString() ||
-    interaction.guild.emojis.cache
-      .find((e) => e.name === "online")
-      ?.toString() ||
-    "🟢";
+  const LOCK = resolveEmoji(interaction.guild, "cash", "🔒") !== "🔒"
+    ? resolveEmoji(interaction.guild, "cash", "🔒")
+    : resolveEmoji(interaction.guild, "crowncyan", "🔒");
+  const POWER = resolveEmoji(interaction.guild, "ping_green", "🟢") !== "🟢"
+    ? resolveEmoji(interaction.guild, "ping_green", "🟢")
+    : resolveEmoji(interaction.guild, "online", "🟢");
 
   await (interaction.deferred
     ? interaction.editReply({
@@ -96,10 +89,7 @@ async function toggleHibernate(interaction, status) {
 
 async function handlePurge(interaction) {
   const target = interaction.options.getString("target");
-  const FIRE =
-    interaction.guild.emojis.cache
-      .find((e) => e.name === "purple_fire")
-      ?.toString() || "🔥";
+  const FIRE = resolveEmoji(interaction.guild, "purple_fire", "🔥");
 
   if (target === "logs") {
     const logPath = path.join(__dirname, "../../bot.log");
@@ -207,9 +197,7 @@ async function handleBackup(interaction) {
     attachments.push(new AttachmentBuilder(filePath));
   });
 
-  const LEA =
-    interaction.guild.emojis.cache.find((e) => e.name === "lea")?.toString() ||
-    "✅";
+  const LEA = resolveEmoji(interaction.guild, "lea", "✅");
 
   await (interaction.deferred
     ? interaction.editReply({
@@ -259,14 +247,8 @@ async function handleScan(interaction) {
     }
   }
 
-  const NOTIF =
-    interaction.guild.emojis.cache
-      .find((e) => e.name === "notif")
-      ?.toString() || "🔔";
-  const ARROW =
-    interaction.guild.emojis.cache
-      .find((e) => e.name === "arrow")
-      ?.toString() || "•";
+  const NOTIF = resolveEmoji(interaction.guild, "notif", "🔔");
+  const ARROW = resolveEmoji(interaction.guild, "arrow", "•");
   const embed = new EmbedBuilder()
     .setColor("#d63031")
     .setTitle(`${NOTIF} **Checking Connections**`)
@@ -293,9 +275,7 @@ async function handleLogs(interaction) {
     .split("\n")
     .slice(-15)
     .join("\n");
-  const PC =
-    interaction.guild.emojis.cache.find((e) => e.name === "pc")?.toString() ||
-    "💻";
+  const PC = resolveEmoji(interaction.guild, "pc", "💻");
 
   await (interaction.deferred
     ? interaction.editReply({

@@ -4,6 +4,8 @@ const { loadDB, saveDB } = require("./core-helpers");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
+const { startDownload } = require("./callbacks");
+
 async function runSpotifyFlow(target, url, options = {}) {
     const guild = target.guild || target.client?.guilds?.cache.first();
     const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
@@ -73,13 +75,17 @@ async function runSpotifyFlow(target, url, options = {}) {
                 iconURL: target.client.user.displayAvatarURL()
             });
 
+        if (options.isCommand && options.type) {
+            return await startDownload(target, jobId, "spmp3", { statusMsg });
+        }
+
         await _editResponse({ embeds: [foundEmbed] });
         return { jobId, statusMsg };
 
     } catch (e) {
         console.error("[SPOTIFY-FLOW] Error:", e.message);
         await _editResponse({
-            embeds: [getStatusEmbed("Spotify Error", "Could not get info from Spotify servers.")]
+            embeds: [getStatusEmbed(guild, "Spotify Error", "Could not get info from Spotify servers.")]
         });
     }
 }

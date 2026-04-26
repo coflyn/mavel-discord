@@ -1,4 +1,10 @@
-const { REST, Routes, SlashCommandBuilder, ContextMenuCommandBuilder, ApplicationCommandType } = require("discord.js");
+const {
+  REST,
+  Routes,
+  SlashCommandBuilder,
+  ContextMenuCommandBuilder,
+  ApplicationCommandType,
+} = require("discord.js");
 const config = require("./config");
 
 const commands = [
@@ -18,6 +24,7 @@ const commands = [
         .addChoices(
           { name: "Video (MP4)", value: "mp4" },
           { name: "Audio (MP3)", value: "mp3" },
+          { name: "Gallery (ZIP/Photos)", value: "photo" },
         ),
     )
     .addStringOption((option) =>
@@ -375,10 +382,31 @@ const commands = [
     .setName("inspect")
     .setDescription("Expose detailed info and EXIF data of a file")
     .addAttachmentOption((opt) =>
-      opt.setName("file").setDescription("The file to inspect").setRequired(true),
+      opt
+        .setName("file")
+        .setDescription("The file to inspect")
+        .setRequired(true),
     ),
   new ContextMenuCommandBuilder()
     .setName("Inspect Media")
+    .setType(ApplicationCommandType.Message),
+  new ContextMenuCommandBuilder()
+    .setName("Translate Text")
+    .setType(ApplicationCommandType.Message),
+  new ContextMenuCommandBuilder()
+    .setName("Extract Text (OCR)")
+    .setType(ApplicationCommandType.Message),
+  new ContextMenuCommandBuilder()
+    .setName("Delete Message")
+    .setType(ApplicationCommandType.Message),
+  new ContextMenuCommandBuilder()
+    .setName("Report to Admin")
+    .setType(ApplicationCommandType.Message),
+  new ContextMenuCommandBuilder()
+    .setName("Format as Code")
+    .setType(ApplicationCommandType.Message),
+  new ContextMenuCommandBuilder()
+    .setName("Mock Message")
     .setType(ApplicationCommandType.Message),
   new SlashCommandBuilder()
     .setName("diagnostics")

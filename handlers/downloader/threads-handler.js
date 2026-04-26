@@ -5,6 +5,8 @@ const { loadDB, saveDB } = require("./core-helpers");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
+const { startDownload } = require("./callbacks");
+
 async function runThreadsFlow(target, url, options = {}) {
   const guild = target.guild || target.client?.guilds?.cache.first();
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
@@ -184,6 +186,11 @@ async function runThreadsFlow(target, url, options = {}) {
           `${ARROW} **Author:** *${author || "Threads User"}*\n\n` +
           `*Everything is ready. Starting the download...*`,
       );
+
+    if (options.isCommand && options.type) {
+      const finalFormat = options.type === "mp3" ? "mp3" : videoUrl ? "mp4" : "photo";
+      return await startDownload(target, jobId, finalFormat, { statusMsg });
+    }
 
     const resMsg = await _editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg: resMsg };

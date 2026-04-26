@@ -32,12 +32,39 @@ module.exports = {
   name: "interactionCreate",
   async execute(interaction, client) {
     const { increment } = require("../utils/counter-handler");
-    if (interaction.isChatInputCommand() || interaction.isButton() || interaction.isStringSelectMenu()) {
+    if (
+      interaction.isChatInputCommand() ||
+      interaction.isButton() ||
+      interaction.isStringSelectMenu()
+    ) {
       increment("totalRequests");
     }
 
     try {
-      // 1. Autocomplete
+      if (fs.existsSync(settingsPath)) {
+        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+        if (settings.isHibernating) {
+          const isWakeup =
+            interaction.isChatInputCommand?.() &&
+            interaction.commandName === "wakeup";
+          const isAutocomplete = interaction.isAutocomplete?.();
+          if (!isWakeup && !isAutocomplete) {
+            if (!interaction.replied && !interaction.deferred) {
+              return await interaction
+                .reply({
+                  content:
+                    "💤 *MaveL is currently in sleep mode. Use `/wakeup` to wake the bot.*",
+                  flags: [MessageFlags.Ephemeral],
+                })
+                .catch(() => {});
+            }
+            return;
+          }
+        }
+      }
+    } catch (e) {}
+
+    try {
       if (interaction.isAutocomplete()) {
         const { commandName } = interaction;
         if (commandName === "playlist") {
@@ -57,13 +84,21 @@ module.exports = {
         return;
       }
 
-      // 2. Context Menus
       if (interaction.isMessageContextMenuCommand()) {
-        const cmd = client.commands.get(interaction.commandName);
+        let commandName = interaction.commandName;
+        if (commandName === "Convert Media") commandName = "convert";
+        if (commandName === "Inspect Media") commandName = "inspect";
+        if (commandName === "Translate Text") commandName = "app_translate";
+        if (commandName === "Extract Text (OCR)") commandName = "app_ocr";
+        if (commandName === "Delete Message") commandName = "app_delete";
+        if (commandName === "Report to Admin") commandName = "app_report";
+        if (commandName === "Format as Code") commandName = "app_format";
+        if (commandName === "Mock Message") commandName = "app_mock";
+
+        const cmd = client.commands.get(commandName);
         if (cmd) return await cmd.execute(interaction, client);
       }
 
-      // 3. Select Menus
       if (interaction.isStringSelectMenu()) {
         const { customId, values, user } = interaction;
 
@@ -139,9 +174,14 @@ module.exports = {
           };
 
           if (value === "lyrics") {
-            await interaction.update({ components: [player.getPlaybackComponents(guildId)] }).catch(() => {});
+            await interaction
+              .update({ components: [player.getPlaybackComponents(guildId)] })
+              .catch(() => {});
             const E_PC = resolveEmoji(interaction.guild, "pc", "📡");
-            const statusMsg = await interaction.followUp({ content: `${E_PC} *Searching for song lyrics...*`, flags: [MessageFlags.Ephemeral] });
+            const statusMsg = await interaction.followUp({
+              content: `${E_PC} *Searching for song lyrics...*`,
+              flags: [MessageFlags.Ephemeral],
+            });
             const state = player.queues.get(guildId);
             if (!state || !state.current)
               return await interaction.webhook.editMessage(statusMsg.id, {
@@ -178,7 +218,11 @@ module.exports = {
             const state = player.queues.get(guildId);
             if (!state) return;
             const E_DIAMOND = resolveEmoji(interaction.guild, "diamond", "🔀");
-            if (state.queue.length === 0) return interaction.reply({ content: `### ${E_DIAMOND} **Your list is currently empty**`, flags: [MessageFlags.Ephemeral] });
+            if (state.queue.length === 0)
+              return interaction.reply({
+                content: `### ${E_DIAMOND} **Your list is currently empty**`,
+                flags: [MessageFlags.Ephemeral],
+              });
             const newMode = state.shuffle ? "off" : "on";
             await notifyControl(`Shuffle ${newMode.toUpperCase()}`);
             player.toggleShuffle(guildId, newMode);
@@ -208,15 +252,21 @@ module.exports = {
           if (value === "queue") {
             const list = player.getQueueList(guildId);
             const E_ANNO = resolveEmoji(interaction.guild, "anno", "📜");
-            await interaction.reply({ content: `### ${E_ANNO} **Upcoming Songs**\n${list.join("\n").substring(0, 1900) || "*The list is currently empty.*"}`, flags: [64] });
+            await interaction.reply({
+              content: `### ${E_ANNO} **Upcoming Songs**\n${list.join("\n").substring(0, 1900) || "*The list is currently empty.*"}`,
+              flags: [64],
+            });
             return;
           }
 
-          if (value === "clear") { 
-            await notifyControl("Clear"); 
-            player.clear(guildId); 
+          if (value === "clear") {
+            await notifyControl("Clear");
+            player.clear(guildId);
             const E_LEA = resolveEmoji(interaction.guild, "lea", "🗑️");
-            return interaction.reply({ content: `${E_LEA} **List cleared.**`, flags: [64] }); 
+            return interaction.reply({
+              content: `${E_LEA} **List cleared.**`,
+              flags: [64],
+            });
           }
 
           if (value === "playlist") {
@@ -262,19 +312,66 @@ module.exports = {
         }
       }
 
-      // 4. Buttons
       if (interaction.isButton()) {
         if (interaction.customId === "sync_emojis")
           return await syncMissingEmojis(interaction);
         return await downloaderHandler.handleDownloadCallback(interaction);
       }
 
-      // 5. Chat Commands
       if (interaction.isChatInputCommand()) {
         const { commandName } = interaction;
         const userId = interaction.user.id;
 
-        // Logging
+        if (!interaction.guildId) {
+          const allowedDmCommands = ["delete"];
+          if (!allowedDmCommands.includes(commandName)) {
+            let serverInvite = "https://discord.gg/mavel";
+            try {
+              const mainGuild =
+                client.guilds.cache.get(config.guildId) ||
+                client.guilds.cache.first();
+              if (mainGuild) {
+                const channels = await mainGuild.channels.fetch();
+                const inviteChannel =
+                  channels.find((c) => c.type === ChannelType.GuildText) ||
+                  mainGuild.systemChannel;
+                if (inviteChannel) {
+                  const invite = await inviteChannel
+                    .createInvite({ maxAge: 0, maxUses: 0 })
+                    .catch(() => null);
+                  if (invite) serverInvite = invite.url;
+                }
+              }
+            } catch (e) {
+              console.error("[DM-INVITE-GEN] Error:", e.message);
+            }
+
+            const embed = new EmbedBuilder()
+              .setColor("#d63031")
+              .setAuthor({
+                name: "MaveL System Notice",
+                iconURL: client.user.displayAvatarURL(),
+              })
+              .setTitle("🛰️ **Infrastructure Restriction**")
+              .setDescription(
+                `### **Commands Disabled in DMs**\n` +
+                  `*To maintain high performance and ensure all security protocols, MaveL commands are strictly restricted to **Official Server Channels**.*\n\n` +
+                  `**Why is this restricted?**\n` +
+                  `• *Server-side asset caching*\n` +
+                  `• *Multi-threaded download stability*\n` +
+                  `• *Community & Support sync*\n\n` +
+                  `Please use MaveL within our **[Official Discord Server](${serverInvite})** to access all downloader features and administrative tools.`,
+              )
+              .setFooter({ text: "MaveL Environment Protection Unit" })
+              .setTimestamp();
+
+            return interaction.reply({
+              embeds: [embed],
+              flags: [MessageFlags.Ephemeral],
+            });
+          }
+        }
+
         advanceLog(client, {
           type: "command",
           title: "Command Execution",

@@ -140,10 +140,15 @@ async function musicHandler(target, manualData = null) {
 
       results = await tryBcSearchLocal(refinedQuery);
     } else {
-      results = await tryYtSearch("ytmsearch10", refinedQuery);
-      if (results.length === 0) {
-        results = await tryYtSearch("ytsearch10", refinedQuery);
+      let rawResults = await tryYtSearch("ytmsearch10", refinedQuery);
+      if (rawResults.length === 0) {
+        rawResults = await tryYtSearch("ytsearch10", refinedQuery);
       }
+      results = rawResults.filter(r => {
+        const isLive = r.is_live || r.live_status === "is_live";
+        const duration = r.duration || 0;
+        return !isLive && duration <= 3600;
+      });
     }
 
     const filterWords = [

@@ -9,6 +9,13 @@ const axios = require("axios");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 
 module.exports = async function diagnosticsHandler(interaction) {
+  if (!interaction.member.permissions.has("Administrator")) {
+    return interaction.reply({
+      content: "*Error: Only administrators can view system diagnostics.*",
+      flags: [MessageFlags.Ephemeral],
+    });
+  }
+
   if (interaction.deferReply) {
     await interaction
       .deferReply({ flags: [MessageFlags.Ephemeral] })

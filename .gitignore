@@ -9,3 +9,5 @@ database/backups/
 *.log
 cookies.txt
 .DS_Store
+eng.traineddata
+yt-dlp

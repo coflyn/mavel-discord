@@ -13,6 +13,8 @@ const { loadDB, saveDB } = require("./core-helpers");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
+const { startDownload } = require("./callbacks");
+
 async function runCloudFlow(target, url, options = {}) {
   const guild = target.guild || target.client?.guilds?.cache.first();
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
@@ -122,6 +124,10 @@ async function runCloudFlow(target, url, options = {}) {
         .setLabel("DOWNLOAD FILE")
         .setStyle(ButtonStyle.Success),
     );
+
+    if (options.isCommand) {
+      return await startDownload(target, jobId, "cloud", { statusMsg });
+    }
 
     await _editResponse({ embeds: [foundEmbed], components: [row] });
   } catch (e) {

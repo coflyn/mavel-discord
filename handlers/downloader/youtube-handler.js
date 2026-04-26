@@ -11,6 +11,8 @@ const {
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
+const { startDownload } = require("./callbacks");
+
 async function runYoutubeFlow(target, url, options = {}) {
   const guild = target.guild || target.client?.guilds?.cache.first();
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
@@ -108,6 +110,10 @@ async function runYoutubeFlow(target, url, options = {}) {
         text: "MaveL YouTube | Select format below",
         iconURL: target.client.user.displayAvatarURL(),
       });
+
+    if (options.isCommand && options.type) {
+      return await startDownload(target, jobId, options.type, { statusMsg });
+    }
 
     await _editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg, isShorts };

@@ -8,6 +8,8 @@ const path = require("path");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
+const { startDownload } = require("./callbacks");
+
 async function runSoundcloudFlow(target, url, options = {}) {
   const guild = target.guild || target.client?.guilds?.cache.first();
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
@@ -28,6 +30,7 @@ async function runSoundcloudFlow(target, url, options = {}) {
   }
 
   if (!statusMsg) {
+    const initialEmbed = getStatusEmbed(guild, "SoundCloud Music", "Searching for song...");
     if (target.replied || target.deferred) {
       statusMsg = await target.editReply({
         embeds: [initialEmbed],
@@ -236,6 +239,10 @@ async function runSoundcloudFlow(target, url, options = {}) {
         text: "MaveL Music",
         iconURL: target.client.user.displayAvatarURL(),
       });
+
+    if (options.isCommand && options.type) {
+      return await startDownload(target, jobId, "mp3", { statusMsg });
+    }
 
     const resMsg = await _editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg: resMsg };

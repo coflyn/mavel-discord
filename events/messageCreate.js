@@ -12,6 +12,17 @@ module.exports = {
   async execute(message, client) {
     if (message.author.bot) return;
 
+    try {
+      const fs = require("fs");
+      const settingsFile = require("path").join(
+        __dirname,
+        "../database/settings.json",
+      );
+      if (fs.existsSync(settingsFile)) {
+        const settings = JSON.parse(fs.readFileSync(settingsFile, "utf-8"));
+        if (settings.isHibernating) return;
+      }
+    } catch (e) {}
     const args = message.content.startsWith(config.prefix)
       ? message.content.slice(config.prefix.length).trim().split(/ +/)
       : [];

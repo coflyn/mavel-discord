@@ -11,6 +11,8 @@ const {
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
+const { startDownload } = require("./callbacks");
+
 async function runYtmFlow(target, url, options = {}) {
   const guild = target.guild || target.client?.guilds?.cache.first();
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
@@ -107,6 +109,10 @@ async function runYtmFlow(target, url, options = {}) {
         text: "MaveL Music",
         iconURL: target.client.user.displayAvatarURL(),
       });
+
+    if (options.isCommand) {
+      return await startDownload(target, jobId, "mp3", { statusMsg });
+    }
 
     await _editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg };

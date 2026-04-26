@@ -19,7 +19,11 @@ const {
   formatNumber,
   sendAdminLog,
 } = require("./core-helpers");
-const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
+const {
+  getStatusEmbed,
+  editResponse,
+  sendInitialStatus,
+} = require("../../utils/response-helper");
 const { startDownload } = require("./callbacks");
 const { runPixivFlow } = require("./pixiv-handler");
 const { runTikTokFlow } = require("./tiktok-handler");
@@ -62,8 +66,16 @@ async function runYtDlpFlow(target, url, options = {}) {
   const AMOGUS = getEmoji("amogus", "🛰️");
   const FIRE = getEmoji("purple_fire", "🔥");
 
-  const initialEmbed = getStatusEmbed(guild, "Checking link...", "Getting link info...");
-  statusMsg = await sendInitialStatus(target, "Checking link...", "Getting link info...");
+  const initialEmbed = getStatusEmbed(
+    guild,
+    "Checking link...",
+    "Getting link info...",
+  );
+  statusMsg = await sendInitialStatus(
+    target,
+    "Checking link...",
+    "Getting link info...",
+  );
 
   await sendAdminLog(target.client, {
     title: "Link Detected",
@@ -73,7 +85,8 @@ async function runYtDlpFlow(target, url, options = {}) {
     url: url,
   });
 
-  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
+  const _editResponse = async (data) =>
+    await editResponse(target, statusMsg, data);
 
   if (url.includes("pixiv.net")) {
     const jobResult = await runPixivFlow(target, url, { statusMsg });
@@ -181,7 +194,7 @@ async function runYtDlpFlow(target, url, options = {}) {
 
   if (
     finalUrl.includes("twitter.com") ||
-    finalUrl.includes("x.com") ||
+    finalUrl.includes("://x.com") ||
     finalUrl.includes("vxtwitter.com") ||
     finalUrl.includes("fixupx.com")
   ) {
@@ -230,9 +243,15 @@ async function runYtDlpFlow(target, url, options = {}) {
         resolve(false);
       }, 5000);
 
-      const checkProcess = spawn(getYtDlp(), ["--simulate", "--get-url", finalUrl], { env: getDlpEnv() });
+      const checkProcess = spawn(
+        getYtDlp(),
+        ["--simulate", "--get-url", finalUrl],
+        { env: getDlpEnv() },
+      );
       let stdout = "";
-      checkProcess.stdout.on("data", (data) => { stdout += data.toString(); });
+      checkProcess.stdout.on("data", (data) => {
+        stdout += data.toString();
+      });
       checkProcess.on("close", (code) => {
         clearTimeout(timeout);
         if (code !== 0 || !stdout || stdout.trim() === "") resolve(false);
@@ -249,9 +268,20 @@ async function runYtDlpFlow(target, url, options = {}) {
       const db = loadDB();
 
       const meta = await new Promise((resolve) => {
-        const metaProcess = spawn(getYtDlp(), ["--simulate", "--print", "%(duration)s|%(uploader)s|%(title)s", finalUrl], { env: getDlpEnv() });
+        const metaProcess = spawn(
+          getYtDlp(),
+          [
+            "--simulate",
+            "--print",
+            "%(duration)s|%(uploader)s|%(title)s",
+            finalUrl,
+          ],
+          { env: getDlpEnv() },
+        );
         let stdout = "";
-        metaProcess.stdout.on("data", (data) => { stdout += data.toString(); });
+        metaProcess.stdout.on("data", (data) => {
+          stdout += data.toString();
+        });
         metaProcess.on("close", (code) => {
           if (code !== 0 || !stdout) resolve("||");
           else resolve(stdout.trim());
@@ -387,18 +417,23 @@ async function runYtDlpFlow(target, url, options = {}) {
     return;
   }
 
-  if (finalUrl.includes("nhentai.net")) {
+  if (finalUrl.includes("nhentai.net") || finalUrl.includes("cin.mom")) {
     const jobResult = await runNSrvFlow(target, finalUrl, { statusMsg });
     if (jobResult && jobResult.jobId) {
       return await startDownload(target, jobResult.jobId, "twgallery", {
         statusMsg: jobResult.statusMsg,
-        platform: "Signal Archive"
+        platform: "Signal Archive",
       });
     }
     return;
   }
 
-  if (finalUrl.includes("pornhub.com")) {
+  if (
+    finalUrl.includes("pornhub.com") ||
+    finalUrl.includes("xnxx.com") ||
+    finalUrl.includes("xvideos.com") ||
+    finalUrl.includes("eporner.com")
+  ) {
     return await runPSrvFlow(target, finalUrl, { statusMsg });
   }
 
@@ -407,32 +442,14 @@ async function runYtDlpFlow(target, url, options = {}) {
     if (jobResult && jobResult.jobId) {
       return await startDownload(target, jobResult.jobId, "twgallery", {
         statusMsg: jobResult.statusMsg,
-        platform: "Proxy Sync"
+        platform: "Proxy Sync",
       });
     }
     return;
   }
-  if (finalUrl.includes("tiktok.com") && finalUrl.includes("/photo/")) {
-    finalUrl = finalUrl.replace("/photo/", "/video/");
-  }
-
-  const referer = finalUrl.includes("instagram.com")
-    ? "https://www.instagram.com/"
-    : finalUrl.includes("tiktok.com")
-      ? "https://www.tiktok.com/"
-      : finalUrl.includes("twitter.com") ||
-          finalUrl.includes("x.com") ||
-          finalUrl.includes("vxtwitter.com") ||
-          finalUrl.includes("fixupx.com")
-        ? "https://x.com/"
-        : finalUrl.includes("pinterest.com") || finalUrl.includes("pin.it")
-          ? "https://www.pinterest.com/"
-          : finalUrl.includes("music.youtube.com") ||
-              finalUrl.includes("youtube.com")
-            ? "https://www.youtube.com/"
-            : finalUrl.includes("capcut.com")
-              ? "https://www.capcut.com/"
-              : "https://www.google.com/";
+  const referer = finalUrl.includes("capcut.com")
+    ? "https://www.capcut.com/"
+    : "https://www.google.com/";
 
   const dlArgs = [
     ...getJsRuntimeArgs(),
@@ -525,7 +542,7 @@ async function runYtDlpFlow(target, url, options = {}) {
             .split("\n")[0]
             .substring(0, 150);
 
-          const isX = url.includes("x.com") || url.includes("twitter.com");
+          const isX = url.includes("://x.com") || url.includes("twitter.com");
           const xError =
             isX &&
             (cleanError.includes("No video") ||
@@ -600,13 +617,10 @@ async function runYtDlpFlow(target, url, options = {}) {
       const hasVideo = job?.hasVideo;
 
       if (options.type && (options.type === "mp3" || !isGallery)) {
-        return await startDownload(
-          target,
-          jobId,
-          options.type,
-          options.resolution,
+        return await startDownload(target, jobId, options.type, {
+          resolution: options.resolution,
           statusMsg,
-        );
+        });
       }
 
       const botUser = await target.client.user.fetch();
@@ -659,7 +673,8 @@ async function runYtDlpFlow(target, url, options = {}) {
 
       const isMusic = musicKeywords.some((keyword) => url.includes(keyword));
       const isTikTok = url.includes("tiktok.com");
-      const isCommand = target.isChatInputCommand && target.isChatInputCommand();
+      const isCommand =
+        target.isChatInputCommand && target.isChatInputCommand();
       const shouldDirect = !isTikTok || !isCommand || isMusic;
 
       if (shouldDirect && options.type) {
@@ -693,4 +708,5 @@ async function runYtDlpFlow(target, url, options = {}) {
 
 module.exports = {
   runYtDlpFlow,
+  musicKeywords,
 };

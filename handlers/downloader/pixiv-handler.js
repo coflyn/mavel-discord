@@ -12,6 +12,8 @@ const {
 const { loadDB, saveDB } = require("./core-helpers");
 const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
+const { startDownload } = require("./callbacks");
+
 async function runPixivFlow(target, url, options = {}) {
   const guild = target.guild || target.client?.guilds?.cache.first();
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
@@ -99,6 +101,15 @@ async function runPixivFlow(target, url, options = {}) {
           `${ARROW} **Type:** *${isUgoira ? "Ugoku-Illust (MP4)" : `Gallery (${imageProxyUrls.length} Pages)`}*\n\n` +
           `*Found via Pixiv Downloader*`,
       );
+
+    if (options.isCommand && options.type) {
+      return await startDownload(
+        target,
+        jobId,
+        isUgoira ? "pixiv_ugoira" : "pixiv_gallery",
+        { statusMsg },
+      );
+    }
 
     const resMsg = await _editResponse({ embeds: [foundEmbed] });
     return { jobId, isUgoira, statusMsg: resMsg };

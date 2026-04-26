@@ -17,6 +17,8 @@ function formatDuration(seconds) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+const { startDownload } = require("./callbacks");
+
 async function runTwitterFlow(target, url, options = {}) {
   const guild = target.guild || target.client?.guilds?.cache.first();
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
@@ -293,6 +295,18 @@ async function runTwitterFlow(target, url, options = {}) {
 
     if (thumbnail && thumbnail.startsWith("http")) {
       foundEmbed.setThumbnail(thumbnail);
+    }
+
+    if (options.isCommand && options.type) {
+      const finalFormat =
+        options.type === "mp3"
+          ? "mp3"
+          : isVideo
+            ? "mp4"
+            : allImages.length > 1
+              ? "twgallery"
+              : "photo";
+      return await startDownload(target, jobId, finalFormat, { statusMsg });
     }
 
     await _editResponse({ embeds: [foundEmbed] });

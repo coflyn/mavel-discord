@@ -31,7 +31,7 @@ async function runTikTokFlow(target, url, options = {}) {
     const res = await axios.get(
       `https://www.tikwm.com/api/?url=${encodeURIComponent(cleanUrl)}`,
       {
-        timeout: 10000,
+        timeout: 30000,
       },
     );
 

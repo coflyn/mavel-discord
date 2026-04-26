@@ -3,7 +3,6 @@ const {
   GatewayIntentBits,
   Partials,
   Collection,
-  ActivityType,
 } = require("discord.js");
 const config = require("./config");
 const fs = require("fs");
@@ -21,6 +20,8 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMessageReactions,
     GatewayIntentBits.GuildEmojisAndStickers,
+    GatewayIntentBits.DirectMessages,
+    GatewayIntentBits.DirectMessageReactions,
   ],
   partials: [Partials.Message, Partials.Channel, Partials.Reaction],
 });
@@ -94,12 +95,6 @@ client.getGuildEmojis = async (guildId) => {
 
 client.once("clientReady", async () => {
   console.log(`[BOOT] Logged in as ${client.user.tag}`);
-
-  client.user.setActivity({
-    name: "MaveL | .help",
-    type: ActivityType.Streaming,
-    url: "https://www.twitch.tv/discord",
-  });
 });
 
 process.on("uncaughtException", (err) => {

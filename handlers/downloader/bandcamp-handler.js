@@ -11,6 +11,8 @@ const {
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
+const { startDownload } = require("./callbacks");
+
 async function runBandcampFlow(target, url, options = {}) {
   const guild = target.guild || target.client?.guilds?.cache.first();
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
@@ -109,6 +111,12 @@ async function runBandcampFlow(target, url, options = {}) {
         text: "MaveL Bandcamp",
         iconURL: target.client.user.displayAvatarURL(),
       });
+
+    if (options.isCommand && options.type) {
+      return await startDownload(target, jobId, isAlbum ? "twgallery" : "mp3", {
+        statusMsg,
+      });
+    }
 
     await _editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg, isAlbum };

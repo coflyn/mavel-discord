@@ -6,6 +6,8 @@ const { loadDB, saveDB } = require("./core-helpers");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
+const { startDownload } = require("./callbacks");
+
 async function runPinterestFlow(target, url, options = {}) {
   let browser;
   const guild = target.guild || target.client?.guilds?.cache.first();
@@ -160,6 +162,11 @@ async function runPinterestFlow(target, url, options = {}) {
         imageUrls: [],
       };
       saveDB(db);
+
+      if (options.isCommand && options.type) {
+        return await startDownload(target, jobId, "mp4", { statusMsg });
+      }
+
       return { jobId, statusMsg, isGallery: false };
     }
 
@@ -194,6 +201,10 @@ async function runPinterestFlow(target, url, options = {}) {
       imageUrls: [localPath],
     };
     saveDB(db);
+
+    if (options.isCommand && options.type) {
+      return await startDownload(target, jobId, "twgallery", { statusMsg });
+    }
 
     return { jobId, statusMsg, isGallery: true };
   } catch (e) {

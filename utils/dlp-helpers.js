@@ -2,6 +2,14 @@ const path = require("path");
 const fs = require("fs");
 require("dotenv").config();
 
+const ffmpegStatic = require("ffmpeg-static");
+let ffprobeStatic;
+try {
+  ffprobeStatic = require("ffprobe-static");
+} catch (e) {
+  ffprobeStatic = null;
+}
+
 const { spawn } = require("child_process");
 
 function getYtDlp() {
@@ -58,6 +66,15 @@ function getDlpEnv() {
     "/usr/local/bin",
   ];
   const prependPaths = pythonPaths.filter((p) => fs.existsSync(p));
+
+  if (ffmpegStatic) {
+    const ffmpegDir = path.dirname(ffmpegStatic);
+    if (!prependPaths.includes(ffmpegDir)) prependPaths.push(ffmpegDir);
+  }
+  if (ffprobeStatic && ffprobeStatic.path) {
+    const ffprobeDir = path.dirname(ffprobeStatic.path);
+    if (!prependPaths.includes(ffprobeDir)) prependPaths.push(ffprobeDir);
+  }
 
   if (env.PATH) {
     if (!env.PATH.includes(nodeDir)) env.PATH = `${nodeDir}:${env.PATH}`;
@@ -117,6 +134,10 @@ function getVpsArgs() {
   const args = [
     "--no-mtime",
     "--ignore-config",
+    "--socket-timeout",
+    "30",
+    "--retries",
+    "5",
     "--user-agent",
     process.env.YT_USER_AGENT || userAgent,
     "--no-check-certificate",

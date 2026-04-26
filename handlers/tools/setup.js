@@ -156,6 +156,13 @@ module.exports = async function setupHandler(interaction) {
       
       else if (i.customId === "setup_channel") {
         const channelId = i.values[0];
+        const channel = i.guild.channels.cache.get(channelId);
+
+        if (channel && (currentCategory === "download" || currentCategory === "private")) {
+          if (!channel.nsfw) {
+            await channel.setNSFW(true, "MaveL Setup: Safety compliance check - Automatic age restriction.").catch(() => {});
+          }
+        }
         
         if (currentCategory === "download") {
           settings.downloadChannelId = channelId;

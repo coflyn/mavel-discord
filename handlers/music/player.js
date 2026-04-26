@@ -43,6 +43,7 @@ class MusicPlayer {
         channel: null,
         idleTimer: null,
         aloneTimer: null,
+        pauseTimer: null,
         repeatMode: "off",
         shuffle: false,
         isStarting: false,
@@ -251,6 +252,10 @@ class MusicPlayer {
       clearTimeout(state.idleTimer);
       state.idleTimer = null;
     }
+    if (state.pauseTimer) {
+      clearTimeout(state.pauseTimer);
+      state.pauseTimer = null;
+    }
 
     const trackIndex = state.shuffle
       ? Math.floor(Math.random() * state.queue.length)
@@ -294,6 +299,18 @@ class MusicPlayer {
         throw new Error("No metadata JSON found in yt-dlp output");
       }
       const info = JSON.parse(jsonLine);
+      
+      const isLive = info.is_live || info.live_status === "is_live";
+      const duration = info.duration || 0;
+      if (isLive || duration > 3600) {
+        if (state.channel) {
+          const { resolveEmoji } = require("../../utils/emoji-helper");
+          const E_WARN = resolveEmoji(state.channel.guild, "ping_red", "🔴");
+          state.channel.send(`${E_WARN} **[BLOCKED]** **${info.title || "Track"}** is ${isLive ? "a Live Stream" : "longer than 1 hour"}.`).catch(() => {});
+        }
+        return this.playNext(guildId);
+      }
+
       const finalTitle =
         track.title && track.title !== "videoplayback"
           ? track.title
@@ -640,6 +657,7 @@ class MusicPlayer {
     if (state) {
       if (state.idleTimer) clearTimeout(state.idleTimer);
       if (state.aloneTimer) clearTimeout(state.aloneTimer);
+      if (state.pauseTimer) clearTimeout(state.pauseTimer);
       if (state.touchTimer) clearInterval(state.touchTimer);
       if (state.channel) {
         if (state.channel.client.clearTempStatus) {
@@ -675,13 +693,34 @@ class MusicPlayer {
 
   pause(guildId) {
     const state = this.queues.get(guildId);
-    if (state) return state.player.pause();
+    if (state) {
+      const success = state.player.pause();
+      if (success && !state.pauseTimer) {
+        state.pauseTimer = setTimeout(() => {
+          const checkState = this.queues.get(guildId);
+          if (checkState && checkState.player.state.status === AudioPlayerStatus.Paused) {
+            if (checkState.channel) {
+              const E_WARN = this.getE(checkState.channel.guild, "ping_red", "🔴");
+              checkState.channel.send(`${E_WARN} **Disconnected:** Music was paused for more than 5 minutes.`).catch(() => {});
+            }
+            this.stop(guildId);
+          }
+        }, 300000);
+      }
+      return success;
+    }
     return false;
   }
 
   resume(guildId) {
     const state = this.queues.get(guildId);
-    if (state) return state.player.unpause();
+    if (state) {
+      if (state.pauseTimer) {
+        clearTimeout(state.pauseTimer);
+        state.pauseTimer = null;
+      }
+      return state.player.unpause();
+    }
     return false;
   }
 

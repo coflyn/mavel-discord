@@ -16,7 +16,8 @@ async function harvestHandler(interaction) {
   const target = interaction.options.getString("target");
   const query = interaction.options.getString("query");
 
-  const getEmoji = (name, fallback) => resolveEmoji(interaction.guild, name, fallback);
+  const getEmoji = (name, fallback) =>
+    resolveEmoji(interaction.guild, name, fallback);
 
   const FIRE = getEmoji("purple_fire", "🔥");
   const ARROW = getEmoji("arrow", "»");

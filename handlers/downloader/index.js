@@ -1,5 +1,5 @@
 const { EmbedBuilder, MessageFlags } = require("discord.js");
-const { runYtDlpFlow } = require("./core");
+const { runYtDlpFlow, musicKeywords } = require("./core");
 const { handleDownloadCallback } = require("./callbacks");
 const config = require("../../config");
 const { resolveEmoji } = require("../../utils/emoji-helper");
@@ -29,12 +29,6 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
     if (!linkMatch) return;
     url = linkMatch[0];
 
-    const musicKeywords = [
-      "music.youtube.com",
-      "spotify.com",
-      "soundcloud.com",
-      "bandcamp.com",
-    ];
     const isMusic = musicKeywords.some((keyword) => url.includes(keyword));
 
     type = isMusic ? "mp3" : "mp4";
@@ -52,7 +46,8 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
   }
 
   if (!url) {
-    const getEmoji = (name, fallback) => resolveEmoji(target.guild, name, fallback);
+    const getEmoji = (name, fallback) =>
+      resolveEmoji(target.guild, name, fallback);
 
     const ARROW = getEmoji("arrow", "•");
     const ANNO = getEmoji("anno", "🚀");
@@ -105,7 +100,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
         },
         {
           name: `|| ${LEA} **Restricted Content** ||`,
-          value: `|| ${ARROW} *nhentai, Pornhub, DoujinDesu* ||`,
+          value: `|| ${ARROW} *nhentai, Pornhub, XNXX, XVideos, EPorner, DoujinDesu* ||`,
           inline: false,
         },
       )
@@ -134,11 +129,59 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
         .reply({
           embeds: [embed],
           flags: [MessageFlags.Ephemeral],
+          components: [
+            {
+              type: 1,
+              components: [
+                {
+                  type: 3,
+                  custom_id: "dl_type_select",
+                  options: [
+                    { label: "Video (MP4)", value: "mp4" },
+                    { label: "Audio (MP3)", value: "mp3" },
+                    { label: "Gallery (ZIP/Photos)", value: "photo" },
+                  ],
+                },
+              ],
+            },
+          ],
         })
         .catch(() => {});
       return;
     }
     return;
+  }
+
+  const nsfwKeywords = [
+    "pornhub.com",
+    "nhentai.net",
+    "doujindesu",
+    "phcdn.com",
+    "xnxx.com",
+    "xvideos.com",
+    "eporner.com",
+  ];
+  const isNsfwUrl = nsfwKeywords.some((kw) => url.toLowerCase().includes(kw));
+
+  if (isNsfwUrl && !target.channel.nsfw) {
+    const { resolveEmoji } = require("../../utils/emoji-helper");
+    const E_WARN = resolveEmoji(target.guild, "ping_red", "🔴");
+    const msg = `${E_WARN} **[AUTO-BLOCKED]** Download restricted: **NSFW Content** detected in a non-age-restricted channel.\n\n> *Please use an Age-Restricted channel or use \`/setup\` to reconfigure your downloader channel.*`;
+
+    if (
+      target.editReply &&
+      (target.isChatInputCommand?.() ||
+        target.isButton?.() ||
+        target.isStringSelectMenu?.() ||
+        target.deferred)
+    ) {
+      return await target
+        .editReply({ content: msg, components: [] })
+        .catch(() => {});
+    }
+    return await target
+      .reply({ content: msg, flags: [MessageFlags.Ephemeral] })
+      .catch(() => {});
   }
 
   await runYtDlpFlow(target, url, { type, resolution, title });

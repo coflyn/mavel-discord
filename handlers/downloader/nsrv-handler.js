@@ -8,6 +8,8 @@ const {
 const { loadDB, saveDB } = require("./core-helpers");
 
 async function runNSrvFlow(target, url, options = {}) {
+  let finalUrl = url.replace("cin.mom", "nhentai.net");
+  url = finalUrl;
   const guild = target.guild || target.client?.guilds?.cache.first();
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
   const ARROW = getEmoji("arrow", "•");
