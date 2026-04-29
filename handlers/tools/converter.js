@@ -16,6 +16,8 @@ const { chromium } = require("playwright");
 const mammoth = require("mammoth");
 const { getAssetUrl } = require("../../utils/tunnel-server");
 const { bundleImagesToPdf } = require("../../utils/filetools");
+const { resolveEmoji } = require("../../utils/emoji-helper");
+const colors = require("../../utils/embed-colors");
 
 module.exports = async function converterHandler(interaction) {
   if (interaction.isMessageContextMenuCommand()) {
@@ -25,21 +27,16 @@ module.exports = async function converterHandler(interaction) {
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
   }
 
-  const guild = interaction.guild;
-  const guildEmojis =
-    (await interaction.client.getGuildEmojis?.(guild.id)) ||
-    (await guild.emojis.fetch().catch(() => null));
-  const getE = (name, fallback) =>
-    guildEmojis?.find((e) => e.name === name)?.toString() || fallback;
+  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
 
-  const E_TIME = getE("time", "⏳");
-  const E_SYNC = getE("online", "🔄");
-  const E_ARROW = getE("arrow", "•");
-  const E_FIRE = getE("purple_fire", "🔥");
-  const E_ROCKET = getE("rocket", "🚀");
-  const E_DIAMOND = getE("diamond", "💎");
-  const E_PING_GREEN = getE("ping_green", "🟢");
-  const E_PING_RED = getE("ping_red", "🔴");
+  const E_TIME = getEmoji("time", "⏳");
+  const E_SYNC = getEmoji("online", "🔄");
+  const E_ARROW = getEmoji("arrow", "•");
+  const E_FIRE = getEmoji("purple_fire", "🔥");
+  const E_ROCKET = getEmoji("rocket", "🚀");
+  const E_DIAMOND = getEmoji("diamond", "💎");
+  const E_PING_GREEN = getEmoji("ping_green", "🟢");
+  const E_PING_RED = getEmoji("ping_red", "🔴");
 
   const rootTempDir = path.join(__dirname, "../../temp");
   if (!fs.existsSync(rootTempDir))
@@ -195,7 +192,7 @@ module.exports = async function converterHandler(interaction) {
     await interaction.editReply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#6c5ce7")
+          .setColor(colors.CORE)
           .setDescription(
             `### ${E_TIME} **Preparing Engine...**\n${E_ARROW} **Source:** *${sourceLabel}*\n${E_ARROW} **Task:** *Downloading...*`,
           ),
@@ -227,7 +224,7 @@ module.exports = async function converterHandler(interaction) {
     await interaction.editReply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#6c5ce7")
+          .setColor(colors.CORE)
           .setDescription(
             `### ${E_SYNC} **Rendering Engine**\n${E_ARROW} **Process:** *Encoding to ${targetFormat.toUpperCase()}...*`,
           ),
@@ -371,7 +368,7 @@ module.exports = async function converterHandler(interaction) {
       await interaction.editReply({
         embeds: [
           new EmbedBuilder()
-            .setColor("#6c5ce7")
+            .setColor(colors.CORE)
             .setTitle(`${E_FIRE} **Media Delivered**`)
             .setDescription(
               `### ${E_DIAMOND} **Large File Mode**\n${E_ARROW} **Format:** \`${targetFormat.toUpperCase()}\`\n${E_ARROW} **Size:** \`${sizeMB} MB\`\n\n${E_ARROW} **[${E_PING_GREEN} DOWNLOAD VIA CLOUDFLARE](${tunnelLink})**`,

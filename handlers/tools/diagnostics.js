@@ -7,13 +7,16 @@ const os = require("os");
 const process = require("process");
 const axios = require("axios");
 const { resolveEmoji } = require("../../utils/emoji-helper");
+const colors = require("../../utils/embed-colors");
+const { formatUptime } = require("../downloader/core-helpers");
 
 module.exports = async function diagnosticsHandler(interaction) {
   if (!interaction.member.permissions.has("Administrator")) {
-    return interaction.reply({
+    await interaction.reply({
       content: "*Error: Only administrators can view system diagnostics.*",
       flags: [MessageFlags.Ephemeral],
     });
+    return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
   }
 
   if (interaction.deferReply) {
@@ -46,10 +49,7 @@ module.exports = async function diagnosticsHandler(interaction) {
   }
 
   const uptimeSeconds = Math.floor(process.uptime());
-  const hours = Math.floor(uptimeSeconds / 3600);
-  const minutes = Math.floor((uptimeSeconds % 3600) / 60);
-  const seconds = uptimeSeconds % 60;
-  const uptimeStr = `${hours}h ${minutes}m ${seconds}s`;
+  const uptimeStr = formatUptime(uptimeSeconds);
 
   const memoryUsage = process.memoryUsage().heapUsed / 1024 / 1024;
   const totalMemory = os.totalmem() / 1024 / 1024 / 1024;
@@ -58,7 +58,7 @@ module.exports = async function diagnosticsHandler(interaction) {
   const nodeVersion = process.version;
 
   const embed = new EmbedBuilder()
-    .setColor("#d63031")
+    .setColor(colors.ADMIN)
     .setAuthor({
       name: "MaveL Health Status",
       iconURL: interaction.client.user.displayAvatarURL(),

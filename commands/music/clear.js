@@ -1,6 +1,10 @@
+const { SlashCommandBuilder } = require("discord.js");
 const { player } = require("../../handlers/music");
 
 module.exports = {
+  slashData: new SlashCommandBuilder()
+      .setName("clear")
+      .setDescription("Clear the music queue"),
   name: "clear",
   async execute(interaction, client) {
     player.clear(interaction.guild.id);

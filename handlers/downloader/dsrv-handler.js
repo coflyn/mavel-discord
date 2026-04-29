@@ -2,13 +2,7 @@ const cloudscraper = require("cloudscraper");
 const cheerio = require("cheerio");
 const fs = require("fs");
 const path = require("path");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const {
-  getStatusEmbed,
-  editResponse,
-  sendInitialStatus,
-} = require("../../utils/response-helper");
-const { loadDB, saveDB } = require("./core-helpers");
+const { createJob, createHandlerContext } = require("./core-helpers");
 
 const COMMON_HEADERS = {
   "User-Agent":
@@ -19,32 +13,16 @@ const COMMON_HEADERS = {
 };
 
 async function runDSrvFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-
-  let statusMsg;
-  const _editResponse = async (data) =>
-    await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-  } else {
-    statusMsg = await sendInitialStatus(
-      target,
-      "Opening website...",
-      "Checking the link...",
-    );
-  }
+  const ctx = createHandlerContext(target, options);
+  await ctx.init("Opening website...", "Checking the link...", { silent: true });
 
   try {
     let chapterUrl = url.trim();
 
     if (chapterUrl.includes("/manga/") || chapterUrl.includes("/doujin/")) {
-      await _editResponse({
+      await ctx.editResponse({
         embeds: [
-          getStatusEmbed(
-            guild,
+          ctx.statusEmbed(
             "Analyzing Landing Page...",
             "Finding the latest chapter...",
           ),
@@ -89,8 +67,8 @@ async function runDSrvFlow(target, url, options = {}) {
       );
     const chapterId = match[1];
 
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Found it!", "Fetching image signals...")],
+    await ctx.editResponse({
+      embeds: [ctx.statusEmbed("Found it!", "Fetching image signals...")],
     });
 
     const ajaxHtml = await cloudscraper.post({
@@ -125,10 +103,9 @@ async function runDSrvFlow(target, url, options = {}) {
 
     // DOWNLOAD LOCALLY (Like Lyn's logic) to bypass 403 Forbidden
     for (let i = 0; i < total; i++) {
-      await _editResponse({
+      await ctx.editResponse({
         embeds: [
-          getStatusEmbed(
-            guild,
+          ctx.statusEmbed(
             "Working...",
             `Securing image ${i + 1} of ${total}...`,
           ),
@@ -156,36 +133,30 @@ async function runDSrvFlow(target, url, options = {}) {
         "Failed to secure any images. The server is strictly blocking us.",
       );
 
-    const jobId = Math.random().toString(36).substring(2, 10);
-    const db = loadDB();
-    db.jobs[jobId] = {
+    const jobId = createJob(target, {
       url: chapterUrl,
-      timestamp: Date.now(),
       title: docTitle,
       stats: { pages: localPaths.length, type: "Archived Sync" },
       thumbnail: localPaths[0],
       platform: "DoujinDesu",
-      userId: target.user ? target.user.id : target.author.id,
       isGallery: true,
-      imageUrls: localPaths, // Passing local file paths instead of remote URLs
-    };
-    saveDB(db);
+      imageUrls: localPaths,
+    });
 
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(
-          guild,
+        ctx.statusEmbed(
           "Success!",
-          `${docTitle}\n${ARROW} Total: **${localPaths.length}** images secured. Ready to download.`,
+          `${docTitle}\n${ctx.ARROW} Total: **${localPaths.length}** images secured. Ready to download.`,
         ),
       ],
     });
 
-    return { jobId, statusMsg };
+    return { jobId, statusMsg: ctx.statusMsg };
   } catch (e) {
     console.error("[DSRV-FLOW] Error:", e.message);
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Failed to Load", e.message)],
+    await ctx.editResponse({
+      embeds: [ctx.statusEmbed("Failed to Load", e.message)],
     });
     return null;
   }

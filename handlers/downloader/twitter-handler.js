@@ -3,9 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const cheerio = require("cheerio");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
-const { loadDB, saveDB } = require("./core-helpers");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
+const { createJob, createHandlerContext } = require("./core-helpers");
 
 function formatDuration(seconds) {
   if (!seconds || seconds === "---") return "---";
@@ -20,22 +18,8 @@ function formatDuration(seconds) {
 const { startDownload } = require("./callbacks");
 
 async function runTwitterFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-
-  let statusMsg;
-  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-    await _editResponse({ embeds: [getStatusEmbed(guild, "X / Twitter", "Searching for media...")] }).catch(() => {});
-  } else {
-    if (target.deferred === false && target.replied === false && typeof target.deferReply === "function") {
-      await target.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
-    }
-    statusMsg = await sendInitialStatus(target, "X / Twitter", "Searching for media...");
-  }
+  const ctx = createHandlerContext(target, options);
+  await ctx.init("X / Twitter", "Searching for media...");
 
   try {
     const statusIdMatch = url.match(/status\/(\d+)/);
@@ -53,6 +37,7 @@ async function runTwitterFlow(target, url, options = {}) {
 
     const { spawn } = require("child_process");
     const { getCookiesArgs, getYtDlp, getDlpEnv } = require("../../utils/dlp-helpers");
+const colors = require("../../utils/embed-colors");
 
     try {
       const ytTarget = url;
@@ -259,11 +244,8 @@ async function runTwitterFlow(target, url, options = {}) {
       return null;
     }
 
-    const jobId = Math.random().toString(36).substring(2, 10);
-    const db = loadDB();
-    db.jobs[jobId] = {
+    const jobId = createJob(target, {
       url,
-      timestamp: Date.now(),
       title: (title || "X Media") + (author ? ` (@${author})` : ""),
       stats,
       thumbnail,
@@ -272,27 +254,25 @@ async function runTwitterFlow(target, url, options = {}) {
         : allImages.length > 1
           ? "X / Twitter (Gallery)"
           : "X / Twitter (Image)",
-      userId: target.user ? target.user.id : target.author.id,
       isGallery: !isVideo && allImages.length > 1,
       hasVideo: isVideo,
       isVideo: isVideo,
       extractor: "fx-scrape",
       directUrl: mediaUrl,
       twUrls: allImages,
-    };
-    saveDB(db);
+    });
 
-    const LEA = getEmoji("check", "getEmoji('ping_green', '✅')");
-    const NOTIF = getEmoji("notif", "🔔");
+    const LEA = ctx.getEmoji("ping_green", "✅");
+    const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#e17055")
+      .setColor(colors.SOCIAL)
       .setTitle(`${NOTIF} **X Post Found**`)
       .setDescription(
         `### ${LEA} **Media Found**\n` +
-          `${ARROW} **Author:** *${author}*\n` +
-          `${ARROW} **Content:** *${title.length > 50 ? title.substring(0, 47) + "..." : title}*\n` +
-          `${ARROW} **Type:** *X Video*\n\n` +
+          `${ctx.ARROW} **Author:** *${author}*\n` +
+          `${ctx.ARROW} **Content:** *${title.length > 50 ? title.substring(0, 47) + "..." : title}*\n` +
+          `${ctx.ARROW} **Type:** *X Video*\n\n` +
           `*Everything is ready. Starting the download...*`,
       );
 
@@ -312,10 +292,10 @@ async function runTwitterFlow(target, url, options = {}) {
       return await startDownload(target, jobId, finalFormat, { statusMsg });
     }
 
-    await _editResponse({ embeds: [foundEmbed] });
+    await ctx.editResponse({ embeds: [foundEmbed] });
     return {
       jobId,
-      statusMsg: statusMsg,
+      statusMsg: ctx.statusMsg,
       isVideo: isVideo,
       isGallery: !isVideo && allImages.length > 1,
     };

@@ -266,7 +266,7 @@ async function harvestHandler(interaction) {
         .join("\n\n");
 
       const embed = new EmbedBuilder()
-        .setColor("#ff4500")
+        .setColor(colors.ADMIN)
         .setAuthor({
           name: "MaveL Analysis System",
           iconURL: interaction.client.user.displayAvatarURL(),

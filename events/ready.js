@@ -2,7 +2,7 @@ const { ActivityType, Events } = require("discord.js");
 const config = require("../config");
 const {
   cleanupTemp,
-  sendAdminLog,
+  advanceLog,
 } = require("../handlers/downloader/core-helpers");
 const { autoUpdateYtDlp, checkCookiesStatus } = require("../utils/dlp-helpers");
 const { startTunnel } = require("../utils/tunnel-server");
@@ -45,7 +45,7 @@ module.exports = {
 
     const cookieCheck = checkCookiesStatus();
     if (config.logsChannelId) {
-      await sendAdminLog(client, {
+      await advanceLog(client, {
         title: "Platform Initialization",
         color: cookieCheck.color,
         message: `*System check complete. Identity Status: ${cookieCheck.exists ? "Verified" : "Missing"} (${cookieCheck.daysOld} days old).*`,

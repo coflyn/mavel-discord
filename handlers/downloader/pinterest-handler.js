@@ -2,31 +2,14 @@ const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
-const { loadDB, saveDB } = require("./core-helpers");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
+const { createJob, createHandlerContext } = require("./core-helpers");
 
 const { startDownload } = require("./callbacks");
 
 async function runPinterestFlow(target, url, options = {}) {
   let browser;
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const ARCHIVE = getEmoji("camera", "📷");
-  const NOTIF = getEmoji("notif", "🔔");
-
-  let statusMsg;
-  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Pinterest", "Getting Pinterest Pin info...")],
-    }).catch(() => {});
-  } else {
-    statusMsg = await sendInitialStatus(target, "Pinterest", "Getting Pinterest Pin info...");
-  }
+  const ctx = createHandlerContext(target, options);
+  await ctx.init("Pinterest", "Getting Pinterest Pin info...");
 
   try {
     browser = await chromium.launch({ headless: true });
@@ -138,7 +121,8 @@ async function runPinterestFlow(target, url, options = {}) {
     const tempDir = path.join(__dirname, "../../temp");
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-    const jobId = Math.random().toString(36).substring(2, 10);
+    const { generateJobId } = require("./core-helpers");
+    const jobId = generateJobId();
 
     let ext = finalMediaUrl.split(".").pop().split("?")[0].toLowerCase();
     if (!ext || ext.length > 4) ext = isVideo ? "mp4" : "jpg";
@@ -147,33 +131,29 @@ async function runPinterestFlow(target, url, options = {}) {
     const localPath = path.join(tempDir, `pinterest_hd_${jobId}.${ext}`);
 
     if (isActuallyVideo) {
-      const db = loadDB();
-      db.jobs[jobId] = {
+      createJob(target, {
+        jobId,
         url: url,
-        timestamp: Date.now(),
         title: pinData.title || "Pinterest Pin",
         stats: { type: "HD Pin Video" },
         thumbnail:
           target.client?.user?.displayAvatarURL() ||
           "https://www.pinterest.com/favicon.ico",
         platform: "Pinterest",
-        userId: target.user ? target.user.id : target.author.id,
         isGallery: false,
         imageUrls: [],
-      };
-      saveDB(db);
+      });
 
       if (options.isCommand && options.type) {
-        return await startDownload(target, jobId, "mp4", { statusMsg });
+        return await startDownload(target, jobId, "mp4", { statusMsg: ctx.statusMsg });
       }
 
-      return { jobId, statusMsg, isGallery: false };
+      return { jobId, statusMsg: ctx.statusMsg, isGallery: false };
     }
 
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(
-          guild,
+        ctx.statusEmbed(
           "Downloading HD Image/GIF",
           "Downloading Original High Quality File...",
         ),
@@ -186,32 +166,29 @@ async function runPinterestFlow(target, url, options = {}) {
     });
     fs.writeFileSync(localPath, res.data);
 
-    const db = loadDB();
-    db.jobs[jobId] = {
+    createJob(target, {
+      jobId,
       url: url,
-      timestamp: Date.now(),
       title: pinData.title || "Pinterest Pin",
       stats: { type: ext === "gif" ? "HD Pin GIF" : "HD Pin Image" },
       thumbnail:
         target.client?.user?.displayAvatarURL() ||
         "https://www.pinterest.com/favicon.ico",
       platform: "Pinterest",
-      userId: target.user ? target.user.id : target.author.id,
       isGallery: true,
       imageUrls: [localPath],
-    };
-    saveDB(db);
+    });
 
     if (options.isCommand && options.type) {
-      return await startDownload(target, jobId, "twgallery", { statusMsg });
+      return await startDownload(target, jobId, "twgallery", { statusMsg: ctx.statusMsg });
     }
 
-    return { jobId, statusMsg, isGallery: true };
+    return { jobId, statusMsg: ctx.statusMsg, isGallery: true };
   } catch (e) {
     if (browser) await browser.close();
     console.error(`[PINTEREST-FAIL] ${e.message}`);
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Download Failed", e.message)],
+    await ctx.editResponse({
+      embeds: [ctx.statusEmbed("Download Failed", e.message)],
     }).catch(() => {});
     return null;
   }

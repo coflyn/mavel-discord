@@ -9,13 +9,14 @@ const path = require("path");
 const { exec } = require("child_process");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const { advanceLog } = require("../../utils/logger");
+const colors = require("../../utils/embed-colors");
 
 const settingsPath = path.join(__dirname, "../../database/settings.json");
 
 module.exports = async function adminCmdsHandler(interaction) {
   if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
     const errorMsg = "*Error: Access Denied. You need Administrator permission to use this system command.*";
-    return await (interaction.deferred
+    await (interaction.deferred
       ? interaction.editReply({
           content: errorMsg,
         })
@@ -23,6 +24,7 @@ module.exports = async function adminCmdsHandler(interaction) {
           content: errorMsg,
           flags: [MessageFlags.Ephemeral],
         }));
+    return setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
   }
 
   const { commandName } = interaction;
@@ -49,10 +51,11 @@ module.exports = async function adminCmdsHandler(interaction) {
 
 async function toggleHibernate(interaction, status) {
   if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-    return await interaction.reply({
+    await interaction.reply({
       content: "*Error: Admin permission needed.*",
       flags: [MessageFlags.Ephemeral],
     });
+    return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
   }
 
   const db = fs.existsSync(settingsPath)
@@ -85,6 +88,7 @@ async function toggleHibernate(interaction, status) {
         content: `### ${status ? LOCK : POWER} **Sleep Mode Updated**\n*Sleep mode: **${status ? "ON" : "OFF"}***`,
         flags: [MessageFlags.Ephemeral],
       }));
+  setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
 }
 
 async function handlePurge(interaction) {
@@ -94,7 +98,7 @@ async function handlePurge(interaction) {
   if (target === "logs") {
     const logPath = path.join(__dirname, "../../bot.log");
     if (!fs.existsSync(logPath)) {
-      return await (interaction.deferred
+      await (interaction.deferred
         ? interaction.editReply({
             content: "*No log files found.*",
           })
@@ -102,6 +106,7 @@ async function handlePurge(interaction) {
             content: "*No log files found.*",
             flags: [MessageFlags.Ephemeral],
           }));
+      return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
     }
 
     fs.writeFileSync(logPath, "");
@@ -115,7 +120,7 @@ async function handlePurge(interaction) {
       guild: interaction.guild.name,
     });
 
-    return await (interaction.deferred
+    await (interaction.deferred
       ? interaction.editReply({
           content: `### ${FIRE} **Cleanup Finished**\n*The system logs (**bot.log**) have been cleared.*`,
         })
@@ -123,11 +128,12 @@ async function handlePurge(interaction) {
           content: `### ${FIRE} **Cleanup Finished**\n*The system logs (**bot.log**) have been cleared.*`,
           flags: [MessageFlags.Ephemeral],
         }));
+    return setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
   }
 
   const tempDir = path.join(__dirname, "../../temp");
   if (!fs.existsSync(tempDir)) {
-    return await (interaction.deferred
+    await (interaction.deferred
       ? interaction.editReply({
           content: "*No temporary files found.*",
         })
@@ -135,6 +141,7 @@ async function handlePurge(interaction) {
           content: "*No temporary files found.*",
           flags: [MessageFlags.Ephemeral],
         }));
+    return setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
   }
 
   const files = fs.readdirSync(tempDir);
@@ -250,7 +257,7 @@ async function handleScan(interaction) {
   const NOTIF = resolveEmoji(interaction.guild, "notif", "🔔");
   const ARROW = resolveEmoji(interaction.guild, "arrow", "•");
   const embed = new EmbedBuilder()
-    .setColor("#d63031")
+    .setColor(colors.ADMIN)
     .setTitle(`${NOTIF} **Checking Connections**`)
     .setDescription(
       results.join("\n") +

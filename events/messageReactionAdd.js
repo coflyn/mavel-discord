@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const { resolveEmoji } = require("../utils/emoji-helper");
 
 module.exports = {
   name: "messageReactionAdd",
@@ -52,17 +53,14 @@ module.exports = {
     }
 
     try {
-      const guildEmojis = message.guild
-        ? await message.guild.emojis.fetch().catch(() => null)
-        : null;
-      const getE = (n, fallback) =>
-        guildEmojis?.find((e) => e.name === n)?.toString() || fallback;
+      const getEmoji = (n, fallback) => resolveEmoji(message.guild, n, fallback);
 
-      const E_ANNO = getE("anno", "📑");
-      const E_ARROW = getE("arrow", "»");
+      const E_ANNO = getEmoji("anno", "📑");
+      const E_ARROW = getEmoji("arrow", "»");
 
+      const EC = require("../utils/embed-colors");
       const dmEmbed = new EmbedBuilder()
-        .setColor(embed.color || "#6c5ce7")
+        .setColor(embed.color || EC.CORE)
         .setAuthor({
           name: "MaveL Bookmark Service",
           iconURL: reaction.client.user.displayAvatarURL(),

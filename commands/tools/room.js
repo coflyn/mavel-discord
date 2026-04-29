@@ -1,3 +1,4 @@
+const { SlashCommandBuilder } = require("discord.js");
 const { 
   EmbedBuilder, 
   PermissionFlagsBits, 
@@ -11,6 +12,13 @@ const {
 const { resolveEmoji } = require("../../utils/emoji-helper");
 
 module.exports = {
+  slashData: new SlashCommandBuilder()
+      .setName("room")
+      .setDescription("Manage private download rooms")
+      .addSubcommand(sub => 
+        sub.setName("create").setDescription("Create your own private room"))
+      .addSubcommand(sub => 
+        sub.setName("list").setDescription("List active rooms and request to join")),
   name: "room",
   async execute(interaction) {
     const subcommand = interaction.options.getSubcommand();
@@ -22,7 +30,7 @@ module.exports = {
     const FIRE = getEmoji("purple_fire", "🔥");
     const ARROW = getEmoji("arrow", "»");
     const NOTIF = getEmoji("notif", "🔔");
-    const LEA = getEmoji("lea", "✅");
+    const LEA = getEmoji("ping_green", "✅");
     const E_SUCCESS = getEmoji("ping_green", "✅");
     const E_ERROR = getEmoji("ping_red", "❌");
 
@@ -33,9 +41,10 @@ module.exports = {
         
         const existingChannel = guild.channels.cache.find(c => c.name === channelName);
         if (existingChannel) {
-          return interaction.editReply({
+          await interaction.editReply({
             content: `### ${E_ERROR} **You already have an active room!**\n${ARROW} Go to: ${existingChannel}`
           });
+          return setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
         }
 
         const roomChannel = await guild.channels.create({
@@ -86,10 +95,12 @@ module.exports = {
 
         await roomChannel.send({ content: `${user}`, embeds: [introEmbed], components: [row] });
         await interaction.editReply({ content: `### ${NOTIF} **Room Created!**\nGo to: ${roomChannel}` });
+        setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
 
       } catch (e) {
         console.error("[ROOM-CREATE]", e);
         await interaction.editReply({ content: `*Error: ${e.message}*` });
+        setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
       }
     }
 
@@ -101,12 +112,14 @@ module.exports = {
       
       if (rooms.size === 0) {
         const hasSelfRoom = guild.channels.cache.find(c => c.name === selfRoomName);
-        return interaction.reply({
+        await interaction.reply({
           content: hasSelfRoom 
             ? "### 🔒 **No other rooms found.**\n> *You are the only one with an active room right now.*"
             : "### 🔒 **No active rooms found.**\nCreate one with `/room create`!",
           flags: [MessageFlags.Ephemeral]
         });
+        setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
+        return;
       }
 
       const embed = new EmbedBuilder()
@@ -134,6 +147,7 @@ module.exports = {
 
       const row = new ActionRowBuilder().addComponents(menu);
       await interaction.reply({ embeds: [embed], components: [row], flags: [MessageFlags.Ephemeral] });
+      setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
     }
   }
 };

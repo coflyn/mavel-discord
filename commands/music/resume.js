@@ -1,6 +1,10 @@
+const { SlashCommandBuilder } = require("discord.js");
 const { player } = require("../../handlers/music");
 
 module.exports = {
+  slashData: new SlashCommandBuilder()
+      .setName("resume")
+      .setDescription("Resume the music"),
   name: "resume",
   async execute(interaction, client) {
     player.resume(interaction.guild.id);

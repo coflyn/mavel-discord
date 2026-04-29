@@ -1,5 +1,6 @@
 const { EmbedBuilder, MessageFlags, ChannelType } = require("discord.js");
 const { resolveEmoji } = require("../../utils/emoji-helper");
+const colors = require("../../utils/embed-colors");
 
 module.exports = async function infoHandler(interaction) {
   const { commandName } = interaction;
@@ -120,7 +121,7 @@ async function handleIconLogic(interaction) {
       size: 1024,
     });
     const embed = new EmbedBuilder()
-      .setColor("#74b9ff")
+      .setColor(colors.INFO)
       .setTitle(`*User Avatar: ${targetUser.username}*`)
       .setDescription(`[Download Original File](${avatarUrl})`)
       .setImage(avatarUrl);
@@ -137,14 +138,16 @@ async function handleIconLogic(interaction) {
     return res;
   } else {
     const iconUrl = guild.iconURL({ dynamic: true, size: 1024 });
-    if (!iconUrl)
-      return ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
+    if (!iconUrl) {
+      await ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
         content: "*No icon detected for this Base.*",
         flags: [64],
       });
+      return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
+    }
 
     const embed = new EmbedBuilder()
-      .setColor("#74b9ff")
+      .setColor(colors.INFO)
       .setTitle(`*Server Icon: ${guild.name}*`)
       .setDescription(`[Download Original File](${iconUrl})`)
       .setImage(iconUrl);
@@ -169,14 +172,16 @@ async function handleBannerLogic(interaction) {
   if (targetUser) {
     const user = await targetUser.fetch();
     const bannerUrl = user.bannerURL({ dynamic: true, size: 1024 });
-    if (!bannerUrl)
-      return ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
+    if (!bannerUrl) {
+      await ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
         content: "*This user doesn't have a profile banner.*",
         flags: [64],
       });
+      return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
+    }
 
     const embed = new EmbedBuilder()
-      .setColor("#74b9ff")
+      .setColor(colors.INFO)
       .setTitle(`*User Banner: ${user.username}*`)
       .setDescription(`[Download Original File](${bannerUrl})`)
       .setImage(bannerUrl);
@@ -193,14 +198,16 @@ async function handleBannerLogic(interaction) {
     return res;
   } else {
     const bannerUrl = guild.bannerURL({ dynamic: true, size: 1024 });
-    if (!bannerUrl)
-      return ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
+    if (!bannerUrl) {
+      await ((interaction.deferred ? interaction.editReply : interaction.reply).bind(interaction))({
         content: "*This server has no banner asset detected.*",
         flags: [64],
       });
+      return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
+    }
 
     const embed = new EmbedBuilder()
-      .setColor("#74b9ff")
+      .setColor(colors.INFO)
       .setTitle(`*Server Banner: ${guild.name}*`)
       .setDescription(`[Download Original File](${bannerUrl})`)
       .setImage(bannerUrl);
@@ -223,7 +230,7 @@ async function handleServerInfo(interaction, EMOJIS) {
   const owner = await guild.fetchOwner();
 
   const embed = new EmbedBuilder()
-    .setColor("#74b9ff")
+    .setColor(colors.INFO)
     .setAuthor({
       name: "Server Information",
       iconURL: guild.iconURL({ dynamic: true }),

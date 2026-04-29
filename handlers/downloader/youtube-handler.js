@@ -1,6 +1,6 @@
 const { spawn } = require("child_process");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
-const { loadDB, saveDB, formatNumber } = require("./core-helpers");
+const { createJob, createHandlerContext, formatNumber } = require("./core-helpers");
 const {
   getYtDlp,
   getDlpEnv,
@@ -8,28 +8,13 @@ const {
   getCookiesArgs,
   getVpsArgs,
 } = require("../../utils/dlp-helpers");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
 const { startDownload } = require("./callbacks");
+const colors = require("../../utils/embed-colors");
 
 async function runYoutubeFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const FIRE = getEmoji("purple_fire", "🔥");
-
-  let statusMsg;
-  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "YouTube", "Let's get that video for you...")],
-    }).catch(() => {});
-  } else {
-    statusMsg = await sendInitialStatus(target, "YouTube", "Let's get that video for you...");
-  }
+  const ctx = createHandlerContext(target, options);
+  await ctx.init("YouTube", "Let's get that video for you...");
 
   try {
     const cleanUrl = url.split("&list=")[0].split("?si=")[0];
@@ -59,51 +44,39 @@ async function runYoutubeFlow(target, url, options = {}) {
     const author = json.uploader || "Unknown Uploader";
     const title = json.title || "Untitled Video";
     const thumbnail = json.thumbnail || "";
-    const jobId = Math.random().toString(36).substring(2, 10);
-
-    const durationSec = json.duration || 0;
-    const duration =
-      durationSec > 0
-        ? `${Math.floor(durationSec / 60)}:${String(Math.floor(durationSec % 60)).padStart(2, "0")}`
-        : "LIVE";
-
+    
     const stats = {
-      likes: json.like_count || "0",
-      views: json.view_count || "0",
-      comments: json.comment_count || "0",
-      shares: "---",
-      duration,
+      views: json.view_count || 0,
+      likes: json.like_count || 0,
+      duration: json.duration_string || `${Math.floor((json.duration || 0) / 60)}m`,
       uploader: author,
     };
 
-    const db = loadDB();
-    db.jobs[jobId] = {
+    const jobId = createJob(target, {
       url: cleanUrl,
-      timestamp: Date.now(),
       title: title,
       stats,
       thumbnail,
       platform: isShorts ? "YouTube Shorts" : "YouTube Video",
-      userId: target.user ? target.user.id : target.author.id,
       isGallery: false,
       hasVideo: true,
+      isVideo: true,
       extractor: "youtube",
       directUrl: null,
-    };
-    saveDB(db);
+    });
 
-    const LEA = getEmoji("check", "✅");
-    const NOTIF = getEmoji("notif", "🔔");
+    const LEA = ctx.getEmoji("check", "✅");
+    const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#00b894")
+      .setColor(colors.MUSIC_DL)
       .setTitle(`${NOTIF} **YouTube Video Found**`)
       .setImage(thumbnail)
       .setDescription(
         `### ${LEA} *Media Found*\n` +
-          `${ARROW} **Title:** *${title}*\n` +
-          `${ARROW} **Channel:** *${author}*\n` +
-          `${ARROW} **Type:** *YouTube ${isShorts ? "Short" : "Video"}*\n\n` +
+          `${ctx.ARROW} **Title:** *${title}*\n` +
+          `${ctx.ARROW} **Channel:** *${author}*\n` +
+          `${ctx.ARROW} **Type:** *YouTube ${isShorts ? "Short" : "Video"}*\n\n` +
           `**${formatNumber(stats.likes)}** *Likes*  •  **${formatNumber(stats.views)}** *Views*`,
       )
       .setFooter({
@@ -112,16 +85,16 @@ async function runYoutubeFlow(target, url, options = {}) {
       });
 
     if (options.isCommand && options.type) {
-      return await startDownload(target, jobId, options.type, { statusMsg });
+      return await startDownload(target, jobId, options.type, { statusMsg: ctx.statusMsg });
     }
 
-    await _editResponse({ embeds: [foundEmbed] });
-    return { jobId, statusMsg, isShorts };
+    await ctx.editResponse({ embeds: [foundEmbed] });
+    return { jobId, statusMsg: ctx.statusMsg, isShorts };
   } catch (e) {
     console.error("[YOUTUBE-FLOW] Error:", e.message);
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(
+        ctx.statusEmbed(
           "Video not available",
           "Could not connect to the video. It may be private or age-restricted.",
         ),

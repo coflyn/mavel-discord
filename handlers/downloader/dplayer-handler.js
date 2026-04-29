@@ -2,33 +2,12 @@ const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder } = require("discord.js");
-const { loadDB, saveDB } = require("./core-helpers");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const {
-  getStatusEmbed,
-  editResponse,
-  sendInitialStatus,
-} = require("../../utils/response-helper");
+const { createJob, createHandlerContext } = require("./core-helpers");
 
 async function runDPlayerFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const DOC = getEmoji("camera", "📄");
-
-  let statusMsg;
-  const _editResponse = async (data) =>
-    await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-  } else {
-    statusMsg = await sendInitialStatus(
-      target,
-      "Reading DocPlayer",
-      "Opening browser...",
-    );
-  }
+  const ctx = createHandlerContext(target, options);
+  const DOC = ctx.getEmoji("camera", "📄");
+  await ctx.init("Reading DocPlayer", "Opening browser...");
 
   let browser;
   try {
@@ -52,8 +31,8 @@ async function runDPlayerFlow(target, url, options = {}) {
       }
     });
 
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Searching...", "Finding the file...")],
+    await ctx.editResponse({
+      embeds: [ctx.statusEmbed("Searching...", "Finding the file...")],
     });
 
     await page.goto(url, { waitUntil: "load", timeout: 60000 });
@@ -61,10 +40,9 @@ async function runDPlayerFlow(target, url, options = {}) {
     let timeoutCounter = 0;
     while (!capturedPdfUrl && timeoutCounter < 15) {
       timeoutCounter++;
-      await _editResponse({
+      await ctx.editResponse({
         embeds: [
-          getStatusEmbed(
-            guild,
+          ctx.statusEmbed(
             "Searching...",
             `Looking for the document (try ${timeoutCounter}/15)...`,
           ),
@@ -78,10 +56,9 @@ async function runDPlayerFlow(target, url, options = {}) {
     if (!capturedPdfUrl)
       throw new Error("We couldn't find the source of this document.");
 
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(
-          guild,
+        ctx.statusEmbed(
           "Found it!",
           "Success! We found it. Downloading the file, please wait...",
         ),
@@ -102,46 +79,44 @@ async function runDPlayerFlow(target, url, options = {}) {
     const tempDir = path.join(__dirname, "../../temp");
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-    const jobId = Math.random().toString(36).substring(2, 10);
+    const { generateJobId } = require("./core-helpers");
+const colors = require("../../utils/embed-colors");
+    const jobId = generateJobId();
     const outputPath = path.join(tempDir, `dp_${jobId}.pdf`);
     fs.writeFileSync(outputPath, pdfBuffer);
 
-    const db = loadDB();
-    db.jobs[jobId] = {
+    createJob(target, {
+      jobId,
       url,
-      timestamp: Date.now(),
       title: docTitle,
       stats: { type: "Direct PDF" },
       thumbnail: "https://docplayer.net/favicon.ico",
       platform: "DocPlayer",
-      userId: target.user ? target.user.id : target.author.id,
       isGallery: false,
       directUrl: outputPath,
-    };
-    saveDB(db);
+    });
 
+    const LEA = ctx.getEmoji("check", "✅");
     const foundEmbed = new EmbedBuilder()
-      .setColor("#ffa502")
+      .setColor(colors.DOCUMENT)
       .setTitle(`${DOC} **DocPlayer Ready**`)
       .setDescription(
         `### ${LEA} **Source Captured**\n` +
-          `${ARROW} **Title:** *${docTitle}*\n` +
-          `${ARROW} **Platform:** *DOCPLAYER*\n\n` +
+          `${ctx.ARROW} **Title:** *${docTitle}*\n` +
+          `${ctx.ARROW} **Platform:** *DOCPLAYER*\n\n` +
           `*Finalizing file and sending to chat...*`,
       );
 
-    const resMsg = await _editResponse({ embeds: [foundEmbed] });
+    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg: resMsg };
   } catch (e) {
     if (browser) await browser.close();
     console.error("[DOCPLAYER-JS] Error:", e.message);
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Failed", e.message)],
+    await ctx.editResponse({
+      embeds: [ctx.statusEmbed("Failed", e.message)],
     }).catch(() => {});
     return null;
   }
 }
-
-module.exports = { runDPlayerFlow };
 
 module.exports = { runDPlayerFlow };

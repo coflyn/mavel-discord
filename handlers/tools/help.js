@@ -1,5 +1,6 @@
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const { resolveEmoji } = require("../../utils/emoji-helper");
+const colors = require("../../utils/embed-colors");
 
 module.exports = async function helpHandler(interaction) {
   if (interaction.deferReply && (interaction.isChatInputCommand?.() || interaction.isButton?.() || interaction.isStringSelectMenu?.())) {
@@ -25,7 +26,7 @@ module.exports = async function helpHandler(interaction) {
 
   try {
     const embed = new EmbedBuilder()
-      .setColor("#fdcb6e")
+      .setColor(colors.HELP)
       .setAuthor({
         name: "MaveL Help Guide",
         iconURL: interaction.client.user.displayAvatarURL(),

@@ -1,6 +1,16 @@
+const { SlashCommandBuilder } = require("discord.js");
 const { player } = require("../../handlers/music");
 
 module.exports = {
+  slashData: new SlashCommandBuilder()
+      .setName("skipto")
+      .setDescription("Skip to a specific song in queue")
+      .addIntegerOption((opt) =>
+        opt
+          .setName("number")
+          .setDescription("Song position in queue")
+          .setRequired(true),
+      ),
   name: "skipto",
   async execute(interaction, client) {
     const num = interaction.options.getInteger("number");

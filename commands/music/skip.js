@@ -1,7 +1,11 @@
+const { SlashCommandBuilder } = require("discord.js");
 const { player } = require("../../handlers/music");
 const config = require("../../config");
 
 module.exports = {
+  slashData: new SlashCommandBuilder()
+      .setName("skip")
+      .setDescription("Skip the current song"),
   name: "skip",
   async execute(interaction, client) {
     player.skip(interaction.guild.id);

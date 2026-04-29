@@ -1,9 +1,13 @@
+const { SlashCommandBuilder } = require("discord.js");
 const { player } = require("../../handlers/music");
 const { EmbedBuilder } = require("discord.js");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const config = require("../../config");
 
 module.exports = {
+  slashData: new SlashCommandBuilder()
+      .setName("queue")
+      .setDescription("Show the song queue"),
   name: "queue",
   async execute(interaction, client) {
     const list = player.getQueueList(interaction.guild.id);

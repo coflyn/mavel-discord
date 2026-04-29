@@ -16,6 +16,7 @@ const axios = require("axios");
 const config = require("../../config");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const cheerio = require("cheerio");
+const colors = require("../../utils/embed-colors");
 const searchCache = new Map();
 const CACHE_TTL = 10 * 60 * 1000;
 
@@ -67,7 +68,7 @@ module.exports = async function searchHandler(interaction) {
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
     const embed = new EmbedBuilder()
-      .setColor("#00cec9")
+      .setColor(colors.SEARCH)
       .setAuthor({
         name: "MaveL Search",
         iconURL: interaction.client.user.displayAvatarURL(),
@@ -325,7 +326,7 @@ async function displaySearchResults(
     return interaction.editReply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#00cec9")
+          .setColor(colors.SEARCH)
           .setDescription(
             `### ${PING_RED} **No results found**\n*No matches found on ${typeSelection.toUpperCase()}*`,
           ),
@@ -365,7 +366,7 @@ async function displaySearchResults(
   const row = new ActionRowBuilder().addComponents(selectMenu);
 
   const resultEmbed = new EmbedBuilder()
-    .setColor("#00cec9")
+    .setColor(colors.SEARCH)
     .setDescription(
       `### ${SEARCH} **Results Found**\n` +
         `${ARROW} *Looking for:* \`${refinedQuery}\`\n` +

@@ -1,32 +1,14 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
-const { loadDB, saveDB } = require("./core-helpers");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
+const { createJob, createHandlerContext } = require("./core-helpers");
 
 const { startDownload } = require("./callbacks");
+const colors = require("../../utils/embed-colors");
 
 async function runThreadsFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const FIRE = getEmoji("purple_fire", "🔥");
-
-  let statusMsg;
-  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Threads", "Getting post info...")],
-    }).catch(() => {});
-  } else {
-    if (target.deferred === false && target.replied === false && typeof target.deferReply === "function") {
-      await target.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
-    }
-    statusMsg = await sendInitialStatus(target, "Threads", "Getting post info...");
-  }
+  const ctx = createHandlerContext(target, options);
+  await ctx.init("Threads", "Getting post info...");
 
   try {
     const threadsBase = url.includes("/post/")
@@ -136,13 +118,13 @@ async function runThreadsFlow(target, url, options = {}) {
 
     if (!videoUrl && !imageUrl) {
       const errorEmbed = new EmbedBuilder()
-        .setColor("#e17055")
+        .setColor(colors.SOCIAL)
         .setTitle("🔒 Download Failed")
         .setDescription(
           `*Security settings blocked the download: ${lastError || "Connection Lost"}*`,
         );
-      await _editResponse({ embeds: [errorEmbed] });
-      return { jobId: null, statusMsg };
+      await ctx.editResponse({ embeds: [errorEmbed] });
+      return { jobId: null, statusMsg: ctx.statusMsg };
     }
 
     let displayTitle = (title || "Threads Post").split("\n")[0].trim();
@@ -158,35 +140,31 @@ async function runThreadsFlow(target, url, options = {}) {
     if (displayTitle.length > 80)
       displayTitle = displayTitle.substring(0, 77) + "...";
 
-    const jobId = Math.random().toString(36).substring(2, 10);
-    const db = loadDB();
-    db.jobs[jobId] = {
+    const jobId = createJob(target, {
       url: threadsBase,
-      timestamp: Date.now(),
       title: displayTitle + (author ? ` (@${author})` : ""),
       stats,
       thumbnail: imageUrl || "",
       platform: "Threads",
-      userId: target.user ? target.user.id : target.author.id,
       isGallery: false,
       hasVideo: !!videoUrl,
+      isVideo: !!videoUrl,
       extractor: "threads-scrape",
       directUrl: videoUrl || imageUrl,
-    };
-    saveDB(db);
+    });
 
-    const LEA = getEmoji("check", "getEmoji('ping_green', '✅')");
-    const NOTIF = getEmoji("notif", "🔔");
+    const LEA = ctx.getEmoji("ping_green", "✅");
+    const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#e17055")
+      .setColor(colors.SOCIAL)
       .setTitle(`${NOTIF} **Threads Post Found**`)
       .setThumbnail(imageUrl || "")
       .setDescription(
         `### ${LEA} **Media Found**\n` +
-          `${ARROW} **Title:** *${displayTitle}*\n` +
-          `${ARROW} **Type:** *${videoUrl ? "Video" : "Photo"}*\n` +
-          `${ARROW} **Author:** *${author || "Threads User"}*\n\n` +
+          `${ctx.ARROW} **Title:** *${displayTitle}*\n` +
+          `${ctx.ARROW} **Type:** *${videoUrl ? "Video" : "Photo"}*\n` +
+          `${ctx.ARROW} **Author:** *${author || "Threads User"}*\n\n` +
           `*Everything is ready. Starting the download...*`,
       );
 
@@ -195,7 +173,7 @@ async function runThreadsFlow(target, url, options = {}) {
       return await startDownload(target, jobId, finalFormat, { statusMsg });
     }
 
-    const resMsg = await _editResponse({ embeds: [foundEmbed] });
+    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg: resMsg };
   } catch (e) {
     console.error("[THREADS-FLOW] Error:", e.message);

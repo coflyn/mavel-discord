@@ -1,38 +1,23 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
-const { loadDB, saveDB } = require("./core-helpers");
+const { createJob, createHandlerContext } = require("./core-helpers");
 const { spawn } = require("child_process");
 const fs = require("fs");
 const path = require("path");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
 const { startDownload } = require("./callbacks");
 
 async function runSoundcloudFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const AUDIO = getEmoji("three_dots", "🎵");
-  const FIRE = getEmoji("purple_fire", "🔥");
+  const ctx = createHandlerContext(target, options);
+  const AUDIO = ctx.getEmoji("three_dots", "🎵");
+  const FIRE = ctx.getEmoji("purple_fire", "🔥");
+  await ctx.init("SoundCloud Music", "Searching for song...");
 
-  let statusMsg;
-  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "SoundCloud Music", "Searching for song...")],
-    }).catch(() => {});
-  } else {
-    statusMsg = await sendInitialStatus(target, "SoundCloud Music", "Searching for song...");
-  }
-
-  if (!statusMsg) {
-    const initialEmbed = getStatusEmbed(guild, "SoundCloud Music", "Searching for song...");
+  if (!ctx.statusMsg) {
+    const initialEmbed = ctx.statusEmbed("SoundCloud Music", "Searching for song...");
     if (target.replied || target.deferred) {
-      statusMsg = await target.editReply({
+      ctx.statusMsg = await target.editReply({
         embeds: [initialEmbed],
         withResponse: true,
       });
@@ -194,16 +179,12 @@ async function runSoundcloudFlow(target, url, options = {}) {
       discoveryPath = "SoundCloud (Premium Locked/Preview)";
     }
 
-    const jobId = Math.random().toString(36).substring(2, 10);
-    const db = loadDB();
-    db.jobs[jobId] = {
+    const jobId = createJob(target, {
       url,
-      timestamp: Date.now(),
       title: `${title} (${artist})`,
       stats: stats,
       thumbnail: thumbnail,
       platform: "SoundCloud",
-      userId: target.user ? target.user.id : target.author?.id || "unknown",
       isGallery: false,
       hasVideo: false,
       isVideo: false,
@@ -212,11 +193,10 @@ async function runSoundcloudFlow(target, url, options = {}) {
         discoveryPath.includes("Direct") || discoveryPath.includes("Bypass")
           ? null
           : mediaUrl,
-    };
-    saveDB(db);
+    });
 
-    const LEA = getEmoji("lea", "getEmoji('ping_green', '✅')");
-    const NOTIF = getEmoji("notif", "🔔");
+    const LEA = ctx.getEmoji("ping_green", "✅");
+    const NOTIF = ctx.getEmoji("notif", "🔔");
     const isLocked = discoveryPath.includes("Locked");
 
     const foundEmbed = new EmbedBuilder()
@@ -227,10 +207,10 @@ async function runSoundcloudFlow(target, url, options = {}) {
       .setThumbnail(thumbnail)
       .setDescription(
         `### ${LEA} **${isLocked ? "Preview Found" : "Song Found"}**\n` +
-          `${ARROW} **Title:** *${title}*\n` +
-          `${ARROW} **Artist:** *${artist}*\n` +
-          `${ARROW} **Plays:** *${stats.plays}*\n` +
-          `${ARROW} **Length:** *${stats.duration}*\n\n` +
+          `${ctx.ARROW} **Title:** *${title}*\n` +
+          `${ctx.ARROW} **Artist:** *${artist}*\n` +
+          `${ctx.ARROW} **Plays:** *${stats.plays}*\n` +
+          `${ctx.ARROW} **Length:** *${stats.duration}*\n\n` +
           (isLocked
             ? `> [!WARNING]\n> This track is strictly restricted by **SoundCloud Go+** (Premium). Only the 30-second preview was accessible from the server.`
             : `*Everything is ready. Starting the download...*`),
@@ -241,17 +221,16 @@ async function runSoundcloudFlow(target, url, options = {}) {
       });
 
     if (options.isCommand && options.type) {
-      return await startDownload(target, jobId, "mp3", { statusMsg });
+      return await startDownload(target, jobId, "mp3", { statusMsg: ctx.statusMsg });
     }
 
-    const resMsg = await _editResponse({ embeds: [foundEmbed] });
+    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg: resMsg };
   } catch (e) {
     console.error("[SC-FLOW] Error:", e.message);
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(
-          target.guild,
+        ctx.statusEmbed(
           "Download Failed",
           e.message || "Could not retrieve the song.",
         ),

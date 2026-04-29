@@ -9,20 +9,12 @@ const {
   ButtonStyle,
   MessageFlags,
 } = require("discord.js");
-const { loadDB, saveDB } = require("./core-helpers");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
+const { createJob, createHandlerContext } = require("./core-helpers");
 
 const { startDownload } = require("./callbacks");
 
 async function runCloudFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const FIRE = getEmoji("purple_fire", "🔥");
-
-  let statusMsg;
-  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
+  const ctx = createHandlerContext(target, options);
 
   const platform = url.includes("mediafire.com")
     ? "Mediafire"
@@ -30,19 +22,11 @@ async function runCloudFlow(target, url, options = {}) {
       ? "GDrive"
       : "MEGA";
 
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, `${platform} Cloud Storage`, "Looking for the link...")],
-    }).catch(() => {});
-  } else {
-    statusMsg = await sendInitialStatus(target, `${platform} Cloud Storage`, "Looking for the link...");
-  }
+  await ctx.init(`${platform} Cloud Storage`, "Looking for the link...");
 
   try {
     let title = "Cloud File";
     let directUrl = null;
-    let jobId = Math.random().toString(36).substring(2, 10);
     let size = "---";
 
     if (platform === "Mediafire") {
@@ -67,6 +51,7 @@ async function runCloudFlow(target, url, options = {}) {
       title = "Google Drive File";
     } else if (platform === "MEGA") {
       const { File } = require("megajs");
+const colors = require("../../utils/embed-colors");
       const file = File.fromURL(url);
       await file.loadAttributes();
       title = file.name || "MEGA File";
@@ -74,10 +59,8 @@ async function runCloudFlow(target, url, options = {}) {
       directUrl = url;
     }
 
-    const db = loadDB();
-    db.jobs[jobId] = {
+    const jobId = createJob(target, {
       url,
-      timestamp: Date.now(),
       title: title,
       stats: {
         likes: "---",
@@ -89,28 +72,26 @@ async function runCloudFlow(target, url, options = {}) {
       },
       thumbnail: "",
       platform: platform,
-      userId: target.user ? target.user.id : target.author.id,
       isGallery: false,
       hasVideo: false,
       extractor: platform.toLowerCase() + "-handler",
       directUrl: directUrl,
-    };
-    saveDB(db);
+    });
 
     const botUser = await target.client.user.fetch();
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
-    const CHEST = getEmoji("chest", "📦");
-    const NOTIF = getEmoji("notif", "🔔");
+    const CHEST = ctx.getEmoji("chest", "📦");
+    const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#636e72")
+      .setColor(colors.DOCUMENT)
       .setTitle(`${NOTIF} **File Found**`)
       .setDescription(
         `### ${CHEST} *Link Found*\n` +
-          `${ARROW} **File:** *${title}*\n` +
-          `${ARROW} **Cloud:** *${platform}*\n` +
-          `${ARROW} **Size:** *${size}*\n\n` +
+          `${ctx.ARROW} **File:** *${title}*\n` +
+          `${ctx.ARROW} **Cloud:** *${platform}*\n` +
+          `${ctx.ARROW} **Size:** *${size}*\n\n` +
           `*Found via MaveL Cloud*`,
       )
       .setFooter({
@@ -126,16 +107,15 @@ async function runCloudFlow(target, url, options = {}) {
     );
 
     if (options.isCommand) {
-      return await startDownload(target, jobId, "cloud", { statusMsg });
+      return await startDownload(target, jobId, "cloud", { statusMsg: ctx.statusMsg });
     }
 
-    await _editResponse({ embeds: [foundEmbed], components: [row] });
+    await ctx.editResponse({ embeds: [foundEmbed], components: [row] });
   } catch (e) {
     console.error("[CLOUD-FLOW] Error:", e.message);
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(
-          guild,
+        ctx.statusEmbed(
           "Cloud Download Failed",
           e.message || "Access blocked or link dead.",
         ),

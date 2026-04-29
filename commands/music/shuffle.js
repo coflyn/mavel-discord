@@ -1,6 +1,17 @@
+const { SlashCommandBuilder } = require("discord.js");
 const { player } = require("../../handlers/music");
 
 module.exports = {
+  slashData: new SlashCommandBuilder()
+      .setName("shuffle")
+      .setDescription("Toggle shuffle mode")
+      .addStringOption((opt) =>
+        opt
+          .setName("mode")
+          .setDescription("Shuffle mode")
+          .setRequired(true)
+          .addChoices({ name: "On", value: "on" }, { name: "Off", value: "off" }),
+      ),
   name: "shuffle",
   async execute(interaction, client) {
     const mode = interaction.options.getString("mode");

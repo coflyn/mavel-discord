@@ -19,10 +19,11 @@ const settingsPath = path.join(__dirname, "..", "..", "database", "settings.json
 
 module.exports = async function setupHandler(interaction) {
   if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-    return interaction.reply({
+    await interaction.reply({
       content: "*You don't have permission to use this command.*",
       flags: [MessageFlags.Ephemeral],
     });
+    return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
   }
 
   const NOTIF = resolveEmoji(interaction.guild, "notif", "🔔");
@@ -51,7 +52,7 @@ module.exports = async function setupHandler(interaction) {
     const roleName = config.autoRoleId ? (interaction.guild.roles.cache.get(config.autoRoleId)?.name || "Unknown Role") : "Not Set";
 
     return new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor(colors.CORE)
       .setTitle(`${NOTIF} **MaveL Server Setup**`)
       .setDescription(`${ARROW} *Current Category:* **${catNames[currentCategory]}**`)
       .addFields({
@@ -86,6 +87,7 @@ module.exports = async function setupHandler(interaction) {
 
     if (currentCategory === "autorole") {
       const { RoleSelectMenuBuilder } = require("discord.js");
+const colors = require("../../utils/embed-colors");
       rows.push(
         new ActionRowBuilder().addComponents(
           new RoleSelectMenuBuilder()
@@ -137,8 +139,9 @@ module.exports = async function setupHandler(interaction) {
         await i.update({
           content: `${FIRE} **Setup complete!** Your server is now fully configured.`,
           components: [],
-          embeds: [generateEmbed().setColor("#27ae60")],
+          embeds: [generateEmbed().setColor(colors.CORE)],
         }).catch(() => {});
+        setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
         return collector.stop();
       }
 

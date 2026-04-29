@@ -7,6 +7,7 @@ const {
 } = require("discord.js");
 const { REQUIRED_EMOJIS } = require("../../utils/emoji-registry");
 const { resolveEmoji } = require("../../utils/emoji-helper");
+const colors = require("../../utils/embed-colors");
 
 module.exports = async function emojiHandler(interaction) {
   const subcommand = interaction.options.getSubcommand();
@@ -39,18 +40,20 @@ async function handleAdd(interaction) {
   const name = rawName.replace(/\s+/g, "_").replace(/[^\w]/g, "");
 
   if (!name || name.length < 2) {
-    return interaction.reply({
+    await interaction.reply({
       content:
         "*Invalid emoji name. Please use at least 2 alphanumeric characters.*",
       flags: [MessageFlags.Ephemeral],
     });
+    return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
   }
 
   if (!interaction.member.permissions.has("ManageGuildExpressions")) {
-    return interaction.reply({
+    await interaction.reply({
       content: "*You do not have permission to manage emojis.*",
       flags: [MessageFlags.Ephemeral],
     });
+    return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
   }
 
   await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -102,9 +105,11 @@ async function handleAdd(interaction) {
     await interaction.editReply(
       `*Successfully added emoji:* ${emoji.toString()} *as* \`${name}\``,
     );
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
   } catch (err) {
     console.error("[EMOJI-ADD] Error:", err.message);
     await interaction.editReply(`*Failed to add emoji: ${err.message}*`);
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
   }
 }
 
@@ -114,9 +119,10 @@ async function handleDelete(interaction) {
       content: "*You do not have permission to manage emojis.*",
       flags: [MessageFlags.Ephemeral],
     };
-    return interaction.deferred
+    await (interaction.deferred
       ? interaction.editReply(msg)
-      : interaction.reply(msg);
+      : interaction.reply(msg));
+    return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
   }
 
   const query = interaction.options.getString("query");
@@ -128,9 +134,10 @@ async function handleDelete(interaction) {
       content: "*Emoji not found in this server.*",
       flags: [MessageFlags.Ephemeral],
     };
-    return interaction.deferred
+    await (interaction.deferred
       ? interaction.editReply(msg)
-      : interaction.reply(msg);
+      : interaction.reply(msg));
+    return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
   }
 
   try {
@@ -139,10 +146,12 @@ async function handleDelete(interaction) {
     await interaction.editReply({
       content: `*Successfully deleted emoji:* \`${emojiName}\``,
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
   } catch (err) {
     await interaction.editReply({
       content: `*Failed to delete emoji: ${err.message}*`,
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
   }
 }
 
@@ -177,10 +186,12 @@ async function handleRename(interaction) {
     await interaction.editReply({
       content: `*Successfully renamed emoji from* \`${oldName}\` *to* \`${newName}\` ${target.toString()}`,
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
   } catch (err) {
     await interaction.editReply({
       content: `*Failed to rename emoji: ${err.message}*`,
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
   }
 }
 
@@ -215,7 +226,7 @@ async function handleInfo(interaction) {
       ?.toString() || "•";
 
   const embed = new EmbedBuilder()
-    .setColor("#e17055")
+    .setColor(colors.SOCIAL)
     .setTitle("*Emoji List*")
     .setDescription(
       `${ARROW} *Emoji ID: \`${emojiId}\`*\n${ARROW} *Type: ${isAnimated ? "Animated" : "Static"}*\n\n[Download Emoji](${finalUrl})`,
@@ -233,7 +244,7 @@ async function handleInfo(interaction) {
         withResponse: true,
       }));
 
-  const reply = sent?.resource || sent;
+  const reply = res?.resource || res;
   if (reply && reply.delete) {
     setTimeout(() => {
       if (interaction.isChatInputCommand?.()) {
@@ -249,10 +260,11 @@ async function handleList(interaction) {
   const emojis = await interaction.guild.emojis.fetch();
 
   if (emojis.size === 0) {
-    return interaction.reply({
+    await interaction.reply({
       content: "*No custom emojis found in this server.*",
       flags: [MessageFlags.Ephemeral],
     });
+    return setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
   }
 
   const ARROW =
@@ -281,7 +293,7 @@ async function handleList(interaction) {
 
     for (const chunk of chunks) {
       const embed = new EmbedBuilder()
-        .setColor("#e17055")
+        .setColor(colors.SOCIAL)
         .setTitle("*Server Emoji List*")
         .setDescription(chunk);
       const res = await interaction.followUp({
@@ -299,7 +311,7 @@ async function handleList(interaction) {
     }
   } else {
     const embed = new EmbedBuilder()
-      .setColor("#e17055")
+      .setColor(colors.SOCIAL)
       .setTitle("*Server Emoji List*")
       .setDescription(list)
       .setFooter({ text: `Total Emojis: ${emojis.size}` });
@@ -346,7 +358,7 @@ async function handleNeeds(interaction) {
   const CROSS = getEmoji("ping_red", "🔴");
 
   const embed = new EmbedBuilder()
-    .setColor("#e17055")
+    .setColor(colors.SOCIAL)
     .setTitle("*MaveL Emojis*")
     .setDescription(
       REQUIRED_EMOJIS.map((req) => {
@@ -410,7 +422,7 @@ module.exports.syncMissingEmojis = async function (interaction) {
   await interaction.editReply({
     embeds: [
       new EmbedBuilder()
-        .setColor("#e17055")
+        .setColor(colors.SOCIAL)
         .setDescription(
           `### ⏳ **Getting Emojis...**\n*Please wait while MaveL adds the missing emojis.*`,
         ),
@@ -448,7 +460,7 @@ module.exports.syncMissingEmojis = async function (interaction) {
   }
 
   const embed = new EmbedBuilder()
-    .setColor("#e17055")
+    .setColor(colors.SOCIAL)
     .setTitle("*Emoji Setup Finished*")
     .setDescription(
       `### ${successCount > 0 ? PING_GREEN : PING_RED} **Update Complete**\n*Successfully added **${successCount}** emojis.*\n*Failed to get **${failCount}** emojis.*`,
@@ -458,4 +470,5 @@ module.exports.syncMissingEmojis = async function (interaction) {
     embeds: [embed],
     components: [],
   });
+  setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
 };

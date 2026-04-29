@@ -21,10 +21,11 @@ module.exports = async function handleTicketInteraction(interaction) {
     user.id !== ownerId &&
     !interaction.member.permissions.has(PermissionFlagsBits.Administrator)
   ) {
-    return interaction.reply({
+    await interaction.reply({
       content: "*Error: Only the room owner can use these controls.*",
       flags: [MessageFlags.Ephemeral],
     });
+    return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
   }
 
   if (!isMenu) {
@@ -42,11 +43,12 @@ module.exports = async function handleTicketInteraction(interaction) {
         .setMaxValues(1);
 
       const row = new ActionRowBuilder().addComponents(select);
-      return interaction.reply({
+      await interaction.reply({
         content: "👤 **Who do you want to add to this room?**",
         components: [row],
         flags: [MessageFlags.Ephemeral],
       });
+      return setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
     }
 
     if (action === "remove") {
@@ -64,10 +66,11 @@ module.exports = async function handleTicketInteraction(interaction) {
       if (membersWithAccess.length === 0) {
         const { resolveEmoji } = require("../../utils/emoji-helper");
         const E_ERROR = resolveEmoji(guild, "ping_red", "❌");
-        return interaction.reply({
+        await interaction.reply({
           content: `${E_ERROR} **There are no other users in this room to remove.**`,
           flags: [MessageFlags.Ephemeral],
         });
+        return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
       }
 
       const options = await Promise.all(
@@ -85,11 +88,12 @@ module.exports = async function handleTicketInteraction(interaction) {
         .addOptions(options.filter((o) => o !== null));
 
       const row = new ActionRowBuilder().addComponents(select);
-      return interaction.reply({
+      await interaction.reply({
         content: "🚫 **Who do you want to remove from this room?**",
         components: [row],
         flags: [MessageFlags.Ephemeral],
       });
+      return setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
     }
   }
 
@@ -195,7 +199,7 @@ module.exports = async function handleTicketInteraction(interaction) {
       );
 
       const requestEmbed = new EmbedBuilder()
-        .setColor("#fdcb6e")
+        .setColor(colors.HELP)
         .setTitle(`${NOTIF_EMOJI} **Join Request**`)
         .setDescription(
           `### ${user} wants to join this room!\n*Owner, do you approve?*`,
@@ -223,13 +227,15 @@ module.exports = async function handleTicketInteraction(interaction) {
       if (!isOwner) {
         const { resolveEmoji } = require("../../utils/emoji-helper");
         const E_ERROR = resolveEmoji(guild, "ping_red", "❌");
-        return interaction.reply({
+        await interaction.reply({
           content: `${E_ERROR} *Only the room owner can decide.*`,
           flags: [64],
         });
+        return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
       }
 
       const { resolveEmoji } = require("../../utils/emoji-helper");
+const colors = require("../../utils/embed-colors");
       const E_SUCCESS = resolveEmoji(guild, "ping_green", "✅");
       const E_ERROR = resolveEmoji(guild, "ping_red", "❌");
 

@@ -1,6 +1,8 @@
+const { SlashCommandBuilder } = require("discord.js");
 const { player } = require("../../handlers/music");
 
 module.exports = {
+  slashData: new SlashCommandBuilder().setName("pause").setDescription("Pause the music"),
   name: "pause",
   async execute(interaction, client) {
     player.pause(interaction.guild.id);

@@ -7,47 +7,11 @@ const {
   ButtonStyle,
   MessageFlags,
 } = require("discord.js");
-const { loadDB, saveDB } = require("./core-helpers");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const {
-  getStatusEmbed,
-  editResponse,
-  sendInitialStatus,
-} = require("../../utils/response-helper");
+const { createJob, createHandlerContext } = require("./core-helpers");
 
 async function runInstagramFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-
-  const FIRE = resolveEmoji(guild, "purple_fire", "🔥");
-  let statusMsg;
-  const _editResponse = async (data) =>
-    await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-    await _editResponse({
-      embeds: [
-        getStatusEmbed(guild, "Instagram Link Found", "Getting post info..."),
-      ],
-    }).catch(() => {});
-  } else {
-    if (
-      target.deferred === false &&
-      target.replied === false &&
-      typeof target.deferReply === "function"
-    ) {
-      await target
-        .deferReply({ flags: [MessageFlags.Ephemeral] })
-        .catch(() => {});
-    }
-    statusMsg = await sendInitialStatus(
-      target,
-      "Instagram Link Found",
-      "Getting post info...",
-    );
-  }
+  const ctx = createHandlerContext(target, options);
+  await ctx.init("Instagram Link Found", "Getting post info...");
 
   const instaAxios = axios.create({
     headers: {
@@ -342,10 +306,9 @@ async function runInstagramFlow(target, url, options = {}) {
               : "Proxy (Photo/Gallery)";
         }
       } catch (e) {
-        await _editResponse({
+        await ctx.editResponse({
           embeds: [
-            getStatusEmbed(
-              guild,
+            ctx.statusEmbed(
               "Instagram Link Lost",
               "Starting the download...",
             ),
@@ -355,6 +318,7 @@ async function runInstagramFlow(target, url, options = {}) {
         let browser;
         try {
           const { chromium } = require("playwright");
+const colors = require("../../utils/embed-colors");
           browser = await chromium.launch({ headless: true });
           const context = await browser.newContext({
             userAgent:
@@ -545,10 +509,9 @@ async function runInstagramFlow(target, url, options = {}) {
     }
 
     if (!scrapeSuccess) {
-      await _editResponse({
+      await ctx.editResponse({
         embeds: [
-          getStatusEmbed(
-            guild,
+          ctx.statusEmbed(
             "Download Failed",
             "Could not capture media resources from this link. Platform may be restricted or content is private.",
           ),
@@ -557,24 +520,12 @@ async function runInstagramFlow(target, url, options = {}) {
       return null;
     }
 
-    const jobId = Math.random().toString(36).substring(2, 10);
-    const finalPlatform = isMix
-      ? "Instagram (Mix)"
-      : isVideo
-        ? "Instagram (Video)"
-        : allImages.length > 1
-          ? "Instagram (Gallery)"
-          : "Instagram (Photo)";
-
-    const db = loadDB();
-    db.jobs[jobId] = {
+    const jobId = createJob(target, {
       url,
-      timestamp: Date.now(),
       title: (title || "Instagram Post") + (author ? ` (@${author})` : ""),
       stats,
       thumbnail,
       platform: finalPlatform,
-      userId: target.user ? target.user.id : target.author?.id || "unknown",
       isGallery: allImages.length > 1,
       hasVideo: isVideo,
       isVideo,
@@ -582,11 +533,10 @@ async function runInstagramFlow(target, url, options = {}) {
       discovery: discoveryPath,
       directUrl: mediaUrl,
       allImages,
-    };
-    saveDB(db);
+    });
 
-    const LEA = getEmoji("ping_green", "getEmoji('ping_green', '✅')");
-    const NOTIF = getEmoji("notif", "🔔");
+    const LEA = ctx.getEmoji("ping_green", "✅");
+    const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const formatDuration = (s) => {
       if (!s || s === "---") return "---";
@@ -597,18 +547,18 @@ async function runInstagramFlow(target, url, options = {}) {
     };
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#e17055")
+      .setColor(colors.SOCIAL)
       .setTitle(`${NOTIF} **Instagram Post Found**`)
       .setDescription(
         `### ${LEA} **Post Found**\n` +
-          `${ARROW} **Author:** *${author}*\n` +
-          `${ARROW} **Type:** *Instagram ${isMix ? "Mixed Files" : isVideo ? "Video/Reel" : allImages.length > 1 ? `Gallery (${allImages.length})` : "Photo"}*\n` +
-          `${ARROW} **Title:** *${title || "Instagram Media"}*\n` +
-          `${ARROW} **Length:** *${formatDuration(stats.duration)}*\n\n` +
+          `${ctx.ARROW} **Author:** *${author}*\n` +
+          `${ctx.ARROW} **Type:** *Instagram ${isMix ? "Mixed Files" : isVideo ? "Video/Reel" : allImages.length > 1 ? `Gallery (${allImages.length})` : "Photo"}*\n` +
+          `${ctx.ARROW} **Title:** *${title || "Instagram Media"}*\n` +
+          `${ctx.ARROW} **Length:** *${formatDuration(stats.duration)}*\n\n` +
           `**Post Info**\n` +
-          `${ARROW} **Likes:** *${stats.likes || "0"}*\n` +
-          `${ARROW} **Comments:** *${stats.comments || "0"}*\n` +
-          `${ARROW} **Views:** *${stats.views || "0"}*\n\n` +
+          `${ctx.ARROW} **Likes:** *${stats.likes || "0"}*\n` +
+          `${ctx.ARROW} **Comments:** *${stats.comments || "0"}*\n` +
+          `${ctx.ARROW} **Views:** *${stats.views || "0"}*\n\n` +
           `*Everything is ready. Starting the download...*`,
       );
 
@@ -671,7 +621,7 @@ async function runInstagramFlow(target, url, options = {}) {
       );
     }
 
-    const resMsg = await _editResponse({
+    const resMsg = await ctx.editResponse({
       embeds: [foundEmbed],
       components: options.isCommand ? components : [],
     });

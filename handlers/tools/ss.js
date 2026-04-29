@@ -2,6 +2,8 @@ const { EmbedBuilder, AttachmentBuilder, MessageFlags } = require("discord.js");
 const { chromium } = require("playwright");
 const path = require("path");
 const fs = require("fs");
+const colors = require("../../utils/embed-colors");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 
 module.exports = async function ssHandler(interaction) {
   await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -20,22 +22,18 @@ module.exports = async function ssHandler(interaction) {
     const outputName = `mave_ss_${Date.now()}.png`;
     const outputPath = path.join(rootTempDir, outputName);
 
-    const guildEmojis =
-      (await interaction.client.getGuildEmojis?.(interaction.guild.id)) ||
-      (await interaction.guild.emojis.fetch().catch(() => null));
-    const getE = (name, fallback) =>
-      guildEmojis?.find((e) => e.name === name)?.toString() || fallback;
+    const getEmoji = (name, fallback) => resolveEmoji(interaction.guild, name, fallback);
 
-    const E_TIME = getE("time", "⏳");
-    const E_SYNC = getE("online", "🔄");
-    const E_PC = getE("pc", "💻");
-    const E_ROCKET = getE("rocket", "🚀");
-    const E_PING_RED = getE("ping_red", "🔴");
+    const E_TIME = getEmoji("time", "⏳");
+    const E_SYNC = getEmoji("online", "🔄");
+    const E_PC = getEmoji("pc", "💻");
+    const E_ROCKET = getEmoji("rocket", "🚀");
+    const E_PING_RED = getEmoji("ping_red", "🔴");
 
     await interaction.editReply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#6c5ce7")
+          .setColor(colors.CORE)
           .setDescription(
             `### ${E_TIME} **Rendering Website...**\n*MaveL is launching a private browser to capture the requested page.*`,
           ),
@@ -58,7 +56,7 @@ module.exports = async function ssHandler(interaction) {
 
     const attachment = new AttachmentBuilder(outputPath, { name: outputName });
     const successEmbed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor(colors.CORE)
       .setTitle(`${E_PC} Screenshot Captured`)
       .setDescription(
         `### ${E_ROCKET} **Mission Accomplished**\nCaptured: **${targetUrl.replace(/https?:\/\//, "")}**\nMode: \`${fullPage ? "Full Page" : "Desktop View"}\``,
@@ -70,6 +68,7 @@ module.exports = async function ssHandler(interaction) {
       embeds: [successEmbed],
       files: [attachment],
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 120000);
 
     setTimeout(
       () => fs.existsSync(outputPath) && fs.unlinkSync(outputPath),
@@ -77,9 +76,11 @@ module.exports = async function ssHandler(interaction) {
     );
   } catch (err) {
     console.error("[SS] Error:", err.message);
+    const pingRed = interaction.guild?.emojis.cache.find(e => e.name === "ping_red")?.toString() || "🔴";
     await interaction.editReply({
-      content: `### ${E_PING_RED} **Render Failed**\n> *Error: ${err.message}*\n> *Make sure the URL is valid and accessible.*`,
+      content: `### ${pingRed} **Render Failed**\n> *Error: ${err.message}*\n> *Make sure the URL is valid and accessible.*`,
       embeds: [],
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
   }
 };

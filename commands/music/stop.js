@@ -1,6 +1,10 @@
+const { SlashCommandBuilder } = require("discord.js");
 const { player } = require("../../handlers/music");
 
 module.exports = {
+  slashData: new SlashCommandBuilder()
+      .setName("stop")
+      .setDescription("Stop music and disconnect from VC"),
   name: "stop",
   async execute(interaction, client) {
     player.stop(interaction.guild.id);

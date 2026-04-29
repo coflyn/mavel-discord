@@ -53,7 +53,7 @@ class MusicPlayer {
     return this.queues.get(guildId);
   }
 
-  getE(guild, name, fallback) {
+  getEmoji(guild, name, fallback) {
     return resolveEmoji(guild, name, fallback);
   }
 
@@ -305,6 +305,7 @@ class MusicPlayer {
       if (isLive || duration > 3600) {
         if (state.channel) {
           const { resolveEmoji } = require("../../utils/emoji-helper");
+const colors = require("../../utils/embed-colors");
           const E_WARN = resolveEmoji(state.channel.guild, "ping_red", "🔴");
           state.channel.send(`${E_WARN} **[BLOCKED]** **${info.title || "Track"}** is ${isLive ? "a Live Stream" : "longer than 1 hour"}.`).catch(() => {});
         }
@@ -517,9 +518,9 @@ class MusicPlayer {
     const requester = state.channel.client.users.cache.get(track.requestedBy);
     const guild = state.channel.guild;
 
-    const FIRE = this.getE(guild, "purple_fire", "🔥");
-    const LEA = this.getE(guild, "ping_green", "✅");
-    const ARROW = this.getE(guild, "arrow", "»");
+    const FIRE = this.getEmoji(guild, "purple_fire", "🔥");
+    const LEA = this.getEmoji(guild, "ping_green", "✅");
+    const ARROW = this.getEmoji(guild, "arrow", "»");
 
     const source =
       track.webpage_url?.includes("bandcamp.com") ||
@@ -541,7 +542,7 @@ class MusicPlayer {
     const cleanTitle = this.clean(track.title, artist);
 
     return new EmbedBuilder()
-      .setColor("#a29bfe")
+      .setColor(colors.PLAYER)
       .setAuthor({
         name: "MaveL Player",
         iconURL: requester?.displayAvatarURL() || undefined,
@@ -572,15 +573,15 @@ class MusicPlayer {
 
     const guild = state.channel.guild;
 
-    const E_LYRICS = this.getE(guild, "book", "📋");
-    const E_SKIP = this.getE(guild, "blue_arrow_right", "⏭️");
-    const E_STOP = this.getE(guild, "ping_red", "⏹️");
-    const E_SHUFFLE = this.getE(guild, "diamond", "🔀");
-    const E_REPEAT = this.getE(guild, "rocket", "🔁");
-    const E_PAUSE = this.getE(guild, "time", "⏸️");
-    const E_QUEUE = this.getE(guild, "anno", "📜");
-    const E_CLEAR = this.getE(guild, "lea", "🗑️");
-    const E_PLAYLIST = this.getE(guild, "three_dots", "📂");
+    const E_LYRICS = this.getEmoji(guild, "book", "📋");
+    const E_SKIP = this.getEmoji(guild, "blue_arrow_right", "⏭️");
+    const E_STOP = this.getEmoji(guild, "ping_red", "⏹️");
+    const E_SHUFFLE = this.getEmoji(guild, "diamond", "🔀");
+    const E_REPEAT = this.getEmoji(guild, "rocket", "🔁");
+    const E_PAUSE = this.getEmoji(guild, "time", "⏸️");
+    const E_QUEUE = this.getEmoji(guild, "anno", "📜");
+    const E_CLEAR = this.getEmoji(guild, "lea", "🗑️");
+    const E_PLAYLIST = this.getEmoji(guild, "three_dots", "📂");
 
     return new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()
@@ -700,7 +701,7 @@ class MusicPlayer {
           const checkState = this.queues.get(guildId);
           if (checkState && checkState.player.state.status === AudioPlayerStatus.Paused) {
             if (checkState.channel) {
-              const E_WARN = this.getE(checkState.channel.guild, "ping_red", "🔴");
+              const E_WARN = this.getEmoji(checkState.channel.guild, "ping_red", "🔴");
               checkState.channel.send(`${E_WARN} **Disconnected:** Music was paused for more than 5 minutes.`).catch(() => {});
             }
             this.stop(guildId);

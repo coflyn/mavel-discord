@@ -31,15 +31,6 @@ const MAX_COMMANDS_PER_WINDOW = 2;
 module.exports = {
   name: "interactionCreate",
   async execute(interaction, client) {
-    const { increment } = require("../utils/counter-handler");
-    if (
-      interaction.isChatInputCommand() ||
-      interaction.isButton() ||
-      interaction.isStringSelectMenu()
-    ) {
-      increment("totalRequests");
-    }
-
     try {
       if (fs.existsSync(settingsPath)) {
         const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
@@ -50,13 +41,14 @@ module.exports = {
           const isAutocomplete = interaction.isAutocomplete?.();
           if (!isWakeup && !isAutocomplete) {
             if (!interaction.replied && !interaction.deferred) {
-              return await interaction
+              await interaction
                 .reply({
                   content:
                     "💤 *MaveL is currently in sleep mode. Use `/wakeup` to wake the bot.*",
                   flags: [MessageFlags.Ephemeral],
                 })
                 .catch(() => {});
+              setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
             }
             return;
           }
@@ -120,14 +112,14 @@ module.exports = {
             return interaction.reply({
               content: "*Selection menu is not for you.*",
               flags: [MessageFlags.Ephemeral],
-            });
+            }).then(() => setTimeout(() => interaction.deleteReply().catch(() => {}), 10000));
 
           const cached = musicCache.get(values[0]);
           if (!cached)
             return interaction.reply({
               content: "*Cache expired or bot restarted. Please search again.*",
               flags: [MessageFlags.Ephemeral],
-            });
+            }).then(() => setTimeout(() => interaction.deleteReply().catch(() => {}), 10000));
 
           await interaction
             .update({ content: `*Loading: ${cached.title}*`, components: [] })
@@ -144,7 +136,7 @@ module.exports = {
             return interaction.reply({
               content: "*Cache expired. Search again.*",
               flags: [MessageFlags.Ephemeral],
-            });
+            }).then(() => setTimeout(() => interaction.deleteReply().catch(() => {}), 10000));
 
           const typeSelection = customId.split("_").pop();
           const type = ["ytm", "bc", "spot"].includes(typeSelection)
@@ -190,6 +182,7 @@ module.exports = {
               content: `${E_PC} *Searching for song lyrics...*`,
               flags: [MessageFlags.Ephemeral],
             });
+            setTimeout(() => interaction.deleteReply().catch(() => {}), 120000);
             const state = player.queues.get(guildId);
             if (!state || !state.current)
               return await interaction.webhook.editMessage(statusMsg.id, {
@@ -230,7 +223,7 @@ module.exports = {
               return interaction.reply({
                 content: `### ${E_DIAMOND} **Your list is currently empty**`,
                 flags: [MessageFlags.Ephemeral],
-              });
+              }).then(() => setTimeout(() => interaction.deleteReply().catch(() => {}), 10000));
             const newMode = state.shuffle ? "off" : "on";
             await notifyControl(`Shuffle ${newMode.toUpperCase()}`);
             player.toggleShuffle(guildId, newMode);
@@ -264,37 +257,41 @@ module.exports = {
               content: `### ${E_ANNO} **Upcoming Songs**\n${list.join("\n").substring(0, 1900) || "*The list is currently empty.*"}`,
               flags: [64],
             });
-            return;
+            return setTimeout(() => interaction.deleteReply().catch(() => {}), 30000);
           }
 
           if (value === "clear") {
             await notifyControl("Clear");
             player.clear(guildId);
             const E_LEA = resolveEmoji(interaction.guild, "lea", "🗑️");
-            return interaction.reply({
+            await interaction.reply({
               content: `${E_LEA} **List cleared.**`,
               flags: [64],
             });
+            return setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
           }
 
           if (value === "playlist") {
             const names = Object.keys(getPlaylists(user.id));
             const E_THREE = resolveEmoji(interaction.guild, "three_dots", "📂");
-            if (names.length === 0)
-              return await interaction.reply({
+            if (names.length === 0) {
+              await interaction.reply({
                 content: `### ${E_THREE} **No Saved Playlists Found**`,
                 flags: [64],
               });
+              return setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
+            }
             const menu = new StringSelectMenuBuilder()
               .setCustomId("music_load_playlist")
               .setPlaceholder("Choose a playlist to load...")
               .addOptions(
                 names.slice(0, 25).map((n) => ({ label: n, value: n })),
               );
-            return await interaction.reply({
+            await interaction.reply({
               components: [new ActionRowBuilder().addComponents(menu)],
               flags: [64],
             });
+            return setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
           }
 
           if (value === "skip") {
@@ -313,10 +310,11 @@ module.exports = {
           const list = getPlaylists(user.id)[values[0].toLowerCase()];
           await interaction.deferUpdate();
           await player.playBatch(interaction, list);
-          return await interaction.editReply({
+          await interaction.editReply({
             content: `*Enqueued ${list.length} tracks.*`,
             components: [],
           });
+          return setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
         }
       }
 
@@ -379,7 +377,7 @@ module.exports = {
             return interaction.reply({
               embeds: [embed],
               flags: [MessageFlags.Ephemeral],
-            });
+            }).then(() => setTimeout(() => interaction.deleteReply().catch(() => {}), 60000));
           }
         }
 
@@ -404,6 +402,7 @@ module.exports = {
         await interaction
           .reply({ content: `*System Error: ${err.message}*`, flags: [64] })
           .catch(() => {});
+      setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
     }
   },
 };

@@ -2,38 +2,12 @@ const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
-const { loadDB, saveDB } = require("./core-helpers");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const {
-  getStatusEmbed,
-  editResponse,
-  sendInitialStatus,
-} = require("../../utils/response-helper");
+const { createJob, createHandlerContext } = require("./core-helpers");
 
 async function runScribdFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const ARCHIVE = getEmoji("camera", "📷");
-
-  let statusMsg;
-  const _editResponse = async (data) =>
-    await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-    await _editResponse({
-      embeds: [
-        getStatusEmbed(guild, "Searching...", "Finding the document..."),
-      ],
-    }).catch(() => {});
-  } else {
-    statusMsg = await sendInitialStatus(
-      target,
-      "Searching...",
-      "Finding the document...",
-    );
-  }
+  const ctx = createHandlerContext(target, options);
+  const ARCHIVE = ctx.getEmoji("camera", "📷");
+  await ctx.init("Searching...", "Finding the document...", { silent: true });
 
   let browser;
   try {
@@ -75,15 +49,10 @@ async function runScribdFlow(target, url, options = {}) {
     const page = await context.newPage();
     await page.goto(embedUrl, { waitUntil: "networkidle", timeout: 60000 });
 
-    await editResponse({
-      embeds: [
-        getStatusEmbed("Getting File Info...", "Getting document info..."),
-      ],
-    });
 
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(guild, "Searching...", "Getting document info..."),
+        ctx.statusEmbed("Searching...", "Getting document info..."),
       ],
     });
 
@@ -118,12 +87,13 @@ async function runScribdFlow(target, url, options = {}) {
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
     const imageUrls = [];
-    const jobId = Math.random().toString(36).substring(2, 10);
+    const { generateJobId } = require("./core-helpers");
+const colors = require("../../utils/embed-colors");
+    const jobId = generateJobId();
 
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(
-          guild,
+        ctx.statusEmbed(
           "Working...",
           `Loading ${pageCount} pages, please wait...`,
         ),
@@ -165,42 +135,39 @@ async function runScribdFlow(target, url, options = {}) {
 
     await browser.close();
 
-    const db = loadDB();
-    db.jobs[jobId] = {
+    createJob(target, {
+      jobId,
       url,
-      timestamp: Date.now(),
       title: docTitle,
       stats: { pages: pageCount, type: "High Quality PDF" },
       thumbnail:
         target.client?.user?.displayAvatarURL() ||
         "https://www.scribd.com/favicon.ico",
       platform: "Scribd",
-      userId: target.user ? target.user.id : target.author.id,
       isGallery: true,
       imageUrls: imageUrls,
-    };
-    saveDB(db);
+    });
 
-    const LEA = getEmoji("check", "✅");
-    const NOTIF = getEmoji("notif", "🔔");
+    const LEA = ctx.getEmoji("check", "✅");
+    const NOTIF = ctx.getEmoji("notif", "🔔");
     const foundEmbed = new EmbedBuilder()
-      .setColor("#636e72")
+      .setColor(colors.DOCUMENT)
       .setTitle(`${ARCHIVE} **Scribd Document Found**`)
       .setDescription(
         `### ${LEA} **File Ready**\n` +
-          `${ARROW} **Title:** *${docTitle}*\n` +
-          `${ARROW} **Total Pages:** *${pageCount}*\n` +
-          `${ARROW} **Quality:** *Ultra-HD (2.0x Scaled)*\n\n` +
+          `${ctx.ARROW} **Title:** *${docTitle}*\n` +
+          `${ctx.ARROW} **Total Pages:** *${pageCount}*\n` +
+          `${ctx.ARROW} **Quality:** *Ultra-HD (2.0x Scaled)*\n\n` +
           `*Creating your PDF with high quality...*`,
       );
 
-    const resMsg = await _editResponse({ embeds: [foundEmbed] });
+    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg: resMsg };
   } catch (e) {
     if (browser) await browser.close();
     console.error("[SCRIBD-FLOW] Error:", e.message);
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Download Failed", e.message)],
+    await ctx.editResponse({
+      embeds: [ctx.statusEmbed("Download Failed", e.message)],
     }).catch(() => {});
     return null;
   }

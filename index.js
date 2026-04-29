@@ -13,6 +13,13 @@ const { advanceLog } = require("./utils/logger");
 const { stopTunnel } = require("./utils/tunnel-server");
 const { player } = require("./handlers/music");
 
+const NETWORK_HICCUP_CODES = [
+  "521", "502", "503", "504",
+  "ETIMEDOUT", "ECONNRESET", "Unexpected server response",
+];
+const isNetworkHiccup = (msg) =>
+  NETWORK_HICCUP_CODES.some((code) => msg?.includes(code));
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -102,16 +109,7 @@ client.once("clientReady", async () => {
 process.on("uncaughtException", (err) => {
   console.error("[CRITICAL-ERROR]", err);
 
-  const isNetworkHiccup = [
-    "521",
-    "502",
-    "503",
-    "504",
-    "ETIMEDOUT",
-    "ECONNRESET",
-    "Unexpected server response",
-  ].some((code) => err.message?.includes(code));
-  if (isNetworkHiccup) {
+  if (isNetworkHiccup(err.message)) {
     console.log(
       "[System] Connection hiccup detected. MaveL is attempting to stabilize...",
     );
@@ -131,16 +129,7 @@ process.on("unhandledRejection", (reason) => {
   console.error("[INTERNAL-WARNING]", reason);
 
   const reasonMsg = typeof reason === "string" ? reason : reason.message || "";
-  const isNetworkHiccup = [
-    "521",
-    "502",
-    "503",
-    "504",
-    "ETIMEDOUT",
-    "ECONNRESET",
-    "Unexpected server response",
-  ].some((code) => reasonMsg.includes(code));
-  if (isNetworkHiccup) return;
+  if (isNetworkHiccup(reasonMsg)) return;
 
   advanceLog(client, {
     type: "error",

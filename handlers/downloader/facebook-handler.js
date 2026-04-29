@@ -1,32 +1,14 @@
 const axios = require("axios");
 const cheerio = require("cheerio");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
-const { loadDB, saveDB } = require("./core-helpers");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
+const { createJob, createHandlerContext } = require("./core-helpers");
 
 const { startDownload } = require("./callbacks");
+const colors = require("../../utils/embed-colors");
 
 async function runFacebookFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const FIRE = getEmoji("purple_fire", "🔥");
-
-  let statusMsg;
-  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Facebook", "Getting video info...")],
-    }).catch(() => {});
-  } else {
-    if (target.deferred === false && target.replied === false && typeof target.deferReply === "function") {
-      await target.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
-    }
-    statusMsg = await sendInitialStatus(target, "Facebook", "Getting video info...");
-  }
+  const ctx = createHandlerContext(target, options);
+  await ctx.init("Facebook", "Getting video info...");
 
   try {
     const ddFbUrl = url
@@ -80,35 +62,31 @@ async function runFacebookFlow(target, url, options = {}) {
 
     if (!videoUrl && !imageUrl) throw new Error("Video source restricted.");
 
-    const jobId = Math.random().toString(36).substring(2, 10);
-    const db = loadDB();
-    db.jobs[jobId] = {
+    const jobId = createJob(target, {
       url,
-      timestamp: Date.now(),
       title: title || author,
       stats: stats,
       thumbnail: imageUrl || "",
       platform: "Facebook",
-      userId: target.user ? target.user.id : target.author.id,
       isGallery: false,
       hasVideo: !!videoUrl,
+      isVideo: !!videoUrl,
       extractor: "facebook-scrape",
       directUrl: videoUrl || imageUrl,
-    };
-    saveDB(db);
+    });
 
-    const LEA = getEmoji("ping_green", "getEmoji('ping_green', '✅')");
-    const NOTIF = getEmoji("notif", "🔔");
+    const LEA = ctx.getEmoji("ping_green", "✅");
+    const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#e17055")
+      .setColor(colors.SOCIAL)
       .setTitle(`${NOTIF} **Facebook Video Found**`)
       .setThumbnail(imageUrl || "")
       .setDescription(
         `### ${LEA} **File Found**\n` +
-          `${ARROW} **Title:** *${title}*\n` +
-          `${ARROW} **Type:** *${videoUrl ? "Video" : "Photo"}*\n` +
-          `${ARROW} **Author:** *${author}*\n\n` +
+          `${ctx.ARROW} **Title:** *${title}*\n` +
+          `${ctx.ARROW} **Type:** *${videoUrl ? "Video" : "Photo"}*\n` +
+          `${ctx.ARROW} **Author:** *${author}*\n\n` +
           `*Everything is ready. Starting the download...*`,
       );
 
@@ -117,7 +95,7 @@ async function runFacebookFlow(target, url, options = {}) {
       return await startDownload(target, jobId, finalFormat, { statusMsg });
     }
 
-    const resMsg = await _editResponse({ embeds: [foundEmbed] });
+    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg: resMsg };
   } catch (e) {
     console.error("[FB-FLOW] Error:", e.message);

@@ -4,8 +4,18 @@ const {
   ChannelType,
 } = require("discord.js");
 const { resolveEmoji } = require("../../utils/emoji-helper");
+const { SlashCommandBuilder } = require("discord.js");
 
 module.exports = {
+  slashData: new SlashCommandBuilder()
+    .setName("delete")
+    .setDescription("Purge bot messages in DMs or Clean chat messages in Servers")
+    .addIntegerOption((opt) =>
+      opt
+        .setName("count")
+        .setDescription("Number of messages (max 1000)")
+        .setRequired(true)
+    ),
   name: "delete",
   async execute(interaction, client) {
     const guild = interaction.guild;
@@ -32,21 +42,24 @@ module.exports = {
           deleted++;
         }
 
-        return await interaction.editReply({
+        await interaction.editReply({
           content: `### ${FIRE} **DM Cleanup Finished**\n*Identified and removed **${deleted}** bot messages from this conversation.*`,
         });
+        return setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
       } catch (err) {
-        return await interaction.editReply({
+        await interaction.editReply({
           content: `### ${RED_DOT} **Cleanup Failed**\n*Error: ${err.message}*`,
         });
+        return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
       }
     } else {
       if (
         !interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)
       ) {
-        return await interaction.editReply({
+        await interaction.editReply({
           content: `*Error: Permission Denied. You need 'Manage Messages' permission.*`,
         });
+        return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
       }
 
       try {
@@ -99,9 +112,10 @@ module.exports = {
         setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
         return res;
       } catch (err) {
-        return await interaction.editReply({
+        await interaction.editReply({
           content: `### ${RED_DOT} **Cleanup Failed**\n*Error: ${err.message}*`,
         });
+        return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
       }
     }
   },

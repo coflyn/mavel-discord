@@ -2,36 +2,15 @@ const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder } = require("discord.js");
-const { loadDB, saveDB } = require("./core-helpers");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const {
-  getStatusEmbed,
-  editResponse,
-  sendInitialStatus,
-} = require("../../utils/response-helper");
+const { createJob, createHandlerContext } = require("./core-helpers");
 const { bundleImagesToPdf } = require("../../utils/filetools");
 
 async function runCalameoFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const MAG = getEmoji("camera", "📕");
-  const LEA = getEmoji("check", "✅");
-  const NOTIF = getEmoji("notif", "🔔");
-
-  let statusMsg;
-  const _editResponse = async (data) =>
-    await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-  } else {
-    statusMsg = await sendInitialStatus(
-      target,
-      "Searching...",
-      "Finding the publication...",
-    );
-  }
+  const ctx = createHandlerContext(target, options);
+  const MAG = ctx.getEmoji("camera", "📕");
+  const LEA = ctx.getEmoji("check", "✅");
+  const NOTIF = ctx.getEmoji("notif", "🔔");
+  await ctx.init("Searching...", "Finding the publication...", { silent: true });
 
   let browser;
   try {
@@ -43,9 +22,9 @@ async function runCalameoFlow(target, url, options = {}) {
 
     const page = await context.newPage();
 
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(guild, "Searching...", "Opening the publication..."),
+        ctx.statusEmbed("Searching...", "Opening the publication..."),
       ],
     });
 
@@ -98,18 +77,19 @@ async function runCalameoFlow(target, url, options = {}) {
     const tempDir = path.join(__dirname, "../../temp");
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-    const jobId = Math.random().toString(36).substring(2, 10);
+    const { generateJobId } = require("./core-helpers");
+const colors = require("../../utils/embed-colors");
+    const jobId = generateJobId();
     const imageUrls = [];
 
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Working...", `HQ Processing...`)],
+    await ctx.editResponse({
+      embeds: [ctx.statusEmbed("Working...", `HQ Processing...`)],
     });
 
     for (let i = 0; i < pageCount; i++) {
-      await _editResponse({
+      await ctx.editResponse({
         embeds: [
-          getStatusEmbed(
-            guild,
+          ctx.statusEmbed(
             "Working...",
             `Reading page ${i + 1} of ${pageCount}...`,
           ),
@@ -129,42 +109,37 @@ async function runCalameoFlow(target, url, options = {}) {
 
     await browser.close();
 
-    const db = loadDB();
-    db.jobs[jobId] = {
+    createJob(target, {
+      jobId,
       url,
-      timestamp: Date.now(),
       title: docTitle,
       stats: { pages: imageUrls.length, type: "Digital Publication" },
       thumbnail: "https://www.calameo.com/favicon.ico",
       platform: "Calaméo",
-      userId: target.user ? target.user.id : target.author.id,
       isGallery: true,
       imageUrls: imageUrls,
-    };
-    saveDB(db);
+    });
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#ff4757")
+      .setColor(colors.DOCUMENT)
       .setTitle(`${MAG} **Calaméo Ready**`)
       .setDescription(
         `### ${LEA} **Processing Complete**\n` +
-          `${ARROW} **Title:** *${docTitle}*\n` +
-          `${ARROW} **Platform:** *CALAMEO*\n\n` +
+          `${ctx.ARROW} **Title:** *${docTitle}*\n` +
+          `${ctx.ARROW} **Platform:** *CALAMEO*\n\n` +
           `*Bundling Ultra-HD pages into PDF...*`,
       );
 
-    const resMsg = await _editResponse({ embeds: [foundEmbed] });
+    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg: resMsg };
   } catch (e) {
     if (browser) await browser.close();
     console.error("[CALAMEO-JS] Error:", e.message);
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Failed", e.message)],
+    await ctx.editResponse({
+      embeds: [ctx.statusEmbed("Failed", e.message)],
     }).catch(() => {});
     return null;
   }
 }
-
-module.exports = { runCalameoFlow };
 
 module.exports = { runCalameoFlow };

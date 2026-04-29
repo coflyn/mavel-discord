@@ -28,9 +28,11 @@ async function musicHandler(target, manualData = null) {
 
   if (!voiceChannel) {
     const msg = "*You must be in a voice channel first.*";
-    return isInteraction
-      ? target.reply({ content: msg, flags: [MessageFlags.Ephemeral] })
-      : target.reply(msg);
+    if (isInteraction) {
+      await target.reply({ content: msg, flags: [MessageFlags.Ephemeral] });
+      return setTimeout(() => target.deleteReply().catch(() => {}), 10000);
+    }
+    return target.reply(msg);
   }
 
   let url =

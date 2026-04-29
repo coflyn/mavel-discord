@@ -12,13 +12,15 @@ const {
 const fs = require("fs");
 const path = require("path");
 const { resolveEmoji } = require("../../utils/emoji-helper");
+const colors = require("../../utils/embed-colors");
 
 module.exports = async function cookiesHandler(interaction) {
   if (!interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-    return interaction.reply({
+    await interaction.reply({
       content: "*Admin permission needed to use this command.*",
       flags: [MessageFlags.Ephemeral],
     });
+    return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
   }
 
   const getEmoji = (name, fallback) => resolveEmoji(interaction.guild, name, fallback);
@@ -54,7 +56,7 @@ module.exports = async function cookiesHandler(interaction) {
     }
 
     return new EmbedBuilder()
-      .setColor("#d63031")
+      .setColor(colors.ADMIN)
       .setAuthor({
         name: "MaveL Bot Settings",
         iconURL: interaction.client.user.displayAvatarURL(),
@@ -107,6 +109,7 @@ module.exports = async function cookiesHandler(interaction) {
     components: [rowButtons],
     flags: [MessageFlags.Ephemeral],
   });
+  setTimeout(() => interaction.deleteReply().catch(() => {}), 300000);
 
   const filter = (i) => i.user.id === interaction.user.id;
   const collector = interaction.channel.createMessageComponentCollector({
@@ -123,6 +126,7 @@ module.exports = async function cookiesHandler(interaction) {
           embeds: [],
         })
         .catch(() => {});
+      setTimeout(() => interaction.deleteReply().catch(() => {}), 5000);
       return collector.stop();
     }
 
@@ -228,6 +232,7 @@ module.exports = async function cookiesHandler(interaction) {
               embeds: [generateEmbed()],
             })
             .catch(() => {});
+          setTimeout(() => interaction.deleteReply().catch(() => {}), 300000);
         } catch (err) {
           const E_ERROR = getEmoji("ping_red", "🔴");
           await submission

@@ -1,6 +1,6 @@
 const { spawn } = require("child_process");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
-const { loadDB, saveDB } = require("./core-helpers");
+const { createJob, createHandlerContext } = require("./core-helpers");
 const {
   getYtDlp,
   getDlpEnv,
@@ -8,28 +8,13 @@ const {
   getCookiesArgs,
   getVpsArgs,
 } = require("../../utils/dlp-helpers");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
 const { startDownload } = require("./callbacks");
+const colors = require("../../utils/embed-colors");
 
 async function runYtmFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const FIRE = getEmoji("purple_fire", "🔥");
-
-  let statusMsg;
-  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "YouTube Music", "Searching for music...")],
-    }).catch(() => {});
-  } else {
-    statusMsg = await sendInitialStatus(target, "YouTube Music", "Searching for music...");
-  }
+  const ctx = createHandlerContext(target, options);
+  await ctx.init("YouTube Music", "Searching for music...");
 
   try {
     const cleanUrl = url.split("&list=")[0].split("?si=")[0];
@@ -58,51 +43,40 @@ async function runYtmFlow(target, url, options = {}) {
     const title = json.title || "Untitled Track";
     const thumbnail = json.thumbnail || "";
     const album = json.album || "Single";
-    const jobId = Math.random().toString(36).substring(2, 10);
-
-    const durationSec = json.duration || 0;
-    const duration =
-      durationSec > 0
-        ? `${Math.floor(durationSec / 60)}:${String(Math.floor(durationSec % 60)).padStart(2, "0")}`
-        : "LIVE";
-
+    const duration = json.duration_string || `${Math.floor((json.duration || 0) / 60)}m`;
+    
     const stats = {
-      likes: json.like_count || "---",
-      views: json.view_count || "---",
+      views: json.view_count || 0,
+      likes: json.like_count || 0,
       duration: duration,
-      artist: artist,
-      album: album,
+      uploader: artist,
     };
 
-    const db = loadDB();
-    db.jobs[jobId] = {
+    const jobId = createJob(target, {
       url: cleanUrl,
-      timestamp: Date.now(),
       title: title,
       stats,
       thumbnail,
       platform: "YouTube Music",
-      userId: target.user ? target.user.id : target.author?.id || "unknown",
       isGallery: false,
       hasVideo: false,
       extractor: "youtube",
       directUrl: null,
-    };
-    saveDB(db);
+    });
 
-    const LEA = getEmoji("lea", "getEmoji('ping_green', '✅')");
-    const NOTIF = getEmoji("notif", "🔔");
+    const LEA = ctx.getEmoji("ping_green", "✅");
+    const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#00b894")
+      .setColor(colors.MUSIC_DL)
       .setTitle(`${NOTIF} **YouTube Music Found**`)
       .setThumbnail(thumbnail)
       .setDescription(
         `### ${LEA} **Song Found**\n` +
-          `${ARROW} **Title:** *${title}*\n` +
-          `${ARROW} **Artist:** *${artist}*\n` +
-          `${ARROW} **Album:** *${album}*\n` +
-          `${ARROW} **Duration:** *${duration}*\n\n` +
+          `${ctx.ARROW} **Title:** *${title}*\n` +
+          `${ctx.ARROW} **Artist:** *${artist}*\n` +
+          `${ctx.ARROW} **Album:** *${album}*\n` +
+          `${ctx.ARROW} **Duration:** *${duration}*\n\n` +
           `*Everything looks good. Starting the download...*`,
       )
       .setFooter({
@@ -111,17 +85,16 @@ async function runYtmFlow(target, url, options = {}) {
       });
 
     if (options.isCommand) {
-      return await startDownload(target, jobId, "mp3", { statusMsg });
+      return await startDownload(target, jobId, "mp3", { statusMsg: ctx.statusMsg });
     }
 
-    await _editResponse({ embeds: [foundEmbed] });
-    return { jobId, statusMsg };
+    await ctx.editResponse({ embeds: [foundEmbed] });
+    return { jobId, statusMsg: ctx.statusMsg };
   } catch (e) {
     console.error("[YTM-FLOW] Error:", e.message);
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(
-          target.guild,
+        ctx.statusEmbed(
           "Song not available",
           "Could not connect to the song. It may be restricted or private.",
         ),

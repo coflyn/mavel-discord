@@ -145,6 +145,10 @@ The Apps menu also includes tools for server integrity and fun:
 
 If you find a TikTok video or an Instagram Reel that you want to share without the external links, simply use `/dl`. MaveL will strip the trackers and provide a direct file that plays natively within Discord. For high-resolution requirements, you can specify `1080p` during the command execution.
 
+### Media Bookmarking (Reaction System)
+
+Never lose track of a great video or artwork again! When MaveL delivers media to a channel, you can simply react to the bot's message with a checkmark emoji (✅ or ☑️). MaveL will immediately send you a private Direct Message containing a clean, formatted bookmark of the media title and original source link for your personal archive.
+
 ### Converting Content for Mobile
 
 Discord often has file size limits for non-Nitro users. If you have a large video file, use the `/convert` command and select the `mp4_small` option. MaveL will re-encode the video to fit under the 8MB limit while maintaining the best possible quality.
@@ -174,7 +178,7 @@ MaveL uses an intelligent caching system to provide instant music playback. If t
 
 ### Command Refresh
 
-When new commands are added or descriptions are updated, run the `deploy-commands.js` script manually to sync the changes with Discord's global command list.
+MaveL utilizes a dynamic, directory-based command loader architecture. When new commands are added to the `/commands` directory or descriptions are updated, run the `deploy-commands.js` script manually (`node deploy-commands.js`). The script will automatically scan all subdirectories, collect the updated `slashData`, and seamlessly sync the changes with Discord's global command list.
 
 ## Technology Stack
 

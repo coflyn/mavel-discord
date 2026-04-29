@@ -14,10 +14,9 @@ const {
   getVpsArgs,
 } = require("../../utils/dlp-helpers");
 const {
-  loadDB,
-  saveDB,
+  createJob,
   formatNumber,
-  sendAdminLog,
+  advanceLog,
 } = require("./core-helpers");
 const {
   getStatusEmbed,
@@ -57,6 +56,11 @@ const musicKeywords = [
 
 async function runYtDlpFlow(target, url, options = {}) {
   let finalUrl = url.replace("threads.com", "threads.net");
+
+  // Clean URL to avoid tracking params confusing extractors
+  if (finalUrl.includes("tiktok.com") || finalUrl.includes("twitter.com") || finalUrl.includes("x.com")) {
+    finalUrl = finalUrl.split("?")[0].split("#")[0];
+  }
   let statusMsg;
 
   const guild = target.guild || target.client?.guilds?.cache.first();
@@ -65,8 +69,8 @@ async function runYtDlpFlow(target, url, options = {}) {
   const ARROW = getEmoji("arrow", "•");
   const AMOGUS = getEmoji("amogus", "🛰️");
   const FIRE = getEmoji("purple_fire", "🔥");
-  const E_SUCCESS = getEmoji("check", "getEmoji('ping_green', '✅')");
-  const E_ERROR = getEmoji("ping_red", "getEmoji('ping_red', '❌')");
+  const E_SUCCESS = getEmoji("ping_green", "✅");
+  const E_ERROR = getEmoji("ping_red", "❌");
 
   const initialEmbed = getStatusEmbed(
     guild,
@@ -79,7 +83,7 @@ async function runYtDlpFlow(target, url, options = {}) {
     "Getting link info...",
   );
 
-  await sendAdminLog(target.client, {
+  await advanceLog(target.client, {
     title: "Link Detected",
     message: `Bot is processing a new link.`,
     user: (target.user || target.author || {}).tag || "Unknown",
@@ -266,9 +270,8 @@ async function runYtDlpFlow(target, url, options = {}) {
     });
 
     if (isVideo) {
-      let jobId = Math.random().toString(36).substring(2, 10);
-      const db = loadDB();
-
+      const { generateJobId } = require("./core-helpers");
+      let jobId = generateJobId();
       const meta = await new Promise((resolve) => {
         const metaProcess = spawn(
           getYtDlp(),
@@ -292,9 +295,9 @@ async function runYtDlpFlow(target, url, options = {}) {
       });
       const [dur, uploader, rawTitle] = meta.split("|");
 
-      db.jobs[jobId] = {
+      createJob(target, {
+        jobId,
         url: finalUrl,
-        timestamp: Date.now(),
         title: (rawTitle && rawTitle !== "NA"
           ? rawTitle
           : "Pinterest Video"
@@ -309,13 +312,12 @@ async function runYtDlpFlow(target, url, options = {}) {
         },
         thumbnail: "",
         platform: "Pinterest",
-        userId: target.user ? target.user.id : target.author?.id || "unknown",
         isGallery: false,
         hasVideo: true,
+        isVideo: true,
         extractor: "pinterest",
         directUrl: null,
-      };
-      saveDB(db);
+      });
       return await startDownload(target, jobId, "mp4", { statusMsg });
     }
 
@@ -477,8 +479,8 @@ async function runYtDlpFlow(target, url, options = {}) {
 
   const metadataTimeout = setTimeout(() => {
     metadataProcess.kill();
-    console.error("[METADATA-TIMEOUT] Process killed after 30s");
-  }, 30000);
+    console.error("[METADATA-TIMEOUT] Process killed after 60s");
+  }, 60000);
 
   let metadata = "";
   let errorLog = "";
@@ -504,22 +506,23 @@ async function runYtDlpFlow(target, url, options = {}) {
       let uploader = "";
       let isGallery = false;
 
-      let jobId = Math.random().toString(36).substring(2, 10);
-      const db = loadDB();
+      const { generateJobId } = require("./core-helpers");
+const colors = require("../../utils/embed-colors");
+      let jobId = generateJobId();
 
-      db.jobs[jobId] = {
+      createJob(target, {
+        jobId,
         url: finalUrl,
-        timestamp: Date.now(),
         title: "",
         stats: { likes, views, comments, shares, duration, uploader },
         thumbnail: "",
         platform: "Generic",
-        userId: target.user ? target.user.id : target.author.id,
         isGallery: false,
         hasVideo: true,
+        isVideo: true,
         extractor: "Generic",
         directUrl: null,
-      };
+      });
 
       if (code !== 0 || !metadata.trim()) {
         if (url.includes("instagram.com")) {
@@ -599,6 +602,7 @@ async function runYtDlpFlow(target, url, options = {}) {
             platform: finalPlatform,
             isGallery,
             hasVideo,
+            isVideo: hasVideo,
             extractor: finalPlatform,
             directUrl: json.url || null,
           };
@@ -629,7 +633,7 @@ async function runYtDlpFlow(target, url, options = {}) {
       const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
       const foundEmbed = new EmbedBuilder()
-        .setColor("#6c5ce7")
+        .setColor(colors.CORE)
         .setTitle(`${FIRE} **Media Found**`)
         .setImage(botBanner)
         .setDescription(

@@ -3,6 +3,8 @@ const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const axios = require("axios");
+const colors = require("../../utils/embed-colors");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 
 module.exports = async function inspectorHandler(interaction) {
   await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -65,24 +67,20 @@ module.exports = async function inspectorHandler(interaction) {
     if (filesToProcess.length === 0)
       throw new Error("No media file detected to inspect.");
 
-    const guildEmojis =
-      (await interaction.client.getGuildEmojis?.(interaction.guild.id)) ||
-      (await interaction.guild.emojis.fetch().catch(() => null));
-    const getE = (name, fallback) =>
-      guildEmojis?.find((e) => e.name === name)?.toString() || fallback;
+    const getEmoji = (name, fallback) => resolveEmoji(interaction.guild, name, fallback);
 
-    const E_TIME = getE("time", "⌛");
-    const E_INFO = getE("anno", "ℹ️");
-    const E_DIAMOND = getE("diamond", "💎");
-    const E_ARROW = getE("arrow", "•");
-    const E_PC = getE("pc", "💻");
-    const E_MAP = getE("notif", "📍");
-    const E_FIRE = getE("purple_fire", "🔥");
+    const E_TIME = getEmoji("time", "⌛");
+    const E_INFO = getEmoji("anno", "ℹ️");
+    const E_DIAMOND = getEmoji("diamond", "💎");
+    const E_ARROW = getEmoji("arrow", "•");
+    const E_PC = getEmoji("pc", "💻");
+    const E_MAP = getEmoji("notif", "📍");
+    const E_FIRE = getEmoji("purple_fire", "🔥");
 
     await interaction.editReply({
       embeds: [
         new EmbedBuilder()
-          .setColor("#6c5ce7")
+          .setColor(colors.CORE)
           .setDescription(
             `### ${E_TIME} **Reading Media...**\n*MaveL is analyzing details...*`,
           ),
@@ -152,7 +150,7 @@ module.exports = async function inspectorHandler(interaction) {
       : "Static";
 
     const embed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor(colors.CORE)
       .setAuthor({
         name: "Media Analysis Report",
         iconURL: interaction.client.user.displayAvatarURL(),
@@ -218,13 +216,15 @@ module.exports = async function inspectorHandler(interaction) {
     }
 
     await interaction.editReply({ embeds: [embed] });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
     if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
   } catch (err) {
     console.error("[INSPECT] Error:", err.message);
-    const E_ERROR = getE("ping_red", "🔴");
+    const E_ERROR = resolveEmoji(interaction.guild, "ping_red", "🔴");
     await interaction.editReply({
       content: `### ${E_ERROR} **Something went wrong**\n> *Error: ${err.message}*`,
       embeds: [],
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
   }
 };

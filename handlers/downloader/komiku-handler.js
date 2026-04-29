@@ -3,35 +3,14 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 const { EmbedBuilder } = require("discord.js");
-const { loadDB, saveDB } = require("./core-helpers");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const {
-  getStatusEmbed,
-  editResponse,
-  sendInitialStatus,
-} = require("../../utils/response-helper");
+const { createJob, createHandlerContext } = require("./core-helpers");
 
 async function runKomikuFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const MANGA = getEmoji("camera", "🎌");
-  const LEA = getEmoji("check", "✅");
-  const NOTIF = getEmoji("notif", "🔔");
+  const ctx = createHandlerContext(target, options);
+  const MANGA = ctx.getEmoji("camera", "🎌");
+  const LEA = ctx.getEmoji("check", "✅");
 
-  let statusMsg;
-  const _editResponse = async (data) =>
-    await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-  } else {
-    statusMsg = await sendInitialStatus(
-      target,
-      "Reading Komiku",
-      "Opening browser...",
-    );
-  }
+  await ctx.init("Reading Komiku", "Opening browser...");
 
   let normalizedUrl = url.split("#")[0];
   if (url.includes("komiku.id"))
@@ -47,10 +26,9 @@ async function runKomikuFlow(target, url, options = {}) {
 
     const page = await context.newPage();
 
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(
-          guild,
+        ctx.statusEmbed(
           "Komiku Downloader",
           "Loading chapter and rendering panels...",
         ),
@@ -103,13 +81,14 @@ async function runKomikuFlow(target, url, options = {}) {
     const tempDir = path.join(__dirname, "../../temp");
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-    const jobId = Math.random().toString(36).substring(2, 10);
+    const { generateJobId } = require("./core-helpers");
+const colors = require("../../utils/embed-colors");
+    const jobId = generateJobId();
     const localPaths = [];
 
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(
-          guild,
+        ctx.statusEmbed(
           "Downloading Panels",
           `Fetching ${imageUrls.length} images...`,
         ),
@@ -117,10 +96,9 @@ async function runKomikuFlow(target, url, options = {}) {
     });
 
     for (let i = 0; i < imageUrls.length; i++) {
-      await _editResponse({
+      await ctx.editResponse({
         embeds: [
-          getStatusEmbed(
-            guild,
+          ctx.statusEmbed(
             "Downloading Panels",
             `Panel ${i + 1} of ${imageUrls.length} captured...`,
           ),
@@ -145,43 +123,38 @@ async function runKomikuFlow(target, url, options = {}) {
 
     await browser.close();
 
-    const db = loadDB();
-    db.jobs[jobId] = {
+    createJob(target, {
+      jobId,
       url,
-      timestamp: Date.now(),
       title: docTitle,
       stats: { pages: localPaths.length, type: "Manga PDF" },
       thumbnail: "https://komiku.com/favicon.ico",
       platform: "Komiku",
-      userId: target.user ? target.user.id : target.author.id,
       isGallery: true,
       imageUrls: localPaths,
-    };
-    saveDB(db);
+    });
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#2ed573")
+      .setColor(colors.DOCUMENT)
       .setTitle(`${MANGA} **Komiku Chapter Ready**`)
       .setDescription(
         `### ${LEA} **Processing Complete**\n` +
-          `${ARROW} **Title:** *${docTitle}*\n` +
-          `${ARROW} **Pages:** *${localPaths.length} Panels*\n` +
-          `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
+          `${ctx.ARROW} **Title:** *${docTitle}*\n` +
+          `${ctx.ARROW} **Pages:** *${localPaths.length} Panels*\n` +
+          `${ctx.ARROW} **Link:** [Original Link](<${url}>)\n\n` +
           `*Compiling manga into PDF...*`,
       );
 
-    const resMsg = await _editResponse({ embeds: [foundEmbed] });
+    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg: resMsg };
   } catch (e) {
     if (browser) await browser.close();
     console.error("[KOMIKU-JS] Error:", e.message);
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Failed", e.message)],
+    await ctx.editResponse({
+      embeds: [ctx.statusEmbed("Failed", e.message)],
     }).catch(() => {});
     return null;
   }
 }
-
-module.exports = { runKomikuFlow };
 
 module.exports = { runKomikuFlow };

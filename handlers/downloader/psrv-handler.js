@@ -1,12 +1,7 @@
 const { chromium } = require("playwright");
 const { spawn } = require("child_process");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const {
-  getStatusEmbed,
-  editResponse,
-  sendInitialStatus,
-} = require("../../utils/response-helper");
-const { loadDB, saveDB } = require("./core-helpers");
+
+const { createJob, createHandlerContext } = require("./core-helpers");
 const {
   getYtDlp,
   getDlpEnv,
@@ -19,14 +14,8 @@ const {
 } = require("../../utils/dns-bypass");
 
 async function runPSrvFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const SHIELD = getEmoji("shield", "🛡️");
-
-  let statusMsg;
-  const _editResponse = async (data) =>
-    await editResponse(target, statusMsg, data);
+  const ctx = createHandlerContext(target, options);
+  const SHIELD = ctx.getEmoji("shield", "🛡️");
 
   const isPornhub = url.includes("pornhub.com");
   const isXNXX = url.includes("xnxx.com");
@@ -49,14 +38,8 @@ async function runPSrvFlow(target, url, options = {}) {
     }
   }
 
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-  } else {
-    statusMsg = await sendInitialStatus(
-      target,
-      "Deploying Proxy...",
-      "Initializing secure connection...",
-    );
+  if (!ctx.statusMsg) {
+    await ctx.init("Deploying Proxy...", "Initializing secure connection...");
   }
 
   if (isPornhub) {
@@ -85,10 +68,9 @@ async function runPSrvFlow(target, url, options = {}) {
         },
       ]);
 
-      await _editResponse({
+      await ctx.editResponse({
         embeds: [
-          getStatusEmbed(
-            guild,
+          ctx.statusEmbed(
             "Analyzing Page...",
             "Securing bypass token...",
           ),
@@ -133,10 +115,9 @@ async function runPSrvFlow(target, url, options = {}) {
       if (!flashvars)
         throw new Error("The site is strictly blocking automated access.");
 
-      await _editResponse({
+      await ctx.editResponse({
         embeds: [
-          getStatusEmbed(
-            guild,
+          ctx.statusEmbed(
             "Resolving Stream...",
             "Extracting direct media link...",
           ),
@@ -197,11 +178,11 @@ async function runPSrvFlow(target, url, options = {}) {
       const title = flashvars.video_title || "StreamSync Material";
       const thumbnail = flashvars.image_url || "";
 
-      const jobId = Math.random().toString(36).substring(2, 10);
-      const db = loadDB();
-      db.jobs[jobId] = {
+      const { generateJobId } = require("./core-helpers");
+      const jobId = generateJobId();
+      createJob(target, {
+        jobId,
         url,
-        timestamp: Date.now(),
         title,
         stats: {
           views: flashvars.views || "0",
@@ -210,9 +191,9 @@ async function runPSrvFlow(target, url, options = {}) {
         },
         thumbnail,
         platform: "Pornhub",
-        userId: target.user ? target.user.id : target.author.id,
         isGallery: false,
         hasVideo: true,
+        isVideo: true,
         directUrl: videoUrl,
         isHls: isHls || videoUrl.includes(".m3u8"),
         referer: url,
@@ -221,26 +202,24 @@ async function runPSrvFlow(target, url, options = {}) {
           "User-Agent":
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
         },
-      };
-      saveDB(db);
+      });
 
       const { startDownload } = require("./callbacks");
       await browser.close();
-      return await startDownload(target, jobId, "mp4", { statusMsg });
+      return await startDownload(target, jobId, "mp4", { statusMsg: ctx.statusMsg });
     } catch (e) {
       console.error("[PSRV-PH] Error:", e.message);
       if (browser) await browser.close();
-      await _editResponse({
-        embeds: [getStatusEmbed(guild, "Failed", `Details: ${e.message}`)],
+      await ctx.editResponse({
+        embeds: [ctx.statusEmbed("Failed", `Details: ${e.message}`)],
       });
       return null;
     }
   } else {
     try {
-      await _editResponse({
+      await ctx.editResponse({
         embeds: [
-          getStatusEmbed(
-            guild,
+          ctx.statusEmbed(
             "Analyzing Shards...",
             "Syncing secure connection...",
           ),
@@ -271,7 +250,8 @@ async function runPSrvFlow(target, url, options = {}) {
       const title = json.title || "StreamSync Material";
       const uploader = json.uploader || "Anonymous";
       const thumbnail = json.thumbnail || "";
-      const jobId = Math.random().toString(36).substring(2, 10);
+      const { generateJobId } = require("./core-helpers");
+      const jobId = generateJobId();
       const platform = isXNXX
         ? "XNXX"
         : isXVideos
@@ -280,10 +260,9 @@ async function runPSrvFlow(target, url, options = {}) {
             ? "EPorner"
             : "Adult Content";
 
-      const db = loadDB();
-      db.jobs[jobId] = {
+      createJob(target, {
+        jobId,
         url: normalizedUrl,
-        timestamp: Date.now(),
         title,
         stats: {
           views: json.view_count || "0",
@@ -293,9 +272,9 @@ async function runPSrvFlow(target, url, options = {}) {
         },
         thumbnail,
         platform,
-        userId: target.user ? target.user.id : target.author.id,
         isGallery: false,
         hasVideo: true,
+        isVideo: true,
         directUrl: null,
         referer: normalizedUrl,
         headers: {
@@ -303,15 +282,14 @@ async function runPSrvFlow(target, url, options = {}) {
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
           Referer: normalizedUrl,
         },
-      };
-      saveDB(db);
+      });
 
       const { startDownload } = require("./callbacks");
-      return await startDownload(target, jobId, "mp4", { statusMsg });
+      return await startDownload(target, jobId, "mp4", { statusMsg: ctx.statusMsg });
     } catch (e) {
       console.error("[PSRV-GENERIC] Error:", e.message);
-      await _editResponse({
-        embeds: [getStatusEmbed(guild, "Failed", `Details: ${e.message}`)],
+      await ctx.editResponse({
+        embeds: [ctx.statusEmbed("Failed", `Details: ${e.message}`)],
       });
       return null;
     }

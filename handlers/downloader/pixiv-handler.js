@@ -1,5 +1,5 @@
 const axios = require("axios");
-const { resolveEmoji } = require("../../utils/emoji-helper");
+
 const fs = require("fs");
 const path = require("path");
 const {
@@ -9,28 +9,14 @@ const {
   ButtonStyle,
   MessageFlags,
 } = require("discord.js");
-const { loadDB, saveDB } = require("./core-helpers");
-const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
+const { createJob, createHandlerContext } = require("./core-helpers");
 
 const { startDownload } = require("./callbacks");
+const colors = require("../../utils/embed-colors");
 
 async function runPixivFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const FIRE = getEmoji("purple_fire", "🔥");
-
-  let statusMsg;
-  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Pixiv", "Looking for the art...")],
-    }).catch(() => {});
-  } else {
-    statusMsg = await sendInitialStatus(target, "Pixiv", "Looking for the art...");
-  }
+  const ctx = createHandlerContext(target, options);
+  await ctx.init("Pixiv", "Looking for the art...");
 
   try {
     const illustIdMatch =
@@ -59,12 +45,8 @@ async function runPixivFlow(target, url, options = {}) {
     const isUgoira = illust.is_ugoira;
     const imageProxyUrls = illust.image_proxy_urls;
     const thumbnail = imageProxyUrls[0];
-    const jobId = Math.random().toString(36).substring(2, 10);
-
-    const db = loadDB();
-    db.jobs[jobId] = {
+    const jobId = createJob(target, {
       url,
-      timestamp: Date.now(),
       title: title + (author ? ` by ${author}` : ""),
       stats: {
         likes: "---",
@@ -76,29 +58,28 @@ async function runPixivFlow(target, url, options = {}) {
       },
       thumbnail,
       platform: "Pixiv",
-      userId: target.user ? target.user.id : target.author.id,
       isGallery: !isUgoira && imageProxyUrls.length > 1,
       hasVideo: isUgoira,
+      isVideo: isUgoira,
       extractor: "pixiv-api",
       pixivUrls: imageProxyUrls,
-    };
-    saveDB(db);
+    });
 
     const botUser = await target.client.user.fetch();
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
-    const LEA = getEmoji("lea", "getEmoji('ping_green', '✅')");
-    const NOTIF = getEmoji("notif", "🔔");
+    const LEA = ctx.getEmoji("ping_green", "✅");
+    const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#fd79a8")
+      .setColor(colors.ARTWORK)
       .setTitle(`${NOTIF} **Pixiv Info Found**`)
       .setThumbnail(thumbnail)
       .setDescription(
         `### ${LEA} *Artwork Found*\n` +
-          `${ARROW} **Title:** *${title}*\n` +
-          `${ARROW} **Artist:** *${author}*\n` +
-          `${ARROW} **Type:** *${isUgoira ? "Ugoku-Illust (MP4)" : `Gallery (${imageProxyUrls.length} Pages)`}*\n\n` +
+          `${ctx.ARROW} **Title:** *${title}*\n` +
+          `${ctx.ARROW} **Artist:** *${author}*\n` +
+          `${ctx.ARROW} **Type:** *${isUgoira ? "Ugoku-Illust (MP4)" : `Gallery (${imageProxyUrls.length} Pages)`}*\n\n` +
           `*Found via Pixiv Downloader*`,
       );
 
@@ -107,18 +88,17 @@ async function runPixivFlow(target, url, options = {}) {
         target,
         jobId,
         isUgoira ? "pixiv_ugoira" : "pixiv_gallery",
-        { statusMsg },
+        { statusMsg: ctx.statusMsg },
       );
     }
 
-    const resMsg = await _editResponse({ embeds: [foundEmbed] });
+    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
     return { jobId, isUgoira, statusMsg: resMsg };
   } catch (e) {
     console.error("[PIXIV-FLOW] Error:", e.message);
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(
-          target.guild,
+        ctx.statusEmbed(
           "Pixiv Download Failed",
           e.message || "Could not reach Pixiv servers.",
         ),
@@ -127,15 +107,6 @@ async function runPixivFlow(target, url, options = {}) {
   }
 }
 
-async function handlePixivDownload(interaction, jobId, format) {
-  const db = loadDB();
-  const job = db.jobs[jobId];
-  if (!job)
-    return interaction.reply({
-      content: "*Error: Request expired.*",
-      ephemeral: true,
-    });
-}
 
 module.exports = {
   runPixivFlow,

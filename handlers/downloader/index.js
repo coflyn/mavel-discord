@@ -56,13 +56,13 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
     const DOTS = getEmoji("three_dots", "🎵");
     const COIN = getEmoji("coin", "☁️");
     const FIRE = getEmoji("purple_fire", "✨");
-    const LEA = getEmoji("lea", "getEmoji('ping_green', '✅')");
+    const LEA = getEmoji("ping_green", "✅");
 
     const botUser = await target.client.user.fetch();
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
     const embed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor(colors.CORE)
       .setAuthor({
         name: "MaveL Downloader System",
         iconURL: target.client.user.displayAvatarURL(),
@@ -165,6 +165,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
 
   if (isNsfwUrl && !target.channel.nsfw) {
     const { resolveEmoji } = require("../../utils/emoji-helper");
+const colors = require("../../utils/embed-colors");
     const E_WARN = resolveEmoji(target.guild, "ping_red", "🔴");
     const msg = `${E_WARN} **[AUTO-BLOCKED]** Download restricted: **NSFW Content** detected in a non-age-restricted channel.\n\n> *Please use an Age-Restricted channel or use \`/setup\` to reconfigure your downloader channel.*`;
 

@@ -1,8 +1,15 @@
 const fs = require("fs");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const path = require("path");
+const { advanceLog } = require("../../utils/logger");
 const config = require("../../config");
 const { EmbedBuilder } = require("discord.js");
+const colors = require("../../utils/embed-colors");
+const {
+  getStatusEmbed,
+  editResponse,
+  sendInitialStatus,
+} = require("../../utils/response-helper");
 
 const dbPath = path.join(__dirname, "../../database/downloader.json");
 
@@ -94,7 +101,7 @@ function createProgressUpdater(target, title) {
     const bar = "█".repeat(progress) + "░".repeat(size - progress);
 
     const embed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor(colors.CORE)
       .setDescription(
         `### ${FIRE} **Download in progress...**\n` +
           `${ARROW} **Title:** *${title}*\n` +
@@ -121,6 +128,37 @@ function formatSize(bytes) {
     return (bytes / 1024).toFixed(2) + " KB";
   }
   return (bytes / (1024 * 1024)).toFixed(2) + " MB";
+}
+
+function formatDuration(input) {
+  if (!input) return "---";
+  if (typeof input === "string" && input.includes(":")) {
+    return input.split(".")[0];
+  }
+  const n = parseFloat(input);
+  if (isNaN(n)) return input || "---";
+  const s = Math.floor(n);
+  const m = Math.floor(s / 60);
+  const rs = s % 60;
+  return `${m}:${rs.toString().padStart(2, "0")}`;
+}
+
+function formatUptime(uptimeSeconds) {
+  const hours = Math.floor(uptimeSeconds / 3600);
+  const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+  const seconds = Math.floor(uptimeSeconds % 60);
+  return `${hours}h ${minutes}m ${seconds}s`;
+}
+
+function sanitizeFilename(title, fallback = "media") {
+  return (
+    (title || fallback)
+      .replace(/[^\x00-\x7F]/g, "")
+      .replace(/[^\w\s-]/gi, "")
+      .trim()
+      .replace(/\s+/g, "_")
+      .substring(0, 60) || `${fallback}_${Date.now()}`
+  );
 }
 
 class TaskQueue {
@@ -154,77 +192,65 @@ class TaskQueue {
 
 const downloadQueue = new TaskQueue();
 
-async function sendAdminLog(client, data) {
-  if (!config.logsChannelId) return;
-  try {
-    const channel = await client.channels.fetch(config.logsChannelId);
-    if (!channel) return;
+function generateJobId() {
+  return Math.random().toString(36).substring(2, 10);
+}
 
-    const guild = channel.guild;
-    const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
+function getUserId(target) {
+  return target.user?.id || target.author?.id || "unknown";
+}
 
-    const ARROW = getEmoji("arrow", "•");
-    const FIRE = getEmoji("purple_fire", "✨");
-    const ROCKET = getEmoji("rocket", "🚀");
-    const LEA = getEmoji("lea", "👤");
-    const ONLINE = getEmoji("online", "⚙️");
-    const NOTIF = getEmoji("notif", "🔔");
-    const CHEST = getEmoji("chest", "📦");
+function createJob(target, data = {}) {
+  const jobId = data.jobId || generateJobId();
+  const db = loadDB();
+  db.jobs[jobId] = {
+    url: "",
+    timestamp: Date.now(),
+    stats: {},
+    thumbnail: "",
+    platform: "Generic",
+    userId: getUserId(target),
+    isGallery: false,
+    hasVideo: false,
+    ...data,
+  };
+  if (db.jobs[jobId].jobId) delete db.jobs[jobId].jobId;
+  saveDB(db);
+  return jobId;
+}
 
-    const botUser = await client.user.fetch();
-    const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
+function createHandlerContext(target, options = {}) {
+  const guild = target.guild || target.client?.guilds?.cache.first();
+  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
 
-    const logEmbed = new EmbedBuilder()
-      .setColor("#6c5ce7")
-      .setAuthor({
-        name: `MaveL | REPORT`,
-        iconURL: client.user.displayAvatarURL(),
-      })
-      .setTitle(`${FIRE} **Bot Activity Report**`)
-      .setImage(botBanner)
-      .setDescription(
-        `### ${ROCKET} **Task Details**\n` +
-          `${ARROW} **Action:** \`${data.title || "Laporan"}\`\n` +
-          `${ARROW} **Message:** *${data.message || "No activity reported."}*`,
-      )
-      .addFields(
-        {
-          name: `${LEA} **Performed By**`,
-          value: `${ARROW} ${data.user || "System"}`,
-          inline: true,
-        },
-        {
-          name: `${ONLINE} **Platform**`,
-          value: `${ARROW} ${(data.platform || "Direct").toUpperCase()}`,
-          inline: true,
-        },
-      )
-      .setFooter({
-        text: "MaveL Security System",
-        iconURL: client.user.displayAvatarURL(),
-      })
-      .setTimestamp();
+  const ctx = {
+    guild,
+    getEmoji,
+    statusMsg: options.statusMsg || null,
+    ARROW: getEmoji("arrow", "•"),
+    statusEmbed: (status, details, color) =>
+      getStatusEmbed(guild, status, details, color),
+  };
 
-    if (data.url) {
-      logEmbed.addFields({
-        name: `${NOTIF} **Media Link**`,
-        value: `[Click to View](${data.url})`,
-        inline: false,
-      });
+  ctx.editResponse = async (data) => {
+    return await editResponse(target, ctx.statusMsg, data);
+  };
+
+  ctx.init = async (platformName, statusText, opts = {}) => {
+    if (ctx.statusMsg) {
+      if (opts.silent !== true) {
+        await ctx
+          .editResponse({
+            embeds: [getStatusEmbed(guild, platformName, statusText)],
+          })
+          .catch(() => {});
+      }
+    } else {
+      ctx.statusMsg = await sendInitialStatus(target, platformName, statusText);
     }
+  };
 
-    if (data.size) {
-      logEmbed.addFields({
-        name: `${CHEST} **File Size**`,
-        value: `\`${data.size} MB\``,
-        inline: true,
-      });
-    }
-
-    await channel.send({ embeds: [logEmbed] });
-  } catch (e) {
-    console.error("[ADMIN-LOG] Error:", e.message);
-  }
+  return ctx;
 }
 
 module.exports = {
@@ -235,6 +261,13 @@ module.exports = {
   cleanupTemp,
   formatNumber,
   formatSize,
+  formatDuration,
+  formatUptime,
+  sanitizeFilename,
   downloadQueue,
-  sendAdminLog,
+  advanceLog,
+  generateJobId,
+  getUserId,
+  createJob,
+  createHandlerContext,
 };

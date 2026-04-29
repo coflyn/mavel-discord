@@ -1,15 +1,20 @@
+const { SlashCommandBuilder } = require("discord.js");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const config = require("../../config");
 
 module.exports = {
+  slashData: new SlashCommandBuilder()
+      .setName("move")
+      .setDescription("Add the bot to a different server"),
   name: "move",
   async execute(interaction, client) {
     if (!interaction.member.permissions.has("Administrator")) {
-      return interaction.reply({
+      await interaction.reply({
         content:
           "*Error: Only administrators can access the bot relocation utility.*",
         flags: [MessageFlags.Ephemeral],
       });
+      return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
     }
 
     const botUser = await interaction.client.user.fetch();
@@ -47,5 +52,6 @@ module.exports = {
       embeds: [moveEmbed],
       flags: [MessageFlags.Ephemeral],
     });
+    setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
   },
 };

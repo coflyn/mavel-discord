@@ -1,6 +1,6 @@
 const { spawn } = require("child_process");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
-const { loadDB, saveDB } = require("./core-helpers");
+const { createJob, createHandlerContext } = require("./core-helpers");
 const {
   getYtDlp,
   getDlpEnv,
@@ -8,28 +8,13 @@ const {
   getCookiesArgs,
   getVpsArgs,
 } = require("../../utils/dlp-helpers");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
 
 const { startDownload } = require("./callbacks");
+const colors = require("../../utils/embed-colors");
 
 async function runBandcampFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const FIRE = getEmoji("purple_fire", "🔥");
-
-  let statusMsg;
-  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Bandcamp Info", "Getting song info...")],
-    }).catch(() => {});
-  } else {
-    statusMsg = await sendInitialStatus(target, "Bandcamp Info", "Getting song info...");
-  }
+  const ctx = createHandlerContext(target, options);
+  await ctx.init("Bandcamp Info", "Getting song info...");
 
   try {
     const cleanUrl = url.split("?")[0].split("#")[0];
@@ -60,20 +45,9 @@ async function runBandcampFlow(target, url, options = {}) {
     const artist = json.uploader || json.artist || "Unknown Artist";
     const trackTitle = json.title || "Untitled Track";
     const thumbnail = json.thumbnail || "";
-    const jobId = Math.random().toString(36).substring(2, 10);
-
-    const durationSec = json.duration || 0;
-    const duration =
-      durationSec > 0
-        ? `${Math.floor(durationSec / 60)}:${String(Math.floor(durationSec % 60)).padStart(2, "0")}`
-        : isAlbum
-          ? "Album"
-          : "Track";
-
-    const db = loadDB();
-    db.jobs[jobId] = {
+    const duration = json.duration_string || `${Math.floor((json.duration || 0) / 60)}m`;
+    const jobId = createJob(target, {
       url: cleanUrl,
-      timestamp: Date.now(),
       title: isAlbum ? `[Album] ${trackTitle}` : trackTitle,
       stats: {
         likes: "---",
@@ -85,26 +59,24 @@ async function runBandcampFlow(target, url, options = {}) {
       },
       thumbnail,
       platform: isAlbum ? "Bandcamp (Album)" : "Bandcamp (Track)",
-      userId: target.user ? target.user.id : target.author.id,
       isGallery: isAlbum,
       hasVideo: false,
       extractor: "bandcamp",
       directUrl: json.url || null,
-    };
-    saveDB(db);
+    });
 
-    const LEA = getEmoji("lea", "getEmoji('ping_green', '✅')");
-    const NOTIF = getEmoji("notif", "🔔");
+    const LEA = ctx.getEmoji("ping_green", "✅");
+    const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#00b894")
+      .setColor(colors.MUSIC_DL)
       .setTitle(`${NOTIF} **Bandcamp Audio Ready**`)
       .setThumbnail(thumbnail)
       .setDescription(
         `### ${LEA} *Song Found*\n` +
-          `${ARROW} **Title:** *${isAlbum ? `[Album] ${trackTitle}` : trackTitle}*\n` +
-          `${ARROW} **Artist:** *${artist}*\n` +
-          `${ARROW} **Type:** *${isAlbum ? "Album" : "Track"}*\n\n` +
+          `${ctx.ARROW} **Title:** *${isAlbum ? `[Album] ${trackTitle}` : trackTitle}*\n` +
+          `${ctx.ARROW} **Artist:** *${artist}*\n` +
+          `${ctx.ARROW} **Type:** *${isAlbum ? "Album" : "Track"}*\n\n` +
           `*Everything is ready. Starting the download.*`,
       )
       .setFooter({
@@ -114,18 +86,17 @@ async function runBandcampFlow(target, url, options = {}) {
 
     if (options.isCommand && options.type) {
       return await startDownload(target, jobId, isAlbum ? "twgallery" : "mp3", {
-        statusMsg,
+        statusMsg: ctx.statusMsg,
       });
     }
 
-    await _editResponse({ embeds: [foundEmbed] });
-    return { jobId, statusMsg, isAlbum };
+    await ctx.editResponse({ embeds: [foundEmbed] });
+    return { jobId, statusMsg: ctx.statusMsg, isAlbum };
   } catch (e) {
     console.error("[BANDCAMP-FLOW] Error:", e.message);
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(
-          guild,
+        ctx.statusEmbed(
           "Song not available",
           "Could not connect to Bandcamp. The link may be invalid.",
         ),

@@ -135,7 +135,7 @@ function getVpsArgs() {
     "--no-mtime",
     "--ignore-config",
     "--socket-timeout",
-    "30",
+    "60",
     "--retries",
     "5",
     "--user-agent",

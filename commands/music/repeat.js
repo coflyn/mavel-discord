@@ -1,6 +1,21 @@
+const { SlashCommandBuilder } = require("discord.js");
 const { player } = require("../../handlers/music");
 
 module.exports = {
+  slashData: new SlashCommandBuilder()
+      .setName("repeat")
+      .setDescription("Set repeat mode")
+      .addStringOption((opt) =>
+        opt
+          .setName("mode")
+          .setDescription("Repeat mode")
+          .setRequired(true)
+          .addChoices(
+            { name: "Off", value: "off" },
+            { name: "One", value: "one" },
+            { name: "All", value: "all" },
+          ),
+      ),
   name: "repeat",
   async execute(interaction, client) {
     const mode = interaction.options.getString("mode");

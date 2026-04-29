@@ -2,36 +2,15 @@ const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder } = require("discord.js");
-const { loadDB, saveDB } = require("./core-helpers");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const {
-  getStatusEmbed,
-  editResponse,
-  sendInitialStatus,
-} = require("../../utils/response-helper");
+const { createJob, createHandlerContext } = require("./core-helpers");
 const { bundleImagesToPdf } = require("../../utils/filetools");
 
 async function runAcademiaFlow(target, url, options = {}) {
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const BOOK = getEmoji("camera", "📖");
-  const LEA = getEmoji("check", "✅");
-  const NOTIF = getEmoji("notif", "🔔");
-
-  let statusMsg;
-  const _editResponse = async (data) =>
-    await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-  } else {
-    statusMsg = await sendInitialStatus(
-      target,
-      "Searching...",
-      "Finding the document...",
-    );
-  }
+  const ctx = createHandlerContext(target, options);
+  const LEA = ctx.getEmoji("check", "✅");
+  const NOTIF = ctx.getEmoji("notif", "🔔");
+  const BOOK = ctx.getEmoji("camera", "📖");
+  await ctx.init("Searching...", "Finding the document...", { silent: true });
 
   let browser;
   try {
@@ -44,9 +23,9 @@ async function runAcademiaFlow(target, url, options = {}) {
 
     const page = await context.newPage();
 
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(guild, "Searching...", "Checking the link and pages..."),
+        ctx.statusEmbed("Searching...", "Checking the link and pages..."),
       ],
     });
 
@@ -98,13 +77,14 @@ async function runAcademiaFlow(target, url, options = {}) {
     const tempDir = path.join(__dirname, "../../temp");
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-    const jobId = Math.random().toString(36).substring(2, 10);
+    const { generateJobId } = require("./core-helpers");
+const colors = require("../../utils/embed-colors");
+    const jobId = generateJobId();
     const imageUrls = [];
 
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(
-          guild,
+        ctx.statusEmbed(
           "Downloading Document",
           `Capturing ${pageCount} pages...`,
         ),
@@ -112,10 +92,9 @@ async function runAcademiaFlow(target, url, options = {}) {
     });
 
     for (let i = 0; i < pageCount; i++) {
-      await _editResponse({
+      await ctx.editResponse({
         embeds: [
-          getStatusEmbed(
-            guild,
+          ctx.statusEmbed(
             "Downloading Document",
             `Capturing page ${i + 1} of ${pageCount}...`,
           ),
@@ -133,42 +112,37 @@ async function runAcademiaFlow(target, url, options = {}) {
 
     await browser.close();
 
-    const db = loadDB();
-    db.jobs[jobId] = {
+    createJob(target, {
+      jobId,
       url,
-      timestamp: Date.now(),
       title: docTitle,
       stats: { pages: pageCount, type: "Academic PDF" },
       thumbnail: "https://www.academia.edu/favicon.ico",
       platform: "Academia",
-      userId: target.user ? target.user.id : target.author.id,
       isGallery: true,
       imageUrls: imageUrls,
-    };
-    saveDB(db);
+    });
 
     const foundEmbed = new EmbedBuilder()
-      .setColor("#6c5ce7")
+      .setColor(colors.CORE)
       .setTitle(`${BOOK} **Academia Document Ready**`)
       .setDescription(
         `### ${LEA} **Finished!**\n` +
-          `${ARROW} **Title:** *${docTitle}*\n` +
-          `${ARROW} **Pages:** *${pageCount}*\n\n` +
+          `${ctx.ARROW} **Title:** *${docTitle}*\n` +
+          `${ctx.ARROW} **Pages:** *${pageCount}*\n\n` +
           `*Making your PDF file now...*`,
       );
 
-    const resMsg = await _editResponse({ embeds: [foundEmbed] });
+    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
     return { jobId, statusMsg: resMsg };
   } catch (e) {
     if (browser) await browser.close();
     console.error("[ACADEMIA-JS] Error:", e.message);
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Failed", e.message)],
+    await ctx.editResponse({
+      embeds: [ctx.statusEmbed("Failed", e.message)],
     }).catch(() => {});
     return null;
   }
 }
-
-module.exports = { runAcademiaFlow };
 
 module.exports = { runAcademiaFlow };

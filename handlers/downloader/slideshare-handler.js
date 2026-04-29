@@ -2,28 +2,13 @@ const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
-const { loadDB, saveDB } = require("./core-helpers");
-const { resolveEmoji } = require("../../utils/emoji-helper");
-const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
+const { createJob, createHandlerContext } = require("./core-helpers");
 
 async function runSlideshareFlow(target, url, options = {}) {
   let browser;
-  const guild = target.guild || target.client?.guilds?.cache.first();
-  const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
-  const ARROW = getEmoji("arrow", "•");
-  const ARCHIVE = getEmoji("camera", "📷");
-
-  let statusMsg;
-  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
-
-  if (options.statusMsg) {
-    statusMsg = options.statusMsg;
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Searching...", "Opening the slides...")],
-    }).catch(() => {});
-  } else {
-    statusMsg = await sendInitialStatus(target, "Searching...", "Opening the slides...");
-  }
+  const ctx = createHandlerContext(target, options);
+  const ARCHIVE = ctx.getEmoji("camera", "📷");
+  await ctx.init("Searching...", "Opening the slides...", { silent: true });
 
   try {
     browser = await chromium.launch({ headless: true });
@@ -83,12 +68,12 @@ async function runSlideshareFlow(target, url, options = {}) {
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
     const localPaths = [];
-    const jobId = Math.random().toString(36).substring(2, 10);
+    const { generateJobId } = require("./core-helpers");
+    const jobId = generateJobId();
 
-    await _editResponse({
+    await ctx.editResponse({
       embeds: [
-        getStatusEmbed(
-          guild,
+        ctx.statusEmbed(
           "Working...",
           `Loading ${filteredUrls.length} pages, please wait...`,
         ),
@@ -139,27 +124,24 @@ async function runSlideshareFlow(target, url, options = {}) {
       }
     }
 
-    const db = loadDB();
-    db.jobs[jobId] = {
+    createJob(target, {
+      jobId,
       url: url,
-      timestamp: Date.now(),
       title: docTitle,
       stats: { pages: localPaths.length, type: "Slide Download" },
       thumbnail:
         target.client?.user?.displayAvatarURL() ||
         "https://www.slideshare.net/favicon.ico",
       platform: "SlideShare",
-      userId: target.user ? target.user.id : target.author.id,
       isGallery: true,
       imageUrls: localPaths,
-    };
-    saveDB(db);
+    });
 
-    return { jobId, statusMsg };
+    return { jobId, statusMsg: ctx.statusMsg };
   } catch (e) {
     if (browser) await browser.close();
-    await _editResponse({
-      embeds: [getStatusEmbed(guild, "Download Failed", e.message)],
+    await ctx.editResponse({
+      embeds: [ctx.statusEmbed("Download Failed", e.message)],
     }).catch(() => {});
     return null;
   }

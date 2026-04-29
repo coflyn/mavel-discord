@@ -55,8 +55,6 @@ module.exports = {
       return;
 
     if (message.content.match(/https?:\/\/[^\s]+/)) {
-      const { increment } = require("../utils/counter-handler");
-      increment("totalRequests");
       try {
         const amogusEmoji = message.guild?.emojis.cache.find(
           (e) => e.name === "amogus",
@@ -72,8 +70,6 @@ module.exports = {
     if (!message.content.startsWith(config.prefix)) return;
 
     if (["dl", "download", "yt", "tt", "ig"].includes(commandName)) {
-      const { increment } = require("../utils/counter-handler");
-      increment("totalRequests");
       await message.suppressEmbeds(true).catch(() => {});
       await message.react("⏳").catch(() => {});
       return await downloaderHandler(message);

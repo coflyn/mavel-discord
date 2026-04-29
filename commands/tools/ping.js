@@ -1,6 +1,10 @@
+const { SlashCommandBuilder } = require("discord.js");
 const { MessageFlags } = require("discord.js");
 
 module.exports = {
+  slashData: new SlashCommandBuilder()
+    .setName("ping")
+    .setDescription("Check bot speed and connection"),
   name: "ping",
   async execute(interaction, client) {
     const guildEmojis = await interaction.guild.emojis.fetch();
@@ -10,8 +14,7 @@ module.exports = {
       latency < 100
         ? guildEmojis.find((e) => e.name === "ping_green") || "🟢"
         : guildEmojis.find((e) => e.name === "ping_red") || "🔴";
-    
-    // Check if it's interaction or message (for backward compat if handleMessage is used)
+
     if (interaction.reply) {
       const reply = await interaction.reply({
         content: `*${pingEmoji} Latency is ${latency}ms.*`,

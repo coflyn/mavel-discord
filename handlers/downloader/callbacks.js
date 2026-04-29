@@ -12,17 +12,20 @@ const {
 const { bundleImagesToPdf } = require("../../utils/filetools");
 const {
   loadDB,
-  saveDB,
   createProgressUpdater,
   safeUpdateStatus,
   formatNumber,
   formatSize,
+  formatDuration,
+  sanitizeFilename,
   downloadQueue,
-  sendAdminLog,
+  advanceLog,
 } = require("./core-helpers");
 const ffmpegStatic = require("ffmpeg-static");
 const config = require("../../config");
 const { getAssetUrl } = require("../../utils/tunnel-server");
+const { resolveEmoji } = require("../../utils/emoji-helper");
+const { getStatusEmbed } = require("../../utils/response-helper");
 const EC = require("../../utils/embed-colors");
 
 const getPlatformColor = (platform) => {
@@ -88,17 +91,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
   const title = job ? job.title : options.title || "External File";
   const userMention = job?.userId ? `<@${job.userId}>` : "";
 
-  const formatDuration = (input) => {
-    if (!input) return "---";
-    if (typeof input === "string" && input.includes(":")) {
-      return input.split(".")[0];
-    }
-    if (isNaN(input)) return input || "---";
-    const s = Math.floor(input);
-    const m = Math.floor(s / 60);
-    const rs = s % 60;
-    return `${m}:${rs.toString().padStart(2, "0")}`;
-  };
+
 
   const statusContent = `*Queued (${format.toUpperCase()}${format === "mp4" ? ` ${resolution}p` : ""})...*`;
 
@@ -147,37 +140,28 @@ async function startDownload(interaction, jobId, format, options = {}) {
   };
 
   const guild = interaction.guild || interaction.client?.guilds?.cache.first();
-  const guildEmojis = guild
-    ? await guild.emojis.fetch().catch(() => null)
-    : null;
-  const ARROW = guildEmojis?.find((e) => e.name === "arrow")?.toString() || "»";
-  const NOTIF =
-    guildEmojis?.find((e) => e.name === "notif")?.toString() || "🔔";
-  const LEA = guildEmojis?.find((e) => e.name === "ping_green")?.toString() || "getEmoji('ping_green', '✅')";
-  const AMOGUS =
-    guildEmojis?.find((e) => e.name === "amogus")?.toString() || "🛰️";
-  const FIRE =
-    guildEmojis?.find((e) => e.name === "purple_fire")?.toString() || "🔥";
-  const TIME = guildEmojis?.find((e) => e.name === "time")?.toString() || "⏳";
-  const CHEST =
-    guildEmojis?.find((e) => e.name === "chest")?.toString() || "📦";
-  const CHECK =
-    guildEmojis?.find((e) => e.name === "check") || "getEmoji('ping_green', '✅')";
+  const getEmoji = (n, f) => resolveEmoji(guild, n, f);
+
+  const ARROW = getEmoji("arrow", "»");
+  const NOTIF = getEmoji("notif", "🔔");
+  const LEA = getEmoji("ping_green", "✅");
+  const AMOGUS = getEmoji("amogus", "🛰️");
+  const FIRE = getEmoji("purple_fire", "🔥");
+  const TIME = getEmoji("time", "⏳");
+  const CHEST = getEmoji("chest", "📦");
+  const CHECK = getEmoji("check", "✅");
 
   const platformColor = getPlatformColor(job?.platform || options.platform);
 
-  const getStatusEmbed = (status, details) => {
-    return new EmbedBuilder()
-      .setColor(platformColor)
-      .setDescription(
-        `### ${FIRE} **${status}**\n${ARROW} **File:** *${title || "Searching..."}*\n${ARROW} **Info:** *${details}*`,
-      );
+  const getStatus = (status, details) => {
+    return getStatusEmbed(guild, status, details, platformColor)
+      .setDescription(`### ${FIRE} **${status}**\n${ARROW} **File:** *${title || "Searching..."}*\n${ARROW} **Info:** *${details}*`);
   };
 
   await editLocal({
     content: "",
     embeds: [
-      getStatusEmbed(
+      getStatus(
         "Queued",
         `Waiting for ${format.toUpperCase()} ${resolution}p...`,
       ),
@@ -198,19 +182,13 @@ async function startDownload(interaction, jobId, format, options = {}) {
     const tempDir = path.join(__dirname, "../../temp");
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-    const sanitizedTitle =
-      (title || "media")
-        .replace(/[^\x00-\x7F]/g, "")
-        .replace(/[^\w\s-]/gi, "")
-        .trim()
-        .replace(/\s+/g, "_")
-        .substring(0, 60) || `media_${jobId || Date.now()}`;
+    const sanitizedTitle = sanitizeFilename(title, "media");
 
     const outputBase = path.join(tempDir, `mave_${jobId || Date.now()}`);
 
     try {
       await editLocal({
-        embeds: [getStatusEmbed("Downloading", "Getting things ready...")],
+        embeds: [getStatus("Downloading", "Getting things ready...")],
       });
 
       const updateProgress = createProgressUpdater(interaction, title);
@@ -399,7 +377,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         if (interaction.deleteReply)
           await interaction.deleteReply().catch(() => {});
 
-        await sendAdminLog(interaction.client, {
+        await advanceLog(interaction.client, {
           title: "Download Success (Gallery)",
           color: parseInt(platformColor.replace("#", ""), 16),
           message: `Delivered ${urls.length} files.`,
@@ -425,7 +403,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
           await editLocal({
             embeds: [
-              getStatusEmbed(
+              getStatus(
                 "Downloading",
                 `Getting photo ${i + 1} of ${urls.length}...`,
               ),
@@ -565,7 +543,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         if (interaction.deleteReply)
           await interaction.deleteReply().catch(() => {});
 
-        await sendAdminLog(interaction.client, {
+        await advanceLog(interaction.client, {
           title: "Download Success (TK Gallery)",
           color: parseInt(platformColor.replace("#", ""), 16),
           message: `Delivered ${urls.length} photos.`,
@@ -592,7 +570,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const directUrl = foundUrl;
         if (!directUrl) throw new Error("Source stream lost.");
 
-        let ext = format === "tkmp3" ? "mp3" : job?.hasVideo ? "mp4" : "jpg";
+        let ext = format === "tkmp3" ? "mp3" : (job?.isVideo || job?.hasVideo) ? "mp4" : "jpg";
         if (directUrl.includes(".png")) ext = "png";
 
         const outputFile = path.join(
@@ -623,7 +601,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
           } else {
             fs.writeFileSync(outputFile, res.data);
           }
-        } catch (axiosErr) {}
+        } catch (axiosErr) {
+          console.warn(`[TK-AXIOS-FAIL] ${directUrl}:`, axiosErr.message);
+        }
 
         if (fs.existsSync(outputFile) && fs.statSync(outputFile).size > 10000) {
           const stats = fs.statSync(outputFile);
@@ -686,8 +666,8 @@ async function startDownload(interaction, jobId, format, options = {}) {
               (userMention ? `${userMention}\n\n` : "") +
                 `${LEA} **Your media is ready**\n` +
                 `${ARROW} **Title:** *${title}*\n` +
-                `${ARROW} **Platform:** *${job?.hasVideo ? "Video Stream" : "Static Image"}*\n` +
-                `${ARROW} **Source:** *${job?.platform || options.platform || "X / Twitter"}*\n` +
+                `${ARROW} **Type:** *${(job?.isVideo || job?.hasVideo) ? "Video Stream" : "Static Image"}*\n` +
+                `${ARROW} **Platform:** *${job?.platform || options.platform || "TikTok"}*\n` +
                 `${ARROW} **Length:** *${job?.stats?.duration || "---"}*\n` +
                 `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 (() => {
@@ -947,7 +927,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           if (interaction.deleteReply)
             await interaction.deleteReply().catch(() => {});
 
-          await sendAdminLog(interaction.client, {
+          await advanceLog(interaction.client, {
             title: "Download Success (Spotify)",
             color: parseInt(EC.MUSIC_DL.replace("#", ""), 16),
             message: `Delivered audio file.`,
@@ -976,7 +956,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
           await editLocal({
             embeds: [
-              getStatusEmbed(
+              getStatus(
                 "Downloading",
                 `Getting page ${i + 1} of ${urls.length}...`,
               ),
@@ -1118,7 +1098,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const outputFile = path.join(tempDir, `pixiv_${jobId}.mp4`);
 
         await editLocal({
-          embeds: [getStatusEmbed("Downloading", "Getting the video...")],
+          embeds: [getStatus("Downloading", "Getting the video...")],
         });
         const videoRes = await axios.get(directUrl, {
           responseType: "arraybuffer",
@@ -1840,7 +1820,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           (userMention ? `${userMention}\n\n` : "") +
             `${LEA} **Your media is ready**\n` +
             `${ARROW} **Title:** *${title}*\n` +
-            `${ARROW} **Type:** *${job?.isMix ? "Mixed Content" : job?.isVideo ? "Video/Reel" : job?.isGallery ? "Gallery" : "Photo"}*\n` +
+            `${ARROW} **Type:** *${job?.isMix ? "Mixed Content" : (job?.isVideo || job?.hasVideo) ? "Video/Reel" : job?.isGallery ? "Gallery" : "Photo"}*\n` +
             `${ARROW} **Platform:** *${format === "mp3" ? "Audio (MPEG-3)" : format === "photo" ? "Photo (JPG)" : job?.isGallery ? "Gallery (Batch)" : "Video (MP4)"}*\n` +
             `${ARROW} **Source:** *${job?.platform || options.platform || uploader || "---"}*\n` +
             `${ARROW} **Length:** *${formatDuration(duration)}*\n` +
@@ -1877,7 +1857,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
       const userTag =
         (interaction.user || interaction.author || {}).tag || "Unknown User";
-      await sendAdminLog(interaction.client, {
+      await advanceLog(interaction.client, {
         title: "Download Success",
         color: parseInt(platformColor.replace("#", ""), 16),
         message: `Delivered.`,
@@ -1903,7 +1883,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
       );
       const userTag =
         (interaction.user || interaction.author || {}).tag || "Unknown User";
-      await sendAdminLog(interaction.client, {
+      await advanceLog(interaction.client, {
         title: "Download Failed",
         color: parseInt(EC.ERROR.replace("#", ""), 16),
         message: e.message,
