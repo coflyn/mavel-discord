@@ -1,5 +1,9 @@
 <p align="center">
-  <img src="logo.svg" width="200" alt="MaveL Logo">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="logo2.svg">
+    <source media="(prefers-color-scheme: light)" srcset="logo1.svg">
+    <img alt="MaveL Logo" src="logo1.svg" width="200">
+  </picture>
 </p>
 
 # MaveL Discord Bot

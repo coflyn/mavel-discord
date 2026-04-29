@@ -65,7 +65,7 @@ async function runYtDlpFlow(target, url, options = {}) {
   const ARROW = getEmoji("arrow", "•");
   const AMOGUS = getEmoji("amogus", "🛰️");
   const FIRE = getEmoji("purple_fire", "🔥");
-  const E_SUCCESS = getEmoji("ping_green", "getEmoji('ping_green', '✅')");
+  const E_SUCCESS = getEmoji("check", "getEmoji('ping_green', '✅')");
   const E_ERROR = getEmoji("ping_red", "getEmoji('ping_red', '❌')");
 
   const initialEmbed = getStatusEmbed(

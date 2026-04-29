@@ -162,7 +162,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
   const CHEST =
     guildEmojis?.find((e) => e.name === "chest")?.toString() || "📦";
   const CHECK =
-    guildEmojis?.find((e) => e.name === "ping_green") || "getEmoji('ping_green', '✅')";
+    guildEmojis?.find((e) => e.name === "check") || "getEmoji('ping_green', '✅')";
 
   const platformColor = getPlatformColor(job?.platform || options.platform);
 
@@ -357,7 +357,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 ?.toString() || "💎";
             const PING_GREEN =
               interaction.guild?.emojis.cache
-                .find((e) => e.name === "ping_green")
+                .find((e) => e.name === "check")
                 ?.toString() || "🟢";
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
@@ -525,7 +525,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 ?.toString() || "💎";
             const PING_GREEN =
               interaction.guild?.emojis.cache
-                .find((e) => e.name === "ping_green")
+                .find((e) => e.name === "check")
                 ?.toString() || "🟢";
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
@@ -907,7 +907,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 ?.toString() || "💎";
             const PING_GREEN =
               interaction.guild?.emojis.cache
-                .find((e) => e.name === "ping_green")
+                .find((e) => e.name === "check")
                 ?.toString() || "🟢";
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
@@ -1071,7 +1071,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 ?.toString() || "💎";
             const PING_GREEN =
               interaction.guild?.emojis.cache
-                .find((e) => e.name === "ping_green")
+                .find((e) => e.name === "check")
                 ?.toString() || "🟢";
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
@@ -1445,6 +1445,10 @@ async function startDownload(interaction, jobId, format, options = {}) {
               "--no-check-certificate",
               "--embed-metadata",
               "--embed-thumbnail",
+              "--socket-timeout",
+              "30",
+              "--retries",
+              "10",
               ...getJsRuntimeArgs(),
               ...getCookiesArgs(),
               ...getVpsArgs(),
@@ -1495,6 +1499,10 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 "--newline",
                 "--embed-metadata",
                 "--embed-thumbnail",
+                "--socket-timeout",
+                "30",
+                "--retries",
+                "10",
                 ...getJsRuntimeArgs(),
                 ...getCookiesArgs(),
                 ...getVpsArgs(),
@@ -1517,7 +1525,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
               ].filter(Boolean);
 
       const skipAxiosPlatforms = [
-        "tiktok",
         "instagram",
         "facebook",
         "youtube",

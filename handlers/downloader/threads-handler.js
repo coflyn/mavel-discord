@@ -175,7 +175,7 @@ async function runThreadsFlow(target, url, options = {}) {
     };
     saveDB(db);
 
-    const LEA = getEmoji("ping_green", "getEmoji('ping_green', '✅')");
+    const LEA = getEmoji("check", "getEmoji('ping_green', '✅')");
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()

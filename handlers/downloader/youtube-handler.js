@@ -92,7 +92,7 @@ async function runYoutubeFlow(target, url, options = {}) {
     };
     saveDB(db);
 
-    const LEA = getEmoji("ping_green", "✅");
+    const LEA = getEmoji("check", "✅");
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()

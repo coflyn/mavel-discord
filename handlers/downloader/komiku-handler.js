@@ -16,7 +16,7 @@ async function runKomikuFlow(target, url, options = {}) {
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
   const ARROW = getEmoji("arrow", "•");
   const MANGA = getEmoji("camera", "🎌");
-  const LEA = getEmoji("ping_green", "✅");
+  const LEA = getEmoji("check", "✅");
   const NOTIF = getEmoji("notif", "🔔");
 
   let statusMsg;
