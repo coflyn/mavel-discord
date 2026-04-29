@@ -60,6 +60,13 @@ const commands = [
     .setName("help")
     .setDescription("View MaveL help guide"),
   new SlashCommandBuilder()
+    .setName("room")
+    .setDescription("Manage private download rooms")
+    .addSubcommand(sub => 
+      sub.setName("create").setDescription("Create your own private room"))
+    .addSubcommand(sub => 
+      sub.setName("list").setDescription("List active rooms and request to join")),
+  new SlashCommandBuilder()
     .setName("ping")
     .setDescription("Check bot speed and connection"),
   new SlashCommandBuilder()
@@ -397,7 +404,7 @@ const commands = [
     .setName("Extract Text (OCR)")
     .setType(ApplicationCommandType.Message),
   new ContextMenuCommandBuilder()
-    .setName("Delete Message")
+    .setName("Vote Delete")
     .setType(ApplicationCommandType.Message),
   new ContextMenuCommandBuilder()
     .setName("Report to Admin")
@@ -450,7 +457,7 @@ const commands = [
     .addIntegerOption((opt) =>
       opt
         .setName("count")
-        .setDescription("Number of messages (max 100)")
+        .setDescription("Number of messages (max 1000)")
         .setRequired(true),
     ),
 ].map((command) => command.toJSON());

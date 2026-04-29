@@ -44,6 +44,7 @@ module.exports = async function helpHandler(interaction) {
         name: `${DIAMOND || "✨"} **Main Features**`,
         value:
           `${ARROW} **/dl** — *Download media from various sites*\n` +
+          `${ARROW} **/room** — *Create/List private download rooms*\n` +
           `${ARROW} **/harvest** — *Analyze and extract data from profiles*\n` +
           `${ARROW} **/convert** — *Transform Video/Audio/Image formats*\n` +
           `${ARROW} **/search** — *Search for songs (YouTube/Spotify/etc)*\n` +

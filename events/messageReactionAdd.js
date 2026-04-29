@@ -14,7 +14,7 @@ module.exports = {
 
     const { message, emoji } = reaction;
     const isCheck =
-      ["check", "verified", "blue_check"].includes(emoji.name?.toLowerCase()) ||
+      ["check", "verified", "blue_check", "ping_green"].includes(emoji.name?.toLowerCase()) ||
       emoji.name === "✅" ||
       emoji.name === "☑️";
     if (!isCheck) return;

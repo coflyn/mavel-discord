@@ -22,6 +22,9 @@ async function runFacebookFlow(target, url, options = {}) {
       embeds: [getStatusEmbed(guild, "Facebook", "Getting video info...")],
     }).catch(() => {});
   } else {
+    if (target.deferred === false && target.replied === false && typeof target.deferReply === "function") {
+      await target.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+    }
     statusMsg = await sendInitialStatus(target, "Facebook", "Getting video info...");
   }
 
@@ -94,7 +97,7 @@ async function runFacebookFlow(target, url, options = {}) {
     };
     saveDB(db);
 
-    const LEA = getEmoji("lea", "✅");
+    const LEA = getEmoji("ping_green", "getEmoji('ping_green', '✅')");
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()

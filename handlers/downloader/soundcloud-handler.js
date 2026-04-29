@@ -215,7 +215,7 @@ async function runSoundcloudFlow(target, url, options = {}) {
     };
     saveDB(db);
 
-    const LEA = getEmoji("lea", "✅");
+    const LEA = getEmoji("lea", "getEmoji('ping_green', '✅')");
     const NOTIF = getEmoji("notif", "🔔");
     const isLocked = discoveryPath.includes("Locked");
 

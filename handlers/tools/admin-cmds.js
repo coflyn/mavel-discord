@@ -197,7 +197,7 @@ async function handleBackup(interaction) {
     attachments.push(new AttachmentBuilder(filePath));
   });
 
-  const LEA = resolveEmoji(interaction.guild, "lea", "✅");
+  const LEA = resolveEmoji(interaction.guild, "ping_green", "✅");
 
   await (interaction.deferred
     ? interaction.editReply({

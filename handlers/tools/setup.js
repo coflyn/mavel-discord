@@ -33,7 +33,7 @@ module.exports = async function setupHandler(interaction) {
   const MUSIC = resolveEmoji(interaction.guild, "notif", "🎵");
   const TEMPLE = resolveEmoji(interaction.guild, "megaphone", "🏛️");
   const ADMIN = resolveEmoji(interaction.guild, "diamond", "🛡️");
-  const CHECK = resolveEmoji(interaction.guild, "check", "✅");
+  const CHECK = resolveEmoji(interaction.guild, "ping_green", "✅");
   const LEA = resolveEmoji(interaction.guild, "lea", "👥");
 
   let currentCategory = "download";

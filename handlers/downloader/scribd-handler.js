@@ -4,7 +4,11 @@ const path = require("path");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const { loadDB, saveDB } = require("./core-helpers");
 const { resolveEmoji } = require("../../utils/emoji-helper");
-const { getStatusEmbed, editResponse, sendInitialStatus } = require("../../utils/response-helper");
+const {
+  getStatusEmbed,
+  editResponse,
+  sendInitialStatus,
+} = require("../../utils/response-helper");
 
 async function runScribdFlow(target, url, options = {}) {
   const guild = target.guild || target.client?.guilds?.cache.first();
@@ -13,15 +17,22 @@ async function runScribdFlow(target, url, options = {}) {
   const ARCHIVE = getEmoji("camera", "📷");
 
   let statusMsg;
-  const _editResponse = async (data) => await editResponse(target, statusMsg, data);
+  const _editResponse = async (data) =>
+    await editResponse(target, statusMsg, data);
 
   if (options.statusMsg) {
     statusMsg = options.statusMsg;
     await _editResponse({
-      embeds: [getStatusEmbed(guild, "Searching...", "Finding the document...")],
+      embeds: [
+        getStatusEmbed(guild, "Searching...", "Finding the document..."),
+      ],
     }).catch(() => {});
   } else {
-    statusMsg = await sendInitialStatus(target, "Searching...", "Finding the document...");
+    statusMsg = await sendInitialStatus(
+      target,
+      "Searching...",
+      "Finding the document...",
+    );
   }
 
   let browser;
@@ -29,9 +40,15 @@ async function runScribdFlow(target, url, options = {}) {
     const docIdMatch = url.match(/document\/(\d+)/);
     if (!docIdMatch) throw new Error("Could not extract a valid Document ID.");
     const documentId = docIdMatch[1];
-    const embedUrl = `https:3www.scribd.com/embeds/${documentId}/content?start_page=1&view_mode=scroll`;
+    const embedUrl = `https://www.scribd.com/embeds/${documentId}/content?start_page=1&view_mode=scroll`;
 
-    browser = await chromium.launch({ headless: true });
+    const { getChromiumResolverRules } = require("../../utils/dns-bypass");
+    const resolverRules = await getChromiumResolverRules(url);
+
+    browser = await chromium.launch({
+      headless: true,
+      args: resolverRules,
+    });
     const context = await browser.newContext({
       viewport: { width: 1400, height: 2000 },
       deviceScaleFactor: 2,
@@ -56,6 +73,7 @@ async function runScribdFlow(target, url, options = {}) {
     });
 
     const page = await context.newPage();
+    await page.goto(embedUrl, { waitUntil: "networkidle", timeout: 60000 });
 
     await editResponse({
       embeds: [
@@ -94,9 +112,7 @@ async function runScribdFlow(target, url, options = {}) {
     const pageCount = await pages.count();
 
     if (pageCount === 0)
-      throw new Error(
-        "We couldn't find any pages in this document.",
-      );
+      throw new Error("We couldn't find any pages in this document.");
 
     const tempDir = path.join(__dirname, "../../temp");
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
@@ -165,7 +181,8 @@ async function runScribdFlow(target, url, options = {}) {
     };
     saveDB(db);
 
-    const LEA = getEmoji("lea", "✅");
+    const LEA = getEmoji("ping_green", "✅");
+    const NOTIF = getEmoji("notif", "🔔");
     const foundEmbed = new EmbedBuilder()
       .setColor("#636e72")
       .setTitle(`${ARCHIVE} **Scribd Document Found**`)

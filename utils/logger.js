@@ -1,7 +1,22 @@
 const { EmbedBuilder, ActivityType } = require("discord.js");
 const config = require("../config");
+const fs = require("fs");
+const path = require("path");
 
 async function advanceLog(client, data) {
+  // 1. Always Write to Local File (Backup)
+  const logPath = path.join(__dirname, "../bot.log");
+  const timestamp = new Date().toLocaleString("id-ID", {
+    timeZone: "Asia/Makassar",
+  });
+  const logEntry = `[${timestamp}] [${data.type?.toUpperCase() || "INFO"}] ${data.title}: ${data.message} (User: ${data.user || "System"})\n`;
+
+  try {
+    fs.appendFileSync(logPath, logEntry);
+  } catch (err) {
+    console.error("[LOCAL-LOG-FAIL]", err.message);
+  }
+
   if (!config.logsChannelId) return;
 
   try {
@@ -21,31 +36,38 @@ async function advanceLog(client, data) {
       return emoji ? emoji.toString() : fallback;
     };
 
+    // Color Mapping
+    const colors = {
+      error: "#ff4757",
+      warning: "#ffa502",
+      success: "#2ed573",
+      admin: "#1e90ff",
+      online: "#2ed573",
+      default: "#6c5ce7",
+    };
+
     const ARROW = getEmoji("arrow", "•");
     const FIRE = getEmoji("purple_fire", "✨");
     const ROCKET = getEmoji("rocket", "🚀");
     const LEA = getEmoji("lea", "👤");
-    const ONLINE = getEmoji("online", "⚙️");
-    const NOTIF = getEmoji("notif", "🔔");
     const PC = getEmoji("pc", "💻");
-    const LOCK = getEmoji("cash", "🔐");
+    const NOTIF = getEmoji("notif", "🔔");
 
-    const botIcon = client.user.displayAvatarURL();
     const embed = new EmbedBuilder()
-      .setColor(data.type === "error" ? "#ff4757" : "#6c5ce7")
+      .setColor(colors[data.type] || colors.default)
       .setAuthor({
-        name: `MaveL | ${data.type?.toUpperCase() || "ACTIVITY"}`,
-        iconURL: botIcon.startsWith("http") ? botIcon : null,
+        name: `MaveL | ${data.type?.toUpperCase() || "REPORT"}`,
+        iconURL: client.user.displayAvatarURL(),
       })
-      .setTitle(`${FIRE} **${data.title || "Advance Log Report"}**`)
+      .setTitle(`${FIRE} **${data.title || "Bot Activity Report"}**`)
       .setDescription(
-        `### ${ROCKET} **Activity Details**\n` +
+        `### ${ROCKET} **Task Details**\n` +
           `${ARROW} **Action:** \`${data.activity || "---"}\`\n` +
-          `${ARROW} **Note:** *${data.message || "No additional detail."}*`,
+          `${ARROW} **Message:** *${data.message || "No extra details available."}*`,
       )
       .addFields(
         {
-          name: `${LEA} **Action By**`,
+          name: `${LEA} **Performed By**`,
           value: `${ARROW} ${data.user || "System"}`,
           inline: true,
         },
@@ -56,15 +78,15 @@ async function advanceLog(client, data) {
         },
       )
       .setFooter({
-        text: "MaveL Intelligence System",
-        iconURL: botIcon.startsWith("http") ? botIcon : null,
+        text: "MaveL Security System",
+        iconURL: client.user.displayAvatarURL(),
       })
       .setTimestamp();
 
     if (data.extra) {
       embed.addFields({
-        name: `${NOTIF} **Additional Info**`,
-        value: `\`\`\`${data.extra}\`\`\``,
+        name: `${NOTIF} **Extra Information**`,
+        value: `\`\`\`${data.extra.substring(0, 1000)}\`\`\``,
         inline: false,
       });
     }
@@ -73,11 +95,9 @@ async function advanceLog(client, data) {
     if (data.type === "error") {
       try {
         const app = await client.application.fetch();
-        const ownerId = app.owner.ownerId || app.owner.id;
-        content = `<@${ownerId}>`;
-      } catch (e) {
-        // Fallback
-      }
+        const owner = app.owner.ownerId ? app.owner.owner : app.owner;
+        if (owner) content = `<@${owner.id}>`;
+      } catch (e) {}
     }
 
     await channel.send({ content, embeds: [embed] }).catch(() => {});

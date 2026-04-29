@@ -87,7 +87,7 @@ async function runPixivFlow(target, url, options = {}) {
     const botUser = await target.client.user.fetch();
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
-    const LEA = getEmoji("lea", "✅");
+    const LEA = getEmoji("lea", "getEmoji('ping_green', '✅')");
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()

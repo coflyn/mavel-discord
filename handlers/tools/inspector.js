@@ -221,8 +221,9 @@ module.exports = async function inspectorHandler(interaction) {
     if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
   } catch (err) {
     console.error("[INSPECT] Error:", err.message);
+    const E_ERROR = getE("ping_red", "🔴");
     await interaction.editReply({
-      content: `### 🔴 **Something went wrong**\n> *Error: ${err.message}*`,
+      content: `### ${E_ERROR} **Something went wrong**\n> *Error: ${err.message}*`,
       embeds: [],
     });
   }

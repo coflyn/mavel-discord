@@ -1,4 +1,8 @@
-const { MessageFlags, PermissionFlagsBits, ChannelType } = require("discord.js");
+const {
+  MessageFlags,
+  PermissionFlagsBits,
+  ChannelType,
+} = require("discord.js");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 
 module.exports = {
@@ -10,7 +14,7 @@ module.exports = {
 
     await interaction.deferReply({ flags: [64] });
     const count = interaction.options.getInteger("count") || 5;
-    const limit = Math.min(count, 100);
+    const limit = Math.min(count, 1000);
 
     if (!guild) {
       try {
@@ -28,27 +32,69 @@ module.exports = {
           deleted++;
         }
 
-        const res = await interaction.editReply({
+        return await interaction.editReply({
           content: `### ${FIRE} **DM Cleanup Finished**\n*Identified and removed **${deleted}** bot messages from this conversation.*`,
         });
-        setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
-        return res;
       } catch (err) {
         return await interaction.editReply({
           content: `### ${RED_DOT} **Cleanup Failed**\n*Error: ${err.message}*`,
         });
       }
     } else {
-      if (!interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
+      if (
+        !interaction.member.permissions.has(PermissionFlagsBits.ManageMessages)
+      ) {
         return await interaction.editReply({
-          content: `*Error: Permission Denied. You need 'Manage Messages' permission to use this.*`,
+          content: `*Error: Permission Denied. You need 'Manage Messages' permission.*`,
         });
       }
 
       try {
-        const deletedMessages = await interaction.channel.bulkDelete(limit, true);
+        let remaining = limit;
+        let totalDeleted = 0;
+        let oldMessagesCount = 0;
+
+        while (remaining > 0) {
+          const batchSize = Math.min(remaining, 100);
+          const fetched = await interaction.channel.messages.fetch({
+            limit: batchSize,
+          });
+          if (fetched.size === 0) break;
+
+          const now = Date.now();
+          const twoWeeksAgo = now - 14 * 24 * 60 * 60 * 1000;
+
+          const youngMessages = fetched.filter(
+            (m) => m.createdTimestamp > twoWeeksAgo,
+          );
+          const oldMessages = fetched.filter(
+            (m) => m.createdTimestamp <= twoWeeksAgo,
+          );
+
+          if (youngMessages.size > 0) {
+            const deleted = await interaction.channel.bulkDelete(
+              youngMessages,
+              true,
+            );
+            totalDeleted += deleted.size;
+          }
+
+          if (oldMessages.size > 0) {
+            for (const msg of oldMessages.values()) {
+              await msg.delete().catch(() => {});
+              totalDeleted++;
+              oldMessagesCount++;
+            }
+          }
+
+          remaining -= fetched.size;
+          if (fetched.size < batchSize) break;
+
+          if (remaining > 0) await new Promise((r) => setTimeout(r, 1000));
+        }
+
         const res = await interaction.editReply({
-          content: `### ${FIRE} **Cleanup Finished**\n*Removed **${deletedMessages.size}** messages from this channel.*`,
+          content: `### ${FIRE} **Cleanup Finished**\n*Removed **${totalDeleted}** messages from this channel.*${oldMessagesCount > 0 ? `\n> *Note: **${oldMessagesCount}** messages were older than 14 days and deleted manually.*` : ""}`,
         });
         setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
         return res;

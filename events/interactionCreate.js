@@ -90,13 +90,21 @@ module.exports = {
         if (commandName === "Inspect Media") commandName = "inspect";
         if (commandName === "Translate Text") commandName = "app_translate";
         if (commandName === "Extract Text (OCR)") commandName = "app_ocr";
-        if (commandName === "Delete Message") commandName = "app_delete";
+        if (commandName === "Vote Delete") commandName = "app_delete";
         if (commandName === "Report to Admin") commandName = "app_report";
         if (commandName === "Format as Code") commandName = "app_format";
         if (commandName === "Mock Message") commandName = "app_mock";
 
         const cmd = client.commands.get(commandName);
         if (cmd) return await cmd.execute(interaction, client);
+      }
+
+      if (interaction.isButton() || interaction.isUserSelectMenu() || interaction.isStringSelectMenu()) {
+        if (interaction.customId && (interaction.customId.startsWith("ticket_") || interaction.customId.startsWith("room_"))) {
+          const roomHandler = require("../handlers/tools/room-handler");
+          await roomHandler(interaction);
+          return;
+        }
       }
 
       if (interaction.isStringSelectMenu()) {
@@ -312,10 +320,13 @@ module.exports = {
         }
       }
 
-      if (interaction.isButton()) {
+      if (interaction.isButton() || interaction.isUserSelectMenu() || interaction.isStringSelectMenu()) {
         if (interaction.customId === "sync_emojis")
           return await syncMissingEmojis(interaction);
-        return await downloaderHandler.handleDownloadCallback(interaction);
+          
+        if (interaction.isButton()) {
+          return await downloaderHandler.handleDownloadCallback(interaction);
+        }
       }
 
       if (interaction.isChatInputCommand()) {
@@ -325,7 +336,7 @@ module.exports = {
         if (!interaction.guildId) {
           const allowedDmCommands = ["delete"];
           if (!allowedDmCommands.includes(commandName)) {
-            let serverInvite = "https://discord.gg/mavel";
+            let serverInvite = "";
             try {
               const mainGuild =
                 client.guilds.cache.get(config.guildId) ||

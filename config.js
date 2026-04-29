@@ -35,4 +35,9 @@ module.exports = {
   autoRoleId: savedSettings.autoRoleId || process.env.AUTO_ROLE_ID || "",
 
   prefix: ".",
+  timeouts: {
+    quickReply: 3000,
+    embedReply: 10000,
+    queueReply: 15000,
+  },
 };

@@ -70,7 +70,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
   if (jobId) {
     job = db.jobs[jobId];
     if (!job) {
-      const errorMsg = "*Error: Request expired.*";
+      const { resolveEmoji } = require("../../utils/emoji-helper");
+      const E_ERROR = resolveEmoji(guild, "ping_red", "getEmoji('ping_red', '❌')");
+      const errorMsg = `${E_ERROR} *Error: Request expired.*`;
       const editResponse = async (data) => {
         try {
           if (interaction.editReply) return await interaction.editReply(data);
@@ -151,7 +153,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
   const ARROW = guildEmojis?.find((e) => e.name === "arrow")?.toString() || "»";
   const NOTIF =
     guildEmojis?.find((e) => e.name === "notif")?.toString() || "🔔";
-  const LEA = guildEmojis?.find((e) => e.name === "lea")?.toString() || "✅";
+  const LEA = guildEmojis?.find((e) => e.name === "ping_green")?.toString() || "getEmoji('ping_green', '✅')";
   const AMOGUS =
     guildEmojis?.find((e) => e.name === "amogus")?.toString() || "🛰️";
   const FIRE =
@@ -160,9 +162,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
   const CHEST =
     guildEmojis?.find((e) => e.name === "chest")?.toString() || "📦";
   const CHECK =
-    guildEmojis?.find((e) =>
-      ["check", "verified", "blue_check"].includes(e.name.toLowerCase()),
-    ) || "✅";
+    guildEmojis?.find((e) => e.name === "ping_green") || "getEmoji('ping_green', '✅')";
 
   const platformColor = getPlatformColor(job?.platform || options.platform);
 
@@ -341,9 +341,10 @@ async function startDownload(interaction, jobId, format, options = {}) {
           iconURL: interaction.client.user.displayAvatarURL(),
         });
 
-        const totalSize =
-          sizeGall +
-          (pdfPath && fs.existsSync(pdfPath) ? fs.statSync(pdfPath).size : 0);
+        const totalSize = shouldBundle
+          ? (pdfPath && fs.existsSync(pdfPath) ? fs.statSync(pdfPath).size : sizeGall)
+          : sizeGall;
+
         const limitMB = 8;
 
         if (totalSize > limitMB * 1024 * 1024) {
@@ -508,9 +509,10 @@ async function startDownload(interaction, jobId, format, options = {}) {
             iconURL: interaction.client.user.displayAvatarURL(),
           });
 
-        const totalSize =
-          sizeGallTK +
-          (pdfPath && fs.existsSync(pdfPath) ? fs.statSync(pdfPath).size : 0);
+        const totalSize = shouldBundle
+          ? (pdfPath && fs.existsSync(pdfPath) ? fs.statSync(pdfPath).size : sizeGallTK)
+          : sizeGallTK;
+
         const limitMB = 8;
 
         if (totalSize > limitMB * 1024 * 1024) {

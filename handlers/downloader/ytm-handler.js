@@ -90,7 +90,7 @@ async function runYtmFlow(target, url, options = {}) {
     };
     saveDB(db);
 
-    const LEA = getEmoji("lea", "✅");
+    const LEA = getEmoji("lea", "getEmoji('ping_green', '✅')");
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()

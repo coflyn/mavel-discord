@@ -322,8 +322,8 @@ class MusicPlayer {
         advanceLog(state.channel.client, {
           type: "music",
           title: "Music Stream Started",
-          activity: "Streaming Audio",
-          message: `Now playing: **${finalTitle}**`,
+          activity: "Playing Audio",
+          message: `Now streaming: **${finalTitle}**`,
           user: `<@${track.requestedBy}>`,
           guild: state.channel.guild.name,
           extra: `URL: ${track.url}\nSource: ${info.extractor_key || "Unknown"}`,
@@ -518,7 +518,7 @@ class MusicPlayer {
     const guild = state.channel.guild;
 
     const FIRE = this.getE(guild, "purple_fire", "🔥");
-    const LEA = this.getE(guild, "lea", "✅");
+    const LEA = this.getE(guild, "ping_green", "✅");
     const ARROW = this.getE(guild, "arrow", "»");
 
     const source =

@@ -16,6 +16,8 @@ async function runAcademiaFlow(target, url, options = {}) {
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
   const ARROW = getEmoji("arrow", "•");
   const BOOK = getEmoji("camera", "📖");
+  const LEA = getEmoji("ping_green", "✅");
+  const NOTIF = getEmoji("notif", "🔔");
 
   let statusMsg;
   const _editResponse = async (data) =>
@@ -149,7 +151,7 @@ async function runAcademiaFlow(target, url, options = {}) {
       .setColor("#6c5ce7")
       .setTitle(`${BOOK} **Academia Document Ready**`)
       .setDescription(
-        `### ✅ **Finished!**\n` +
+        `### ${LEA} **Finished!**\n` +
           `${ARROW} **Title:** *${docTitle}*\n` +
           `${ARROW} **Pages:** *${pageCount}*\n\n` +
           `*Making your PDF file now...*`,

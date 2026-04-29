@@ -33,12 +33,32 @@ async function runInstagramFlow(target, url, options = {}) {
       ],
     }).catch(() => {});
   } else {
+    if (
+      target.deferred === false &&
+      target.replied === false &&
+      typeof target.deferReply === "function"
+    ) {
+      await target
+        .deferReply({ flags: [MessageFlags.Ephemeral] })
+        .catch(() => {});
+    }
     statusMsg = await sendInitialStatus(
       target,
       "Instagram Link Found",
       "Getting post info...",
     );
   }
+
+  const instaAxios = axios.create({
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
+      Accept:
+        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+    },
+    timeout: 10000,
+  });
 
   try {
     const cleanUrl = url.includes("?") ? url.split("?")[0] : url;
@@ -565,7 +585,7 @@ async function runInstagramFlow(target, url, options = {}) {
     };
     saveDB(db);
 
-    const LEA = getEmoji("lea", "✅");
+    const LEA = getEmoji("ping_green", "getEmoji('ping_green', '✅')");
     const NOTIF = getEmoji("notif", "🔔");
 
     const formatDuration = (s) => {

@@ -65,6 +65,8 @@ async function runYtDlpFlow(target, url, options = {}) {
   const ARROW = getEmoji("arrow", "•");
   const AMOGUS = getEmoji("amogus", "🛰️");
   const FIRE = getEmoji("purple_fire", "🔥");
+  const E_SUCCESS = getEmoji("ping_green", "getEmoji('ping_green', '✅')");
+  const E_ERROR = getEmoji("ping_red", "getEmoji('ping_red', '❌')");
 
   const initialEmbed = getStatusEmbed(
     guild,
@@ -631,7 +633,7 @@ async function runYtDlpFlow(target, url, options = {}) {
         .setTitle(`${FIRE} **Media Found**`)
         .setImage(botBanner)
         .setDescription(
-          `### ✅ **Link Found**\n` +
+          `### ${E_SUCCESS} **Link Found**\n` +
             `${ARROW} **Topic:** *${safeTitle}*\n` +
             `${ARROW} **Platform:** *${finalPlatform.toUpperCase()}*\n\n` +
             `**${formatNumber(likes)}** *Likes*  •  **${formatNumber(comments)}** *Comments*  •  **${formatNumber(views)}** *Views*`,

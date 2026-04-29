@@ -41,7 +41,7 @@ module.exports = {
         return;
       }
 
-      const LEA = interaction.guild.emojis.cache.find((e) => e.name === "lea")?.toString() || "✅";
+      const LEA = interaction.guild.emojis.cache.find((e) => e.name === "ping_green")?.toString() || "✅";
       const ARROW = interaction.guild.emojis.cache.find((e) => e.name === "arrow")?.toString() || "•";
 
       const listEmbed = new EmbedBuilder()

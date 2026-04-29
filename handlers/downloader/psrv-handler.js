@@ -14,6 +14,9 @@ const {
   getCookiesArgs,
   getVpsArgs,
 } = require("../../utils/dlp-helpers");
+const {
+  getChromiumResolverRules,
+} = require("../../utils/dns-bypass");
 
 async function runPSrvFlow(target, url, options = {}) {
   const guild = target.guild || target.client?.guilds?.cache.first();
@@ -59,7 +62,11 @@ async function runPSrvFlow(target, url, options = {}) {
   if (isPornhub) {
     let browser;
     try {
-      browser = await chromium.launch({ headless: true });
+      const resolverArgs = await getChromiumResolverRules(normalizedUrl);
+      browser = await chromium.launch({
+        headless: true,
+        args: [...resolverArgs],
+      });
       const context = await browser.newContext({
         viewport: { width: 1280, height: 720 },
         ignoreHTTPSErrors: true,

@@ -56,7 +56,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
     const DOTS = getEmoji("three_dots", "🎵");
     const COIN = getEmoji("coin", "☁️");
     const FIRE = getEmoji("purple_fire", "✨");
-    const LEA = getEmoji("lea", "✅");
+    const LEA = getEmoji("lea", "getEmoji('ping_green', '✅')");
 
     const botUser = await target.client.user.fetch();
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });

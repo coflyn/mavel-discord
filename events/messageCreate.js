@@ -28,9 +28,11 @@ module.exports = {
       : [];
     const commandName = args.length > 0 ? args.shift().toLowerCase() : "";
 
+    const isTicketRoom = message.channel.name && (message.channel.name.startsWith("🔒") || message.channel.name.startsWith("📁"));
     const isAllowed =
       !config.allowedChannelId ||
-      message.channel.id === config.allowedChannelId;
+      message.channel.id === config.allowedChannelId ||
+      isTicketRoom;
     const isMusicChannel =
       config.musicChannelId && message.channel.id === config.musicChannelId;
     const isLogsChannel =

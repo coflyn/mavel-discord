@@ -3,13 +3,14 @@ const path = require("path");
 
 const statsPath = path.join(__dirname, "../database/stats.json");
 
-// Ensure database folder exists
 const dbDir = path.dirname(statsPath);
 if (!fs.existsSync(dbDir)) fs.mkdirSync(dbDir, { recursive: true });
 
-// Initialize stats if not exists
 if (!fs.existsSync(statsPath)) {
-  fs.writeFileSync(statsPath, JSON.stringify({ mediaServed: 0, totalRequests: 0 }, null, 2));
+  fs.writeFileSync(
+    statsPath,
+    JSON.stringify({ mediaServed: 0, totalRequests: 0 }, null, 2),
+  );
 }
 
 function getStats() {

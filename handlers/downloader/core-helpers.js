@@ -177,19 +177,19 @@ async function sendAdminLog(client, data) {
     const logEmbed = new EmbedBuilder()
       .setColor("#6c5ce7")
       .setAuthor({
-        name: "MaveL Log",
+        name: `MaveL | REPORT`,
         iconURL: client.user.displayAvatarURL(),
       })
-      .setTitle(`${FIRE} **Activity Log**`)
+      .setTitle(`${FIRE} **Bot Activity Report**`)
       .setImage(botBanner)
       .setDescription(
-        `### ${ROCKET} **Summary**\n` +
-          `${ARROW} **Status:** \`${data.title || "Log Entry"}\`\n` +
-          `${ARROW} **Details:** *${data.message || "No activity reported."}*`,
+        `### ${ROCKET} **Task Details**\n` +
+          `${ARROW} **Action:** \`${data.title || "Laporan"}\`\n` +
+          `${ARROW} **Message:** *${data.message || "No activity reported."}*`,
       )
       .addFields(
         {
-          name: `${LEA} **User**`,
+          name: `${LEA} **Performed By**`,
           value: `${ARROW} ${data.user || "System"}`,
           inline: true,
         },
@@ -200,7 +200,7 @@ async function sendAdminLog(client, data) {
         },
       )
       .setFooter({
-        text: "MaveL Status",
+        text: "MaveL Security System",
         iconURL: client.user.displayAvatarURL(),
       })
       .setTimestamp();

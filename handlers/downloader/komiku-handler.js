@@ -16,6 +16,8 @@ async function runKomikuFlow(target, url, options = {}) {
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
   const ARROW = getEmoji("arrow", "•");
   const MANGA = getEmoji("camera", "🎌");
+  const LEA = getEmoji("ping_green", "✅");
+  const NOTIF = getEmoji("notif", "🔔");
 
   let statusMsg;
   const _editResponse = async (data) =>
@@ -161,7 +163,7 @@ async function runKomikuFlow(target, url, options = {}) {
       .setColor("#2ed573")
       .setTitle(`${MANGA} **Komiku Chapter Ready**`)
       .setDescription(
-        `### ✅ **Processing Complete**\n` +
+        `### ${LEA} **Processing Complete**\n` +
           `${ARROW} **Title:** *${docTitle}*\n` +
           `${ARROW} **Pages:** *${localPaths.length} Panels*\n` +
           `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +

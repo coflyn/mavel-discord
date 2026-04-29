@@ -1,3 +1,5 @@
+require("./utils/dns-bypass").initBypass();
+
 const {
   Client,
   GatewayIntentBits,

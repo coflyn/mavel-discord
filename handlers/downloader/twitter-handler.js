@@ -31,6 +31,9 @@ async function runTwitterFlow(target, url, options = {}) {
     statusMsg = options.statusMsg;
     await _editResponse({ embeds: [getStatusEmbed(guild, "X / Twitter", "Searching for media...")] }).catch(() => {});
   } else {
+    if (target.deferred === false && target.replied === false && typeof target.deferReply === "function") {
+      await target.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+    }
     statusMsg = await sendInitialStatus(target, "X / Twitter", "Searching for media...");
   }
 
@@ -279,7 +282,7 @@ async function runTwitterFlow(target, url, options = {}) {
     };
     saveDB(db);
 
-    const LEA = getEmoji("lea", "✅");
+    const LEA = getEmoji("ping_green", "getEmoji('ping_green', '✅')");
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()

@@ -23,6 +23,9 @@ async function runTikTokFlow(target, url, options = {}) {
     statusMsg = options.statusMsg;
     await _editResponse({ embeds: [getStatusEmbed(guild, "TikTok Search", "Looking for video...")] }).catch(() => {});
   } else {
+    if (target.deferred === false && target.replied === false && typeof target.deferReply === "function") {
+      await target.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+    }
     statusMsg = await sendInitialStatus(target, "TikTok Search", "Looking for video...");
   }
 
@@ -31,7 +34,10 @@ async function runTikTokFlow(target, url, options = {}) {
     const res = await axios.get(
       `https://www.tikwm.com/api/?url=${encodeURIComponent(cleanUrl)}`,
       {
-        timeout: 30000,
+        timeout: 25000,
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+        }
       },
     );
 
@@ -78,7 +84,7 @@ async function runTikTokFlow(target, url, options = {}) {
     const botUser = await target.client.user.fetch();
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
-    const LEA = getEmoji("lea", "✅");
+    const LEA = getEmoji("ping_green", "getEmoji('ping_green', '✅')");
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()

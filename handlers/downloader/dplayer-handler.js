@@ -124,7 +124,7 @@ async function runDPlayerFlow(target, url, options = {}) {
       .setColor("#ffa502")
       .setTitle(`${DOC} **DocPlayer Ready**`)
       .setDescription(
-        `### ✅ **Source Captured**\n` +
+        `### ${LEA} **Source Captured**\n` +
           `${ARROW} **Title:** *${docTitle}*\n` +
           `${ARROW} **Platform:** *DOCPLAYER*\n\n` +
           `*Finalizing file and sending to chat...*`,

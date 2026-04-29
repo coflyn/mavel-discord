@@ -15,15 +15,19 @@ module.exports = {
         });
       }
       await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+      const { resolveEmoji } = require("../../utils/emoji-helper");
+      const E_SUCCESS = resolveEmoji(interaction.guild, "ping_green", "✅");
+      const E_ERROR = resolveEmoji(interaction.guild, "ping_red", "🔴");
+
       try {
         await resetTunnel(config.tunnelPort);
         await interaction.editReply({
           content:
-            "### ✅ **Tunnel Reset Successful**\n> *Cloudflare tunnel has been restarted and re-established.*",
+            `### ${E_SUCCESS} **Tunnel Reset Successful**\n> *Cloudflare tunnel has been restarted and re-established.*`,
         });
       } catch (err) {
         await interaction.editReply({
-          content: `### 🔴 **Tunnel Reset Failed**\n> *Error: ${err.message}*`,
+          content: `### ${E_ERROR} **Tunnel Reset Failed**\n> *Error: ${err.message}*`,
         });
       }
     }

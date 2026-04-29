@@ -16,6 +16,8 @@ async function runCalameoFlow(target, url, options = {}) {
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
   const ARROW = getEmoji("arrow", "•");
   const MAG = getEmoji("camera", "📕");
+  const LEA = getEmoji("ping_green", "✅");
+  const NOTIF = getEmoji("notif", "🔔");
 
   let statusMsg;
   const _editResponse = async (data) =>
@@ -145,7 +147,7 @@ async function runCalameoFlow(target, url, options = {}) {
       .setColor("#ff4757")
       .setTitle(`${MAG} **Calaméo Ready**`)
       .setDescription(
-        `### ✅ **Processing Complete**\n` +
+        `### ${LEA} **Processing Complete**\n` +
           `${ARROW} **Title:** *${docTitle}*\n` +
           `${ARROW} **Platform:** *CALAMEO*\n\n` +
           `*Bundling Ultra-HD pages into PDF...*`,

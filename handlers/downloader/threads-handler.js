@@ -22,6 +22,9 @@ async function runThreadsFlow(target, url, options = {}) {
       embeds: [getStatusEmbed(guild, "Threads", "Getting post info...")],
     }).catch(() => {});
   } else {
+    if (target.deferred === false && target.replied === false && typeof target.deferReply === "function") {
+      await target.deferReply({ flags: [MessageFlags.Ephemeral] }).catch(() => {});
+    }
     statusMsg = await sendInitialStatus(target, "Threads", "Getting post info...");
   }
 
@@ -172,7 +175,7 @@ async function runThreadsFlow(target, url, options = {}) {
     };
     saveDB(db);
 
-    const LEA = getEmoji("lea", "✅");
+    const LEA = getEmoji("ping_green", "getEmoji('ping_green', '✅')");
     const NOTIF = getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()

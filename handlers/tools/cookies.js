@@ -216,9 +216,10 @@ module.exports = async function cookiesHandler(interaction) {
 
           fs.writeFileSync(filePath, finalContent, "utf-8");
 
+          const E_SUCCESS = getEmoji("ping_green", "✅");
           await submission
             .editReply({
-              content: `✅ **cookies.txt** *updated and merged successfully (${validNewCount} cookies added).*`,
+              content: `${E_SUCCESS} **cookies.txt** *updated and merged successfully (${validNewCount} cookies added).*`,
             })
             .catch(() => {});
 
@@ -228,9 +229,10 @@ module.exports = async function cookiesHandler(interaction) {
             })
             .catch(() => {});
         } catch (err) {
+          const E_ERROR = getEmoji("ping_red", "🔴");
           await submission
             .editReply({
-              content: `🔴 **Failed to update cookies:** *${err.message}*`,
+              content: `${E_ERROR} **Failed to update cookies:** *${err.message}*`,
             })
             .catch(() => {});
         }

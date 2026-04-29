@@ -107,7 +107,7 @@ async function harvestHandler(interaction) {
           `### ${FIRE} **Profile Harvest**\n` +
             `${ARROW} **User:** @${result.username}\n` +
             `${ARROW} **Name:** *${result.title || result.username}*\n` +
-            `${ARROW} **Status:** *${result.isVerified ? "Verified ✅" : "Standard"}${result.isPrivate ? " | Private 🔒" : ""}*\n\n` +
+            `${ARROW} **Status:** *${result.isVerified ? `Verified ${getEmoji("ping_green", "✅")}` : "Standard"}${result.isPrivate ? " | Private 🔒" : ""}*\n\n` +
             `${DIAMOND} **Account Statistics**\n` +
             `${ARROW} **Followers:** *${result.followers}*\n` +
             `${ARROW} **Following:** *${result.following}*\n` +
@@ -146,7 +146,7 @@ async function harvestHandler(interaction) {
             `${ARROW} **User:** @${result.username}\n` +
             `${ARROW} **Nick:** *${result.nickname || "N/A"}*\n` +
             `${ARROW} **Region:** *${result.region}*\n` +
-            `${ARROW} **Status:** *${result.isVerified ? "Verified ✅" : "Standard"}*\n\n` +
+            `${ARROW} **Status:** *${result.isVerified ? `Verified ${getEmoji("ping_green", "✅")}` : "Standard"}*\n\n` +
             `${DIAMOND} **Interaction**\n` +
             `${ARROW} **Followers:** *${result.followers}*\n` +
             `${ARROW} **Following:** *${result.following}*\n` +
@@ -288,7 +288,7 @@ async function harvestHandler(interaction) {
       let report = result.results
         .map((p) => {
           const found = p.status === "Found";
-          return `${found ? "✅" : getEmoji("ping_red", "🔴")} **${p.name}**: ${found ? `[Link](${p.url})` : `*${p.status}*`}`;
+          return `${found ? getEmoji("ping_green", "✅") : getEmoji("ping_red", "🔴")} **${p.name}**: ${found ? `[Link](${p.url})` : `*${p.status}*`}`;
         })
         .join("\n");
 
