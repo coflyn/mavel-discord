@@ -10,6 +10,7 @@ const {
   MessageFlags,
 } = require("discord.js");
 const { createJob, createHandlerContext } = require("./core-helpers");
+const colors = require("../../utils/embed-colors");
 
 const { startDownload } = require("./callbacks");
 
@@ -51,7 +52,6 @@ async function runCloudFlow(target, url, options = {}) {
       title = "Google Drive File";
     } else if (platform === "MEGA") {
       const { File } = require("megajs");
-const colors = require("../../utils/embed-colors");
       const file = File.fromURL(url);
       await file.loadAttributes();
       title = file.name || "MEGA File";

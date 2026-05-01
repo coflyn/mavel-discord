@@ -86,6 +86,8 @@ module.exports = {
         if (commandName === "Report to Admin") commandName = "app_report";
         if (commandName === "Format as Code") commandName = "app_format";
         if (commandName === "Mock Message") commandName = "app_mock";
+        if (commandName === "Trace Anime") commandName = "trace";
+        if (commandName === "Trace Movie") commandName = "trace";
 
         const cmd = client.commands.get(commandName);
         if (cmd) return await cmd.execute(interaction, client);

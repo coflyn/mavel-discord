@@ -1,4 +1,6 @@
 const { spawn } = require("child_process");
+const colors = require("../../utils/embed-colors");
+const fs = require("fs");
 const {
   ActionRowBuilder,
   ButtonBuilder,
@@ -13,11 +15,7 @@ const {
   getCookiesArgs,
   getVpsArgs,
 } = require("../../utils/dlp-helpers");
-const {
-  createJob,
-  formatNumber,
-  advanceLog,
-} = require("./core-helpers");
+const { createJob, formatNumber, advanceLog } = require("./core-helpers");
 const {
   getStatusEmbed,
   editResponse,
@@ -57,8 +55,11 @@ const musicKeywords = [
 async function runYtDlpFlow(target, url, options = {}) {
   let finalUrl = url.replace("threads.com", "threads.net");
 
-  // Clean URL to avoid tracking params confusing extractors
-  if (finalUrl.includes("tiktok.com") || finalUrl.includes("twitter.com") || finalUrl.includes("x.com")) {
+  if (
+    finalUrl.includes("tiktok.com") ||
+    finalUrl.includes("twitter.com") ||
+    finalUrl.includes("x.com")
+  ) {
     finalUrl = finalUrl.split("?")[0].split("#")[0];
   }
   let statusMsg;
@@ -67,7 +68,7 @@ async function runYtDlpFlow(target, url, options = {}) {
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
 
   const ARROW = getEmoji("arrow", "•");
-  const AMOGUS = getEmoji("amogus", "🛰️");
+  const AMOGUS = getEmoji("lea", "🛰️");
   const FIRE = getEmoji("purple_fire", "🔥");
   const E_SUCCESS = getEmoji("ping_green", "✅");
   const E_ERROR = getEmoji("ping_red", "❌");
@@ -507,7 +508,6 @@ async function runYtDlpFlow(target, url, options = {}) {
       let isGallery = false;
 
       const { generateJobId } = require("./core-helpers");
-const colors = require("../../utils/embed-colors");
       let jobId = generateJobId();
 
       createJob(target, {

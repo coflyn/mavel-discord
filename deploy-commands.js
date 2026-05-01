@@ -49,6 +49,12 @@ const contextMenus = [
   new ContextMenuCommandBuilder()
     .setName("Mock Message")
     .setType(ApplicationCommandType.Message),
+  new ContextMenuCommandBuilder()
+    .setName("Trace Anime")
+    .setType(ApplicationCommandType.Message),
+  new ContextMenuCommandBuilder()
+    .setName("Trace Movie")
+    .setType(ApplicationCommandType.Message),
 ];
 
 commands.push(...contextMenus.map((cmd) => cmd.toJSON()));

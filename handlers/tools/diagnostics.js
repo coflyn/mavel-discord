@@ -29,7 +29,7 @@ module.exports = async function diagnosticsHandler(interaction) {
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
 
   const ARROW = getEmoji("arrow", "•");
-  const AMOGUS = getEmoji("amogus", "🛰️");
+  const AMOGUS = getEmoji("lea", "🛰️");
   const PC = getEmoji("pc", "💻");
   const CAMERA = getEmoji("camera", "🛰️");
   const DIAMOND = getEmoji("diamond", "✨");

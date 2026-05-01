@@ -8,6 +8,7 @@ const {
   ButtonStyle,
   EmbedBuilder,
 } = require("discord.js");
+const colors = require("../../utils/embed-colors");
 
 module.exports = async function handleTicketInteraction(interaction) {
   const { customId, guild, channel, user, client } = interaction;
@@ -235,7 +236,6 @@ module.exports = async function handleTicketInteraction(interaction) {
       }
 
       const { resolveEmoji } = require("../../utils/emoji-helper");
-const colors = require("../../utils/embed-colors");
       const E_SUCCESS = resolveEmoji(guild, "ping_green", "✅");
       const E_ERROR = resolveEmoji(guild, "ping_red", "❌");
 

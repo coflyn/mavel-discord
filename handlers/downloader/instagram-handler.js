@@ -318,7 +318,6 @@ async function runInstagramFlow(target, url, options = {}) {
         let browser;
         try {
           const { chromium } = require("playwright");
-const colors = require("../../utils/embed-colors");
           browser = await chromium.launch({ headless: true });
           const context = await browser.newContext({
             userAgent:

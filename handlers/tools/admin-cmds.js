@@ -41,9 +41,6 @@ module.exports = async function adminCmdsHandler(interaction) {
   if (commandName === "backup") {
     return await handleBackup(interaction);
   }
-  if (commandName === "scan") {
-    return await handleScan(interaction);
-  }
   if (commandName === "logs") {
     return await handleLogs(interaction);
   }
@@ -219,54 +216,7 @@ async function handleBackup(interaction) {
   setTimeout(() => interaction.deleteReply().catch(() => {}), 180000);
 }
 
-async function handleScan(interaction) {
-  await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
-  const EMOJIS = {
-    FIRE: resolveEmoji(interaction.guild, "purple_fire", "🔥"),
-    CROSS: resolveEmoji(interaction.guild, "ping_red", "🔴"),
-  };
-
-  const results = [];
-  const platforms = [
-    { name: "YOUTUBE", url: "https://www.youtube.com" },
-    { name: "TIKTOK", url: "https://www.tiktok.com" },
-    { name: "INSTAGRAM", url: "https://www.instagram.com" },
-    { name: "TWITTER (X)", url: "https://www.twitter.com" },
-    { name: "FACEBOOK", url: "https://www.facebook.com" },
-    { name: "BANDCAMP", url: "https://www.bandcamp.com" },
-  ];
-
-  for (const p of platforms) {
-    const start = Date.now();
-    try {
-      await new Promise((resolve, reject) => {
-        const child = exec(`curl -s -L -m 5 ${p.url}`);
-        child.on("close", (code) => {
-          if (code === 0) resolve();
-          else reject(new Error(`Exit code ${code}`));
-        });
-        child.on("error", reject);
-      });
-      results.push(`${EMOJIS.FIRE} **${p.name}:** \`${Date.now() - start}ms\``);
-    } catch (e) {
-      results.push(`${EMOJIS.CROSS} **${p.name}:** \`Timed Out / Blocked\``);
-    }
-  }
-
-  const NOTIF = resolveEmoji(interaction.guild, "notif", "🔔");
-  const ARROW = resolveEmoji(interaction.guild, "arrow", "•");
-  const embed = new EmbedBuilder()
-    .setColor(colors.ADMIN)
-    .setTitle(`${NOTIF} **Checking Connections**`)
-    .setDescription(
-      results.join("\n") +
-        "\n\n*No connection issues found. Everything looks good.*",
-    );
-
-  await interaction.editReply({ embeds: [embed] });
-  setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
-}
 
 async function handleLogs(interaction) {
   const logPath = path.join(__dirname, "../../bot.log");

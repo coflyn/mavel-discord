@@ -3,6 +3,7 @@ const { runYtDlpFlow, musicKeywords } = require("./core");
 const { handleDownloadCallback } = require("./callbacks");
 const config = require("../../config");
 const { resolveEmoji } = require("../../utils/emoji-helper");
+const colors = require("../../utils/embed-colors");
 
 module.exports = async function downloaderHandler(target, manualOptions = {}) {
   let url = manualOptions.manualUrl || "";
@@ -164,8 +165,6 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
   const isNsfwUrl = nsfwKeywords.some((kw) => url.toLowerCase().includes(kw));
 
   if (isNsfwUrl && !target.channel.nsfw) {
-    const { resolveEmoji } = require("../../utils/emoji-helper");
-const colors = require("../../utils/embed-colors");
     const E_WARN = resolveEmoji(target.guild, "ping_red", "🔴");
     const msg = `${E_WARN} **[AUTO-BLOCKED]** Download restricted: **NSFW Content** detected in a non-age-restricted channel.\n\n> *Please use an Age-Restricted channel or use \`/setup\` to reconfigure your downloader channel.*`;
 

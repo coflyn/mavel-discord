@@ -59,7 +59,7 @@ module.exports = async function searchHandler(interaction) {
 
   const ARROW = getEmoji("arrow", "•");
   const FIRE = getEmoji("purple_fire", "🔥");
-  const SEARCH = getEmoji("amogus", "🔎");
+  const SEARCH = getEmoji("lea", "🔎");
   const DOTS = getEmoji("three_dots", "🎵");
   const PING_RED = getEmoji("ping_red", "🔴");
 
@@ -324,13 +324,8 @@ async function displaySearchResults(
 
   if (finalResults.length === 0) {
     return interaction.editReply({
-      embeds: [
-        new EmbedBuilder()
-          .setColor(colors.SEARCH)
-          .setDescription(
-            `### ${PING_RED} **No results found**\n*No matches found on ${typeSelection.toUpperCase()}*`,
-          ),
-      ],
+      content: `### ${PING_RED} **No results found** for **${refinedQuery}** on **${typeSelection.toUpperCase()}**.`,
+      embeds: [],
     });
   }
 
@@ -364,18 +359,12 @@ async function displaySearchResults(
     );
 
   const row = new ActionRowBuilder().addComponents(selectMenu);
-
-  const resultEmbed = new EmbedBuilder()
-    .setColor(colors.SEARCH)
-    .setDescription(
-      `### ${SEARCH} **Results Found**\n` +
-        `${ARROW} *Looking for:* \`${refinedQuery}\`\n` +
-        `${ARROW} *Platform:* \`${typeSelection.toUpperCase()}\``,
-    )
-    .setFooter({ text: "Select a result from the menu below to start" });
+  
+  const content = `### ${FIRE} Found **${finalResults.length}** results for **${refinedQuery}** on **${typeSelection.toUpperCase()}**. Select one below:`;
 
   await interaction.editReply({
-    embeds: [resultEmbed],
+    content: content,
+    embeds: [],
     components: [row],
   });
 

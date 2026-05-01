@@ -170,7 +170,7 @@ For those interested in self-hosting or contributing to the project, the followi
 
 ### Connectivity Issues
 
-If the bot responds slowly or fails to fetch metadata, use the `/scan` command. This will perform a real-time latency check against major media platforms. If a specific platform shows "Timed Out," it indicates a regional block or provider downtime.
+If the bot responds slowly or fails to fetch metadata, it indicates a regional block or provider downtime. You can check the system logs for more details.
 
 ### Cache Management
 
@@ -252,7 +252,6 @@ Commands restricted to administrators for bot and server maintenance.
 - /purge: Clean up temporary files or system logs.
 - /hibernate: Put the bot into sleep mode to restrict usage.
 - /wakeup: Deactivate sleep mode.
-- /scan: Check network connectivity and platform status.
 - /reset: Restore system connections or tunnels.
 - /cookies: Update or refresh authentication cookies for restricted downloads.
 - /move: Invitation system to add the bot to other servers.

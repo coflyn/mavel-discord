@@ -141,6 +141,8 @@ async function runPinterestFlow(target, url, options = {}) {
           "https://www.pinterest.com/favicon.ico",
         platform: "Pinterest",
         isGallery: false,
+        hasVideo: true,
+        isVideo: true,
         imageUrls: [],
       });
 
@@ -176,6 +178,8 @@ async function runPinterestFlow(target, url, options = {}) {
         "https://www.pinterest.com/favicon.ico",
       platform: "Pinterest",
       isGallery: true,
+      hasVideo: false,
+      isVideo: false,
       imageUrls: [localPath],
     });
 

@@ -94,7 +94,7 @@ function createProgressUpdater(target, title) {
 
     const ARROW = getEmoji("arrow", "•");
     const FIRE = getEmoji("purple_fire", "🔥");
-    const AMOGUS = getEmoji("amogus", "🛰️");
+    const AMOGUS = getEmoji("lea", "🛰️");
 
     const size = 15;
     const progress = Math.min(size, Math.floor(size * (percent / 100)));

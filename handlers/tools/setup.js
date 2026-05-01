@@ -10,8 +10,9 @@ const {
   ButtonStyle,
   ComponentType,
 } = require("discord.js");
-const fs = require("fs");
 const path = require("path");
+const colors = require("../../utils/embed-colors");
+const fs = require("fs");
 const config = require("../../config");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 
@@ -87,7 +88,6 @@ module.exports = async function setupHandler(interaction) {
 
     if (currentCategory === "autorole") {
       const { RoleSelectMenuBuilder } = require("discord.js");
-const colors = require("../../utils/embed-colors");
       rows.push(
         new ActionRowBuilder().addComponents(
           new RoleSelectMenuBuilder()

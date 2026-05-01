@@ -1,6 +1,6 @@
 module.exports = {
   REQUIRED_EMOJIS: [
-    { name: "amogus", id: "1309841555133038662" },
+    { name: "lea", id: "1309841555133038662" },
     { name: "ping_red", id: "1485426365070311594" },
     { name: "ping_green", id: "1485426800124366848" },
     { name: "time", id: "1485426925643104256" },

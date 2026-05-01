@@ -2,8 +2,9 @@ const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder } = require("discord.js");
-const { createJob, createHandlerContext } = require("./core-helpers");
+const { createJob, createHandlerContext, generateJobId } = require("./core-helpers");
 const { bundleImagesToPdf } = require("../../utils/filetools");
+const colors = require("../../utils/embed-colors");
 
 async function runAcademiaFlow(target, url, options = {}) {
   const ctx = createHandlerContext(target, options);
@@ -77,8 +78,6 @@ async function runAcademiaFlow(target, url, options = {}) {
     const tempDir = path.join(__dirname, "../../temp");
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-    const { generateJobId } = require("./core-helpers");
-const colors = require("../../utils/embed-colors");
     const jobId = generateJobId();
     const imageUrls = [];
 

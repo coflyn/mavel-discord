@@ -56,11 +56,11 @@ module.exports = {
 
     if (message.content.match(/https?:\/\/[^\s]+/)) {
       try {
-        const amogusEmoji = message.guild?.emojis.cache.find(
-          (e) => e.name === "amogus",
+        const leaEmoji = message.guild?.emojis.cache.find(
+          (e) => e.name === "lea",
         );
         await message.suppressEmbeds(true).catch(() => {});
-        await message.react(amogusEmoji || "⏳").catch(() => {});
+        await message.react(leaEmoji || "⏳").catch(() => {});
         return await downloaderHandler(message);
       } catch (e) {
         console.error("[LINK-HANDLER] Error:", e.message);

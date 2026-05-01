@@ -49,6 +49,7 @@ module.exports = async function helpHandler(interaction) {
           `${ARROW} **/harvest** — *Analyze and extract data from profiles*\n` +
           `${ARROW} **/convert** — *Transform Video/Audio/Image formats*\n` +
           `${ARROW} **/search** — *Search for songs (YouTube/Spotify/etc)*\n` +
+          `${ARROW} **/trace** — *Identify Anime or Movies from image frames*\n` +
           `${ARROW} **/lyrics** — *Get song lyrics and info*`,
         inline: false,
       },

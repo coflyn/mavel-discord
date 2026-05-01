@@ -1,4 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
+const EC = require("../utils/embed-colors");
 const { resolveEmoji } = require("../utils/emoji-helper");
 
 module.exports = {
@@ -58,7 +59,6 @@ module.exports = {
       const E_ANNO = getEmoji("anno", "📑");
       const E_ARROW = getEmoji("arrow", "»");
 
-      const EC = require("../utils/embed-colors");
       const dmEmbed = new EmbedBuilder()
         .setColor(embed.color || EC.CORE)
         .setAuthor({

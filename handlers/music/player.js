@@ -26,6 +26,7 @@ const {
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const { REQUIRED_EMOJIS } = require("../../utils/emoji-registry");
 const { advanceLog } = require("../../utils/logger");
+const colors = require("../../utils/embed-colors");
 const CACHE_DIR = path.join(__dirname, "../../temp/cache");
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 
@@ -305,7 +306,6 @@ class MusicPlayer {
       if (isLive || duration > 3600) {
         if (state.channel) {
           const { resolveEmoji } = require("../../utils/emoji-helper");
-const colors = require("../../utils/embed-colors");
           const E_WARN = resolveEmoji(state.channel.guild, "ping_red", "🔴");
           state.channel.send(`${E_WARN} **[BLOCKED]** **${info.title || "Track"}** is ${isLive ? "a Live Stream" : "longer than 1 hour"}.`).catch(() => {});
         }

@@ -7,7 +7,7 @@ const {
   searchSocials,
 } = require("../../utils/scrapers/social");
 const { scrapeGitHub } = require("../../utils/scrapers/web");
-const EC = require("../../utils/embed-colors");
+const colors = require("../../utils/embed-colors");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 
 const { REQUIRED_EMOJIS } = require("../../utils/emoji-registry");

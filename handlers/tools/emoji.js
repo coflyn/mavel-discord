@@ -218,7 +218,7 @@ async function handleInfo(interaction) {
 
   const AMOGUS =
     (await interaction.guild.emojis.fetch())
-      .find((e) => e.name === "amogus")
+      .find((e) => e.name === "lea")
       ?.toString() || "🔎";
   const ARROW =
     (await interaction.guild.emojis.fetch())
@@ -349,7 +349,7 @@ async function handleNeeds(interaction) {
     resolveEmoji(interaction.guild, name, fallback);
 
   const ARROW = getEmoji("arrow", "•");
-  const AMOGUS = getEmoji("amogus", "🛰️");
+  const AMOGUS = getEmoji("lea", "🛰️");
   const PC = getEmoji("pc", "💻");
   const CAMERA = getEmoji("camera", "🛰️");
   const DIAMOND = getEmoji("diamond", "✨");

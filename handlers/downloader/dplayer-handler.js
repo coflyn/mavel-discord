@@ -93,6 +93,9 @@ const colors = require("../../utils/embed-colors");
       thumbnail: "https://docplayer.net/favicon.ico",
       platform: "DocPlayer",
       isGallery: false,
+      hasVideo: false,
+      isVideo: false,
+      extractor: "dplayer",
       directUrl: outputPath,
     });
 

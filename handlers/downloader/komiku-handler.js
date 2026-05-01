@@ -3,7 +3,8 @@ const fs = require("fs");
 const path = require("path");
 const axios = require("axios");
 const { EmbedBuilder } = require("discord.js");
-const { createJob, createHandlerContext } = require("./core-helpers");
+const colors = require("../../utils/embed-colors");
+const { createJob, createHandlerContext, generateJobId } = require("./core-helpers");
 
 async function runKomikuFlow(target, url, options = {}) {
   const ctx = createHandlerContext(target, options);
@@ -82,7 +83,6 @@ async function runKomikuFlow(target, url, options = {}) {
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
     const { generateJobId } = require("./core-helpers");
-const colors = require("../../utils/embed-colors");
     const jobId = generateJobId();
     const localPaths = [];
 

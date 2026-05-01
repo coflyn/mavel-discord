@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const { createJob, createHandlerContext } = require("./core-helpers");
+const colors = require("../../utils/embed-colors");
 
 async function runScribdFlow(target, url, options = {}) {
   const ctx = createHandlerContext(target, options);
@@ -88,7 +89,6 @@ async function runScribdFlow(target, url, options = {}) {
 
     const imageUrls = [];
     const { generateJobId } = require("./core-helpers");
-const colors = require("../../utils/embed-colors");
     const jobId = generateJobId();
 
     await ctx.editResponse({
@@ -145,6 +145,9 @@ const colors = require("../../utils/embed-colors");
         "https://www.scribd.com/favicon.ico",
       platform: "Scribd",
       isGallery: true,
+      hasVideo: false,
+      isVideo: false,
+      extractor: "scribd",
       imageUrls: imageUrls,
     });
 
