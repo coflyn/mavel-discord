@@ -611,11 +611,21 @@ async function runYtDlpFlow(target, url, options = {}) {
         }
       }
 
-      const cleanTitle = finalTitle.replace(
+      let cleanTitle = finalTitle.replace(
         /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F018}-\u{1F270}\u{1F170}-\u{1F251}]/gu,
         "",
       );
-      const safeTitle = cleanTitle.trim().substring(0, 100) || "Video";
+
+      cleanTitle = cleanTitle.replace(/#\S+/g, "");
+
+      let safeTitle = cleanTitle.replace(/\s+/g, " ").trim();
+
+      const titleLimit = 45;
+      if (safeTitle.length > titleLimit) {
+        safeTitle = safeTitle.substring(0, titleLimit) + "...";
+      }
+
+      safeTitle = safeTitle || "Media Content";
       db.jobs[jobId].title = safeTitle;
       saveDB(db);
 
@@ -703,7 +713,7 @@ async function runYtDlpFlow(target, url, options = {}) {
         embeds: [
           getStatusEmbed(
             guild,
-            "Processing Error",
+            "Download Error",
             e.message || "An unexpected error occurred.",
           ),
         ],

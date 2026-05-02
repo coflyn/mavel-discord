@@ -1,9 +1,9 @@
-const axios = require("axios");
+const http = require("../http");
 const cheerio = require("cheerio");
 
 async function scrapeGitHub(username) {
   try {
-    const { data } = await axios.get(
+    const { data } = await http.get(
       `https://api.github.com/users/${encodeURIComponent(username)}`,
       {
         headers: { "User-Agent": "MaveL-Bot/1.0" },
@@ -11,7 +11,7 @@ async function scrapeGitHub(username) {
       },
     );
 
-    const reposRes = await axios
+    const reposRes = await http
       .get(
         `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=stars&per_page=5`,
         {

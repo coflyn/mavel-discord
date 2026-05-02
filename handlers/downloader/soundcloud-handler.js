@@ -1,4 +1,4 @@
-const axios = require("axios");
+const http = require("../../utils/http");
 const cheerio = require("cheerio");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const { createJob, createHandlerContext } = require("./core-helpers");
@@ -107,11 +107,7 @@ async function runSoundcloudFlow(target, url, options = {}) {
 
     if (!scrapeSuccess) {
       try {
-        const res = await axios.get(url, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-          },
+        const res = await http.get(url, {
           timeout: 8000,
         });
         const $ = cheerio.load(res.data);

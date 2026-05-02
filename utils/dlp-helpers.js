@@ -10,7 +10,26 @@ try {
   ffprobeStatic = null;
 }
 
-const { spawn } = require("child_process");
+const { spawn, execSync } = require("child_process");
+
+function getFfmpegPath() {
+  try {
+    const cmd = process.platform === "win32" ? "where ffmpeg" : "which ffmpeg";
+    const result = execSync(cmd).toString().trim().split("\n")[0];
+    if (result && fs.existsSync(result)) return result;
+  } catch (e) {}
+
+  if (process.platform === "darwin") {
+    const brewPath = "/opt/homebrew/bin/ffmpeg";
+    if (fs.existsSync(brewPath)) return brewPath;
+    const intelBrewPath = "/usr/local/bin/ffmpeg";
+    if (fs.existsSync(intelBrewPath)) return intelBrewPath;
+  }
+
+  if (ffmpegStatic) return ffmpegStatic;
+
+  return "ffmpeg";
+}
 
 function getYtDlp() {
   const localPath = path.join(__dirname, "../yt-dlp");
@@ -115,11 +134,11 @@ function getCookiesArgs(platform = "") {
   return args;
 }
 
+const http = require("./http");
+
 function getVpsArgs() {
   const isMac = process.platform === "darwin";
-  const userAgent = isMac
-    ? "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36"
-    : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
+  const userAgent = http.getUserAgent("desktop");
 
   const clients = process.env.YT_PLAYER_CLIENTS || "tv,mweb,ios";
   const extractorArgs = [`player_client=${clients}`];
@@ -139,7 +158,7 @@ function getVpsArgs() {
     "--retries",
     "5",
     "--user-agent",
-    process.env.YT_USER_AGENT || userAgent,
+    userAgent,
     "--no-check-certificate",
     "--extractor-args",
     `youtube:${extractorArgs.join(";")}`,
@@ -156,6 +175,7 @@ function getCookiesPath() {
 
 module.exports = {
   getYtDlp,
+  getFfmpegPath,
   autoUpdateYtDlp,
   checkCookiesStatus,
   getDlpEnv,

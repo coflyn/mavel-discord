@@ -1,7 +1,7 @@
 const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
-const axios = require("axios");
+const http = require("../../utils/http");
 const { EmbedBuilder } = require("discord.js");
 const colors = require("../../utils/embed-colors");
 const { createJob, createHandlerContext, generateJobId } = require("./core-helpers");
@@ -21,8 +21,7 @@ async function runKomikuFlow(target, url, options = {}) {
   try {
     browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
-      userAgent:
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      userAgent: userAgents.get("desktop"),
     });
 
     const page = await context.newPage();
@@ -110,7 +109,7 @@ async function runKomikuFlow(target, url, options = {}) {
       const imgPath = path.join(tempDir, `km_${jobId}_${i + 1}.${ext}`);
 
       try {
-        const res = await axios.get(imgUrl, {
+        const res = await http.get(imgUrl, {
           responseType: "arraybuffer",
           headers: { Referer: "https://komiku.com/" },
         });

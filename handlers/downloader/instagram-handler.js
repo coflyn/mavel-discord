@@ -1,4 +1,4 @@
-const axios = require("axios");
+const http = require("../../utils/http");
 const cheerio = require("cheerio");
 const {
   EmbedBuilder,
@@ -13,16 +13,6 @@ async function runInstagramFlow(target, url, options = {}) {
   const ctx = createHandlerContext(target, options);
   await ctx.init("Instagram Link Found", "Getting post info...");
 
-  const instaAxios = axios.create({
-    headers: {
-      "User-Agent":
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1",
-      Accept:
-        "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-      "Accept-Language": "en-US,en;q=0.9",
-    },
-    timeout: 10000,
-  });
 
   try {
     const cleanUrl = url.includes("?") ? url.split("?")[0] : url;
@@ -207,11 +197,8 @@ async function runInstagramFlow(target, url, options = {}) {
       const proxyUrl = `https://ddinstagram.com${proxyPath}`;
 
       try {
-        const res = await axios.get(proxyUrl, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (compatible; TelegramBot/1.0; +https://core.telegram.org/bots/webhooks)",
-          },
+        const res = await http.get(proxyUrl, {
+          uaType: "bot",
           timeout: 8000,
         });
 
@@ -320,8 +307,7 @@ async function runInstagramFlow(target, url, options = {}) {
           const { chromium } = require("playwright");
           browser = await chromium.launch({ headless: true });
           const context = await browser.newContext({
-            userAgent:
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+            userAgent: userAgents.get("desktop"),
             viewport: { width: 1280, height: 720 },
           });
           const page = await context.newPage();

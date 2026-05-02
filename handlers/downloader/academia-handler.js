@@ -5,6 +5,7 @@ const { EmbedBuilder } = require("discord.js");
 const { createJob, createHandlerContext, generateJobId } = require("./core-helpers");
 const { bundleImagesToPdf } = require("../../utils/filetools");
 const colors = require("../../utils/embed-colors");
+const http = require("../../utils/http");
 
 async function runAcademiaFlow(target, url, options = {}) {
   const ctx = createHandlerContext(target, options);
@@ -18,8 +19,7 @@ async function runAcademiaFlow(target, url, options = {}) {
     browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
       viewport: { width: 1400, height: 1080 },
-      userAgent:
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      userAgent: http.getUserAgent("desktop"),
     });
 
     const page = await context.newPage();

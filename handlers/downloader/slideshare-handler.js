@@ -1,7 +1,7 @@
 const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
-const axios = require("axios");
+const http = require("../../utils/http");
 const { createJob, createHandlerContext } = require("./core-helpers");
 
 async function runSlideshareFlow(target, url, options = {}) {
@@ -94,7 +94,7 @@ async function runSlideshareFlow(target, url, options = {}) {
       while (!success && attempts < MAX_ATTEMPTS) {
         attempts++;
         try {
-          const res = await axios.get(assetUrl, {
+          const res = await http.get(assetUrl, {
             responseType: "arraybuffer",
             timeout: 15000,
           });
@@ -105,7 +105,7 @@ async function runSlideshareFlow(target, url, options = {}) {
           if (attempts >= MAX_ATTEMPTS) {
             try {
               const fallbackUrl = assetUrl.replace("-2048.jpg", "-1024.jpg");
-              const res = await axios.get(fallbackUrl, {
+              const res = await http.get(fallbackUrl, {
                 responseType: "arraybuffer",
                 timeout: 15000,
               });

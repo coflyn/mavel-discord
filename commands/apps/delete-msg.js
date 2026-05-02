@@ -6,6 +6,7 @@ module.exports = {
   name: "app_delete",
   type: 3,
   async execute(interaction) {
+    await interaction.deferReply();
     const targetMsg = interaction.targetMessage;
     const guild = interaction.guild;
     const client = interaction.client;
@@ -19,9 +20,8 @@ module.exports = {
     const CROSS = getEmoji("ping_red", "❌");
 
     if (!targetMsg.pinnable && !targetMsg.deletable) {
-      return interaction.reply({
+      return interaction.editReply({
         content: "*Error: This message cannot be deleted by the bot.*",
-        flags: [MessageFlags.Ephemeral],
       });
     }
 
@@ -40,7 +40,7 @@ module.exports = {
       })
       .setTimestamp();
 
-    await interaction.reply({ embeds: [voteEmbed] });
+    await interaction.editReply({ embeds: [voteEmbed] });
     const response = await interaction.fetchReply();
 
     try {

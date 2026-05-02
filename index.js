@@ -14,8 +14,13 @@ const { stopTunnel } = require("./utils/tunnel-server");
 const { player } = require("./handlers/music");
 
 const NETWORK_HICCUP_CODES = [
-  "521", "502", "503", "504",
-  "ETIMEDOUT", "ECONNRESET", "Unexpected server response",
+  "521",
+  "502",
+  "503",
+  "504",
+  "ETIMEDOUT",
+  "ECONNRESET",
+  "Unexpected server response",
 ];
 const isNetworkHiccup = (msg) =>
   NETWORK_HICCUP_CODES.some((code) => msg?.includes(code));
@@ -63,6 +68,8 @@ const loadModular = () => {
       } else if (file.endsWith(".js")) {
         const command = require(path.join(__dirname, dir, file));
         if (command.name) {
+          const parts = dir.split(path.sep);
+          command.category = parts[parts.length - 1];
           client.commands.set(command.name, command);
         }
       }

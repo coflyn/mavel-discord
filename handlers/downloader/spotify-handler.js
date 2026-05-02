@@ -1,4 +1,4 @@
-const axios = require("axios");
+const http = require("../../utils/http");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const { createJob, createHandlerContext } = require("./core-helpers");
 
@@ -11,8 +11,8 @@ async function runSpotifyFlow(target, url, options = {}) {
 
     try {
         const cleanUrl = url.split("?")[0].split("#")[0];
-        const oEmbed = await axios.get(`https://open.spotify.com/oembed?url=${encodeURIComponent(cleanUrl)}`, {
-            headers: { "User-Agent": "Mozilla/5.0" },
+        const oEmbed = await http.get(`https://open.spotify.com/oembed?url=${encodeURIComponent(cleanUrl)}`, {
+            uaType: "bot",
             timeout: 5000
         });
 

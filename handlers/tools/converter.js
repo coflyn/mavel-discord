@@ -6,10 +6,10 @@ const {
   StringSelectMenuBuilder,
   ActivityType,
 } = require("discord.js");
-const { spawn } = require("child_process");
+const { spawn, execSync } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const axios = require("axios");
+const http = require("../../utils/http");
 const { advanceLog } = require("../../utils/logger");
 const { PDFDocument } = require("pdf-lib");
 const { chromium } = require("playwright");
@@ -21,12 +21,14 @@ const colors = require("../../utils/embed-colors");
 
 module.exports = async function converterHandler(interaction) {
   if (interaction.isMessageContextMenuCommand()) {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
   } else if (interaction.isStringSelectMenu()) {
     await interaction.deferUpdate();
   } else if (interaction.isChatInputCommand()) {
     await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
   }
 
+  const guild = interaction.guild;
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
 
   const E_TIME = getEmoji("time", "⏳");
@@ -54,9 +56,8 @@ module.exports = async function converterHandler(interaction) {
           e.url?.match(/\.(mp4|mkv|gif|png|jpg|jpeg|webp)$/i),
       );
     if (!hasMedia) {
-      return await interaction.reply({
+      return await interaction.editReply({
         content: `### ${E_PING_RED} **No Media Detected**\nCouldn't find any convertible attachments or links.`,
-        flags: [MessageFlags.Ephemeral],
       });
     }
     const select = new StringSelectMenuBuilder()
@@ -76,10 +77,9 @@ module.exports = async function converterHandler(interaction) {
         { label: "Document: Multiple Images to PDF", value: "pdf" },
         { label: "Document: Word to PDF", value: "word_to_pdf" },
       );
-    return await interaction.reply({
+    return await interaction.editReply({
       content: `### ${E_SYNC} **MaveL Media Converter**\nTarget for **${targetMsg.author.username}**'s media:`,
       components: [new ActionRowBuilder().addComponents(select)],
-      flags: [MessageFlags.Ephemeral],
     });
   }
 
@@ -100,7 +100,7 @@ module.exports = async function converterHandler(interaction) {
     targetFormat = interaction.values[0];
     targetMsgId = interaction.customId.replace("conv_pick_", "");
     await interaction.editReply({
-      content: `### ${E_TIME} **Initializing Engine...**`,
+      content: "### ⏳ **Processing...**",
       components: [],
     });
   }
@@ -111,8 +111,6 @@ module.exports = async function converterHandler(interaction) {
   if (targetFormat.includes("gif")) ext = "gif";
   if (targetFormat.includes("pdf")) ext = "pdf";
 
-  const outputName = `mave_conv_${inputId}.${ext}`;
-  const outputPath = path.join(rootTempDir, outputName);
   const localPaths = [];
 
   try {
@@ -163,6 +161,17 @@ module.exports = async function converterHandler(interaction) {
 
     if (filesToProcess.length === 0) throw new Error("Media source not found.");
 
+    let baseName = "media";
+    if (filesToProcess.length > 0) {
+      const firstFile = filesToProcess[0];
+      if (firstFile.name && !firstFile.name.startsWith("media_")) {
+        baseName = path.parse(firstFile.name).name.replace(/[^\w.-]/g, "_");
+      }
+    }
+
+    const outputName = `${baseName}_converted_${inputId}.${ext}`;
+    const outputPath = path.join(rootTempDir, outputName);
+
     const isVideo = filesToProcess.some(
       (f) =>
         f.type?.startsWith("video/") ||
@@ -194,7 +203,7 @@ module.exports = async function converterHandler(interaction) {
         new EmbedBuilder()
           .setColor(colors.CORE)
           .setDescription(
-            `### ${E_TIME} **Preparing Engine...**\n${E_ARROW} **Source:** *${sourceLabel}*\n${E_ARROW} **Task:** *Downloading...*`,
+            `### ${E_TIME} **Getting Media...**\n${E_ARROW} **Source:** *${sourceLabel}*\n${E_ARROW} **Task:** *Downloading...*`,
           ),
       ],
     });
@@ -211,7 +220,7 @@ module.exports = async function converterHandler(interaction) {
           rootTempDir,
           `in_${inputId}_${i}_${f.name.replace(/[^\w.-]/g, "_")}`,
         );
-      const res = await axios.get(f.url, { responseType: "stream" });
+      const res = await http.get(f.url, { responseType: "stream" });
       const writer = fs.createWriteStream(p);
       res.data.pipe(writer);
       await new Promise((resolve, reject) => {
@@ -226,7 +235,7 @@ module.exports = async function converterHandler(interaction) {
         new EmbedBuilder()
           .setColor(colors.CORE)
           .setDescription(
-            `### ${E_SYNC} **Rendering Engine**\n${E_ARROW} **Process:** *Encoding to ${targetFormat.toUpperCase()}...*`,
+            `### ${E_SYNC} **Processing Media**\n${E_ARROW} **Process:** *Encoding to ${targetFormat.toUpperCase()}...*`,
           ),
       ],
     });
@@ -274,6 +283,21 @@ module.exports = async function converterHandler(interaction) {
       });
       await browser.close();
     } else {
+      let ffmpegBin = "ffmpeg";
+      try {
+        const systemFfmpeg = execSync("which ffmpeg").toString().trim();
+        if (systemFfmpeg) ffmpegBin = systemFfmpeg;
+      } catch (e) {
+        if (
+          process.platform === "darwin" &&
+          fs.existsSync("/opt/homebrew/bin/ffmpeg")
+        ) {
+          ffmpegBin = "/opt/homebrew/bin/ffmpeg";
+        } else if (ffmpegStatic) {
+          ffmpegBin = ffmpegStatic;
+        }
+      }
+
       let ffmpegArgs = ["-i", localPaths[0]];
       if (targetFormat === "mp4")
         ffmpegArgs.push(
@@ -337,7 +361,7 @@ module.exports = async function converterHandler(interaction) {
         ffmpegArgs.push("-frames:v", "1", "-q:v", "2", "-y");
       ffmpegArgs.push(outputPath);
 
-      const ffmpegProc = spawn("ffmpeg", ffmpegArgs);
+      const ffmpegProc = spawn(ffmpegBin, ffmpegArgs);
       let stderr = "";
       ffmpegProc.stderr.on("data", (data) => (stderr += data.toString()));
       await new Promise((resolve, reject) => {
@@ -394,7 +418,7 @@ module.exports = async function converterHandler(interaction) {
       interaction.client.clearTempStatus();
     console.error("[CONVERTER] Error:", err.message);
     await interaction.editReply({
-      content: `### ${E_PING_RED} **Engine Error**\n${E_ARROW} *Details: ${err.message}*`,
+      content: `### ${E_PING_RED} **Conversion Error**\n${E_ARROW} *Details: ${err.message}*`,
       embeds: [],
       components: [],
     });

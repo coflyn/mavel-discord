@@ -1,4 +1,4 @@
-const axios = require("axios");
+const http = require("../../utils/http");
 const cheerio = require("cheerio");
 const fs = require("fs");
 const path = require("path");
@@ -31,10 +31,7 @@ async function runCloudFlow(target, url, options = {}) {
     let size = "---";
 
     if (platform === "Mediafire") {
-      const res = await axios.get(url, {
-        headers: { "User-Agent": "Mozilla/5.0" },
-        timeout: 10000,
-      });
+      const res = await http.get(url, { uaType: "bot" });
       const $ = cheerio.load(res.data);
       directUrl =
         $("a#downloadButton").attr("href") || $("a.input.popsok").attr("href");

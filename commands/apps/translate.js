@@ -11,13 +11,22 @@ const { resolveEmoji } = require("../../utils/emoji-helper");
 module.exports = {
   name: "app_translate",
   async execute(interaction) {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     const msg = interaction.targetMessage;
 
-    if (!msg.content) {
-      return interaction.reply({
+    let textToTranslate = msg.content;
+
+    if (!textToTranslate && msg.embeds.length > 0) {
+      const validEmbed = msg.embeds.find((e) => e.description || e.title);
+      if (validEmbed) {
+        textToTranslate = validEmbed.description || validEmbed.title;
+      }
+    }
+
+    if (!textToTranslate) {
+      return interaction.editReply({
         content:
           "*Error: Could not find any text to translate in this message.*",
-        flags: [MessageFlags.Ephemeral],
       });
     }
 
@@ -41,11 +50,12 @@ module.exports = {
         ]),
     );
 
-    const initialResponse = await interaction.reply({
-      content: `${GLOBE} **Select language for translation:**\n> *${msg.content.substring(0, 100).replace(/\n/g, " ")}${msg.content.length > 100 ? "..." : ""}*`,
+    await interaction.editReply({
+      content: `${GLOBE} **Select language for translation:**\n> *${textToTranslate.substring(0, 100).replace(/\n/g, " ")}${textToTranslate.length > 100 ? "..." : ""}*`,
       components: [row],
-      flags: [MessageFlags.Ephemeral],
     });
+
+    const initialResponse = await interaction.fetchReply();
 
     const collector = initialResponse.createMessageComponentCollector({
       componentType: ComponentType.StringSelect,
@@ -61,7 +71,7 @@ module.exports = {
       ).label;
 
       try {
-        const res = await translate(msg.content, { to: targetLangVal });
+        const res = await translate(textToTranslate, { to: targetLangVal });
         const fromLang = res.raw?.src || "Auto";
 
         const embed = new EmbedBuilder()
@@ -71,7 +81,7 @@ module.exports = {
             iconURL: msg.author.displayAvatarURL(),
           })
           .setDescription(
-            `**Original:**\n${msg.content}\n\n**Translation:**\n${res.text}`,
+            `**Original:**\n${textToTranslate.substring(0, 1000)}${textToTranslate.length > 1000 ? "..." : ""}\n\n**Translation:**\n${res.text.substring(0, 4000)}`,
           )
           .setFooter({ text: "Google Translate" });
 

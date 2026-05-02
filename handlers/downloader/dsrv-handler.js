@@ -3,10 +3,10 @@ const cheerio = require("cheerio");
 const fs = require("fs");
 const path = require("path");
 const { createJob, createHandlerContext } = require("./core-helpers");
+const http = require("../../utils/http");
 
 const COMMON_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+  "User-Agent": http.getUserAgent("desktop"),
   Accept:
     "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
   "Accept-Language": "en-US,en;q=0.9",
@@ -14,7 +14,9 @@ const COMMON_HEADERS = {
 
 async function runDSrvFlow(target, url, options = {}) {
   const ctx = createHandlerContext(target, options);
-  await ctx.init("Opening website...", "Checking the link...", { silent: true });
+  await ctx.init("Opening website...", "Checking the link...", {
+    silent: true,
+  });
 
   try {
     let chapterUrl = url.trim();
@@ -101,7 +103,6 @@ async function runDSrvFlow(target, url, options = {}) {
     const localPaths = [];
     const total = imageUrls.length;
 
-    // DOWNLOAD LOCALLY (Like Lyn's logic) to bypass 403 Forbidden
     for (let i = 0; i < total; i++) {
       await ctx.editResponse({
         embeds: [

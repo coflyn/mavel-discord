@@ -34,12 +34,12 @@ async function harvestHandler(interaction) {
 
   if (!target || !query) {
     const infoEmbed = new EmbedBuilder()
-      .setColor(EC.INFO)
+      .setColor(colors.INFO)
       .setAuthor({
-        name: "MaveL Analysis System",
+        name: "MaveL Scanner",
         iconURL: interaction.client.user.displayAvatarURL(),
       })
-      .setTitle(`${ANNO} **Target Analysis**`)
+      .setTitle(`${ANNO} **Scan Results**`)
       .setImage(botBanner)
       .setDescription(
         `*Deep scan and collect details from profiles, channels, and discussions across the web.*`,
@@ -95,9 +95,9 @@ async function harvestHandler(interaction) {
       }
 
       const embed = new EmbedBuilder()
-        .setColor(EC.SOCIAL)
+        .setColor(colors.SOCIAL)
         .setAuthor({
-          name: "MaveL Analysis System",
+          name: "MaveL Scanner",
           iconURL: interaction.client.user.displayAvatarURL(),
         })
         .setTitle(`${ANNO} **Instagram Profile Info**`)
@@ -133,9 +133,9 @@ async function harvestHandler(interaction) {
       }
 
       const embed = new EmbedBuilder()
-        .setColor(EC.SOCIAL)
+        .setColor(colors.SOCIAL)
         .setAuthor({
-          name: "MaveL Analysis System",
+          name: "MaveL Scanner",
           iconURL: interaction.client.user.displayAvatarURL(),
         })
         .setTitle(`${ANNO} **TikTok Profile Info**`)
@@ -173,9 +173,9 @@ async function harvestHandler(interaction) {
       }
 
       const embed = new EmbedBuilder()
-        .setColor(EC.MUSIC_DL)
+        .setColor(colors.MUSIC_DL)
         .setAuthor({
-          name: "MaveL Analysis System",
+          name: "MaveL Scanner",
           iconURL: interaction.client.user.displayAvatarURL(),
         })
         .setTitle(`${ANNO} **YouTube Channel/Video Info**`)
@@ -214,9 +214,9 @@ async function harvestHandler(interaction) {
       }
 
       const embed = new EmbedBuilder()
-        .setColor(EC.DOCUMENT)
+        .setColor(colors.DOCUMENT)
         .setAuthor({
-          name: "MaveL Analysis System",
+          name: "MaveL Scanner",
           iconURL: interaction.client.user.displayAvatarURL(),
         })
         .setTitle(`${ANNO} **GitHub Profile Info**`)
@@ -268,7 +268,7 @@ async function harvestHandler(interaction) {
       const embed = new EmbedBuilder()
         .setColor(colors.ADMIN)
         .setAuthor({
-          name: "MaveL Analysis System",
+          name: "MaveL Scanner",
           iconURL: interaction.client.user.displayAvatarURL(),
         })
         .setTitle(`${ANNO} **Reddit Results: ${query}**`)
@@ -293,7 +293,7 @@ async function harvestHandler(interaction) {
         .join("\n");
 
       const embed = new EmbedBuilder()
-        .setColor(EC.SEARCH)
+        .setColor(colors.SEARCH)
         .setAuthor({
           name: "MaveL Finder System",
           iconURL: interaction.client.user.displayAvatarURL(),

@@ -29,6 +29,9 @@ loadCommands("commands");
 
 const contextMenus = [
   new ContextMenuCommandBuilder()
+    .setName("Convert Media")
+    .setType(ApplicationCommandType.Message),
+  new ContextMenuCommandBuilder()
     .setName("Inspect Media")
     .setType(ApplicationCommandType.Message),
   new ContextMenuCommandBuilder()
@@ -54,6 +57,9 @@ const contextMenus = [
     .setType(ApplicationCommandType.Message),
   new ContextMenuCommandBuilder()
     .setName("Trace Movie")
+    .setType(ApplicationCommandType.Message),
+  new ContextMenuCommandBuilder()
+    .setName("Add Checkpoint")
     .setType(ApplicationCommandType.Message),
 ];
 

@@ -1,4 +1,4 @@
-const axios = require("axios");
+const http = require("../../utils/http");
 const cheerio = require("cheerio");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const { createJob, createHandlerContext } = require("./core-helpers");
@@ -16,13 +16,7 @@ async function runFacebookFlow(target, url, options = {}) {
       .replace("fb.com", "ddfacebook.com")
       .replace("www.", "")
       .split("?")[0];
-    const res = await axios.get(ddFbUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)",
-      },
-      timeout: 10000,
-    });
+    const res = await http.get(ddFbUrl, { uaType: "bot", timeout: 10000 });
 
     const $ = cheerio.load(res.data);
     const videoUrl =

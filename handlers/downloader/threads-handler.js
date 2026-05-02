@@ -1,4 +1,4 @@
-const axios = require("axios");
+const http = require("../../utils/http");
 const cheerio = require("cheerio");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const { createJob, createHandlerContext } = require("./core-helpers");
@@ -25,8 +25,9 @@ async function runThreadsFlow(target, url, options = {}) {
     };
 
     const uas = [
-      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-      "Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)",
+      userAgents.get("desktop"),
+      userAgents.get("mobile"),
+      userAgents.get("bot"),
     ];
 
     let lastError = null;
@@ -34,10 +35,9 @@ async function runThreadsFlow(target, url, options = {}) {
       if (videoUrl || imageUrl) break;
       const currentUA = uas[i];
       try {
-        const res = await axios.get(threadsBase, {
+        const res = await http.get(threadsBase, {
           headers: {
             "User-Agent": currentUA,
-            "Accept-Language": "en-US,en;q=0.9",
           },
           timeout: 10000,
         });

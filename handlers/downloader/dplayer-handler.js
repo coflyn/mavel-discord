@@ -3,6 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder } = require("discord.js");
 const { createJob, createHandlerContext } = require("./core-helpers");
+const http = require("../../utils/http");
 
 async function runDPlayerFlow(target, url, options = {}) {
   const ctx = createHandlerContext(target, options);
@@ -13,8 +14,7 @@ async function runDPlayerFlow(target, url, options = {}) {
   try {
     browser = await chromium.launch({ headless: true });
     const context = await browser.newContext({
-      userAgent:
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+      userAgent: http.getUserAgent("desktop"),
     });
 
     const page = await context.newPage();

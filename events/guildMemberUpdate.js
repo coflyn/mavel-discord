@@ -23,7 +23,7 @@ module.exports = {
     advanceLog(client, {
       type: "warn",
       title: "Member Audit",
-      activity: "Identity Management",
+      activity: "Profile Management",
       message: `Update for ${newMember.user.tag}`,
       user: `${newMember.user.tag} (${newMember.user.id})`,
       guild: newMember.guild.name,

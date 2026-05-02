@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, MessageFlags } = require("discord.js");
 const { findLyrics } = require("../../handlers/music/lyrics");
 const { resolveEmoji } = require("../../utils/emoji-helper");
+const { player } = require("../../handlers/music");
 
 module.exports = {
   slashData: new SlashCommandBuilder()
@@ -23,7 +24,6 @@ module.exports = {
 
     let searchQuery = query;
     if (!searchQuery) {
-      const { player } = require("../../handlers/music");
       const state = player.queues.get(guild.id);
       if (state && state.current) {
         searchQuery = state.current.title;

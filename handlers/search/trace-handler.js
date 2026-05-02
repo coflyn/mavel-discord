@@ -1,4 +1,4 @@
-const axios = require("axios");
+const http = require("../../utils/http");
 const { EmbedBuilder, MessageFlags, AttachmentBuilder } = require("discord.js");
 const colors = require("../../utils/embed-colors");
 const { resolveEmoji } = require("../../utils/emoji-helper");
@@ -23,12 +23,23 @@ module.exports = async function traceHandler(interaction) {
 
     const message = interaction.targetMessage;
     const attachment = message.attachments.first();
-    if (attachment && attachment.contentType?.startsWith("image/")) {
-      imageUrl = attachment.url;
-    } else {
-      const embedWithImage = message.embeds.find((e) => e.image || e.thumbnail);
-      if (embedWithImage) {
-        imageUrl = embedWithImage.image?.url || embedWithImage.thumbnail?.url;
+    const botBanner = config.botBanner || "";
+
+    if (attachment) {
+      if (attachment.contentType?.startsWith("image/")) {
+        imageUrl = attachment.url;
+      } else if (attachment.contentType?.startsWith("video/")) {
+        imageUrl = attachment.proxyURL || attachment.url;
+      }
+    }
+
+    if (!imageUrl) {
+      const validEmbed = message.embeds.find((e) => {
+        const url = e.image?.url || e.thumbnail?.url;
+        return url && (!botBanner || !url.includes(botBanner));
+      });
+      if (validEmbed) {
+        imageUrl = validEmbed.image?.url || validEmbed.thumbnail?.url;
       }
     }
   }
@@ -53,13 +64,13 @@ module.exports = async function traceHandler(interaction) {
       .setColor(colors.SEARCH)
       .setDescription(
         `### ${E_TIME} **Tracing ${mode === "anime" ? "Anime" : "Movie/Scene"}...**\n` +
-          `*MaveL is analyzing the visual signatures against the ${mode === "anime" ? "Anime database" : "Global Visual Engine"}.*`,
+          `*MaveL is searching for matches in the ${mode === "anime" ? "Anime database" : "Global image database"}.*`,
       );
 
     await interaction.editReply({ embeds: [embed] });
 
     if (mode === "anime") {
-      const response = await axios.get(
+      const response = await http.get(
         `https://api.trace.moe/search?url=${encodeURIComponent(imageUrl)}`,
       );
       const data = response.data;
@@ -87,7 +98,7 @@ module.exports = async function traceHandler(interaction) {
         )
         .setImage(image)
         .setThumbnail(imageUrl)
-        .setFooter({ text: "Trace.moe Visual Analysis Engine" })
+        .setFooter({ text: "Trace.moe Anime Search" })
         .setTimestamp();
 
       return await interaction.editReply({ embeds: [successEmbed] });
@@ -104,8 +115,7 @@ module.exports = async function traceHandler(interaction) {
 
       try {
         const context = await browser.newContext({
-          userAgent:
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          userAgent: userAgents.get("desktop"),
           viewport: { width: 1280, height: 900 },
           deviceScaleFactor: 1,
         });
@@ -193,7 +203,7 @@ module.exports = async function traceHandler(interaction) {
               .map((el) => el.innerText.trim())
               .filter((txt) => txt.length > 3)
               .slice(0, 5)
-              .map((t) => ({ title: t, source: "Yandex Engine" }));
+              .map((t) => ({ title: t, source: "Yandex Search" }));
           });
           results = [...results, ...yanResults];
         }
@@ -218,9 +228,9 @@ module.exports = async function traceHandler(interaction) {
           .setColor(colors.SEARCH)
           .setTitle(`${E_SEARCH} Scene Identified`)
           .setDescription(
-            `### ${E_ROCKET} **Visual Analysis Complete**\n` +
+            `### ${E_ROCKET} **Search Finished**\n` +
               `${ARROW} **Potential Title:** \`${bestResult.title}\`\n` +
-              `${ARROW} **Top Engine:** *${bestResult.source}*\n\n` +
+              `${ARROW} **Best Match Source:** *${bestResult.source}*\n\n` +
               `**Alternative Matches:**\n` +
               results
                 .slice(1, 6)
@@ -228,7 +238,7 @@ module.exports = async function traceHandler(interaction) {
                 .join("\n"),
           )
           .setThumbnail(imageUrl)
-          .setFooter({ text: "Dual-Engine Visual Search (G-Lens + Yandex)" })
+          .setFooter({ text: "Multi-Source Visual Search (Google + Yandex)" })
           .setTimestamp();
 
         const files = [];

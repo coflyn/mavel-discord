@@ -1,5 +1,5 @@
 const { EmbedBuilder } = require("discord.js");
-const EC = require("../utils/embed-colors");
+const colors = require("../utils/embed-colors");
 const { resolveEmoji } = require("../utils/emoji-helper");
 
 module.exports = {
@@ -60,7 +60,7 @@ module.exports = {
       const E_ARROW = getEmoji("arrow", "»");
 
       const dmEmbed = new EmbedBuilder()
-        .setColor(embed.color || EC.CORE)
+        .setColor(embed.color || colors.CORE)
         .setAuthor({
           name: "MaveL Bookmark Service",
           iconURL: reaction.client.user.displayAvatarURL(),

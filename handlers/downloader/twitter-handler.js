@@ -1,4 +1,4 @@
-const axios = require("axios");
+const http = require("../../utils/http");
 const fs = require("fs");
 const path = require("path");
 const cheerio = require("cheerio");
@@ -47,7 +47,7 @@ const colors = require("../../utils/embed-colors");
           ...getCookiesArgs("twitter"),
           "--simulate", "--get-url",
           "--format", "bestvideo+bestaudio/best",
-          "--add-header", "User-Agent:Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+          "--add-header", `User-Agent:${userAgents.get("desktop")}`,
           ytTarget,
         ], { env: getDlpEnv() });
         let stdout = "";
@@ -100,13 +100,11 @@ const colors = require("../../utils/embed-colors");
         if (scrapeSuccess) break;
         try {
           allImages = [];
-          const apiRes = await axios.get(
+          const apiRes = await http.get(
             `https://${provider}/status/${statusId}`,
             {
               timeout: 8000,
-              headers: {
-                "User-Agent": "Discordbot/2.0 (+https://discordapp.com)",
-              },
+              uaType: "bot",
             },
           );
           const html = apiRes.data;

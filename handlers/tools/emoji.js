@@ -8,6 +8,7 @@ const {
 const { REQUIRED_EMOJIS } = require("../../utils/emoji-registry");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const colors = require("../../utils/embed-colors");
+const http = require("../../utils/http");
 
 module.exports = async function emojiHandler(interaction) {
   const subcommand = interaction.options.getSubcommand();
@@ -76,8 +77,7 @@ async function handleAdd(interaction) {
   try {
     const fetchOptions = {
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36",
+        "User-Agent": http.getUserAgent("desktop"),
       },
     };
 
@@ -208,7 +208,7 @@ async function handleInfo(interaction) {
 
   const fetchOptions = {
     headers: {
-      "User-Agent": "Mozilla/5.0",
+      "User-Agent": http.getUserAgent("bot"),
     },
   };
 
@@ -437,7 +437,7 @@ module.exports.syncMissingEmojis = async function (interaction) {
     const emojiId = req.id;
     const animatedUrl = `https://cdn.discordapp.com/emojis/${emojiId}.gif?quality=lossless`;
     const staticUrl = `https://cdn.discordapp.com/emojis/${emojiId}.png?quality=lossless`;
-    const fetchOptions = { headers: { "User-Agent": "Mozilla/5.0" } };
+    const fetchOptions = { headers: { "User-Agent": http.getUserAgent("bot") } };
 
     try {
       let response = await fetch(animatedUrl, fetchOptions);

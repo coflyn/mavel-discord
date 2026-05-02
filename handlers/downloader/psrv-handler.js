@@ -2,6 +2,7 @@ const { chromium } = require("playwright");
 const { spawn } = require("child_process");
 
 const { createJob, createHandlerContext } = require("./core-helpers");
+const http = require("../../utils/http");
 const {
   getYtDlp,
   getDlpEnv,
@@ -53,8 +54,7 @@ async function runPSrvFlow(target, url, options = {}) {
       const context = await browser.newContext({
         viewport: { width: 1280, height: 720 },
         ignoreHTTPSErrors: true,
-        userAgent:
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        userAgent: http.getUserAgent("desktop"),
       });
       const page = await context.newPage();
 
@@ -199,8 +199,7 @@ async function runPSrvFlow(target, url, options = {}) {
         referer: url,
         headers: {
           Cookie: "age_verified=1; access_granted=1; platform=pc",
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+          "User-Agent": http.getUserAgent("desktop"),
         },
       });
 
@@ -278,8 +277,7 @@ async function runPSrvFlow(target, url, options = {}) {
         directUrl: null,
         referer: normalizedUrl,
         headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
+          "User-Agent": http.getUserAgent("desktop"),
           Referer: normalizedUrl,
         },
       });

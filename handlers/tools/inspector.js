@@ -2,7 +2,7 @@ const { EmbedBuilder, MessageFlags } = require("discord.js");
 const { spawn } = require("child_process");
 const path = require("path");
 const fs = require("fs");
-const axios = require("axios");
+const http = require("../../utils/http");
 const colors = require("../../utils/embed-colors");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 
@@ -36,18 +36,25 @@ module.exports = async function inspectorHandler(interaction) {
           );
         }
         if (filesToProcess.length === 0 && currentMsg.embeds.length > 0) {
+          const botBanner = require("../../config").botBanner || "";
           currentMsg.embeds.forEach((embed) => {
             const mediaUrl =
               embed.image?.url ||
               embed.video?.url ||
               embed.thumbnail?.url ||
               embed.url;
-            if (mediaUrl && mediaUrl.startsWith("http"))
+
+            if (
+              mediaUrl &&
+              mediaUrl.startsWith("http") &&
+              (!botBanner || !mediaUrl.includes(botBanner))
+            ) {
               filesToProcess.push({
                 url: mediaUrl,
                 name: `media_${Date.now()}`,
                 type: "image/unknown",
               });
+            }
           });
         }
         if (filesToProcess.length > 0) {
@@ -67,7 +74,8 @@ module.exports = async function inspectorHandler(interaction) {
     if (filesToProcess.length === 0)
       throw new Error("No media file detected to inspect.");
 
-    const getEmoji = (name, fallback) => resolveEmoji(interaction.guild, name, fallback);
+    const getEmoji = (name, fallback) =>
+      resolveEmoji(interaction.guild, name, fallback);
 
     const E_TIME = getEmoji("time", "⌛");
     const E_INFO = getEmoji("anno", "ℹ️");
@@ -95,7 +103,7 @@ module.exports = async function inspectorHandler(interaction) {
       `inspect_${Date.now()}_${filesToProcess[0].name.replace(/[^\w.-]/g, "_")}`,
     );
 
-    const res = await axios.get(filesToProcess[0].url, {
+    const res = await http.get(filesToProcess[0].url, {
       responseType: "stream",
     });
     const writer = fs.createWriteStream(inputPath);
@@ -152,13 +160,13 @@ module.exports = async function inspectorHandler(interaction) {
     const embed = new EmbedBuilder()
       .setColor(colors.CORE)
       .setAuthor({
-        name: "Media Analysis Report",
+        name: "Media Details",
         iconURL: interaction.client.user.displayAvatarURL(),
       })
       .setThumbnail(filesToProcess[0].url)
       .setDescription(
-        `### ${E_FIRE} **Technical Foundation**\n` +
-          `${E_ARROW} **Identity:** \`${filesToProcess[0].name.slice(0, 30)}\`\n` +
+        `### ${E_FIRE} **Technical Info**\n` +
+          `${E_ARROW} **Filename:** \`${filesToProcess[0].name.slice(0, 30)}\`\n` +
           `${E_ARROW} **Container:** \`${format.format_name?.toUpperCase()}\`\n` +
           `${E_ARROW} **Size:** \`${size}\` | **Length:** \`${duration}\``,
       );

@@ -1,7 +1,7 @@
 const { chromium } = require("playwright");
 const fs = require("fs");
 const path = require("path");
-const axios = require("axios");
+const http = require("../../utils/http");
 const { createJob, createHandlerContext } = require("./core-helpers");
 
 const { startDownload } = require("./callbacks");
@@ -162,7 +162,7 @@ async function runPinterestFlow(target, url, options = {}) {
       ],
     });
 
-    const res = await axios.get(finalMediaUrl, {
+    const res = await http.get(finalMediaUrl, {
       responseType: "arraybuffer",
       timeout: 20000,
     });

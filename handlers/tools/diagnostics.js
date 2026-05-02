@@ -5,7 +5,7 @@ const {
 } = require("discord.js");
 const os = require("os");
 const process = require("process");
-const axios = require("axios");
+const http = require("../../utils/http");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const colors = require("../../utils/embed-colors");
 const { formatUptime } = require("../downloader/core-helpers");
@@ -40,7 +40,7 @@ module.exports = async function diagnosticsHandler(interaction) {
 
   let ipInfo = { query: "Unknown", country: "Secret", isp: "Cloud" };
   try {
-    const res = await axios.get("http://ip-api.com/json/", { timeout: 5000 });
+    const res = await http.get("http://ip-api.com/json/", { timeout: 5000 });
     if (res.data && res.data.status === "success") {
       ipInfo = res.data;
     }
@@ -63,11 +63,11 @@ module.exports = async function diagnosticsHandler(interaction) {
       name: "MaveL Health Status",
       iconURL: interaction.client.user.displayAvatarURL(),
     })
-    .setTitle(`${AMOGUS} **System Analysis Report**`)
+    .setTitle(`${AMOGUS} **System Health Report**`)
     .setDescription(`*Checking on my health, location and performance.*`)
     .addFields(
       {
-        name: `${FIRE} **Infrastructure**`,
+        name: `${FIRE} **System Status**`,
         value:
           `${ARROW} **IP Address:** \`${ipInfo.query}\`\n` +
           `${ARROW} **Country:** \`${ipInfo.country}\`\n` +
@@ -98,7 +98,7 @@ module.exports = async function diagnosticsHandler(interaction) {
       },
     )
     .setFooter({
-      text: "MaveL Monitoring Unit",
+      text: "MaveL Privacy",
       iconURL: interaction.client.user.displayAvatarURL(),
     })
     .setTimestamp();

@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const colors = require("../../utils/embed-colors");
 const { resolveEmoji } = require("../../utils/emoji-helper");
+const http = require("../../utils/http");
 
 module.exports = async function ssHandler(interaction) {
   await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -29,7 +30,7 @@ module.exports = async function ssHandler(interaction) {
     if (!fs.existsSync(rootTempDir))
       fs.mkdirSync(rootTempDir, { recursive: true });
 
-    const outputName = `mave_ss_${Date.now()}.png`;
+    const outputName = `screenshot_${Date.now()}.png`;
     const outputPath = path.join(rootTempDir, outputName);
 
     const getEmoji = (name, fallback) => resolveEmoji(interaction.guild, name, fallback);
@@ -59,7 +60,7 @@ module.exports = async function ssHandler(interaction) {
         viewport: viewports[device],
         deviceScaleFactor: 2,
         colorScheme: theme,
-        userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        userAgent: http.getUserAgent(device === "mobile" ? "mobile" : "desktop")
       });
       const page = await context.newPage();
 

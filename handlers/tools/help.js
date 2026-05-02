@@ -63,7 +63,8 @@ module.exports = async function helpHandler(interaction) {
            `${ARROW} **/emoji needs** ${LOCK} — *Add missing system emojis*\n` +
           `${ARROW} **/info** — *Check user info and profile*\n` +
           `${ARROW} **/ss** — *Capture a screenshot of any website*\n` +
-          `${ARROW} **/inspect** — *Expose hidden details & EXIF data*`,
+          `${ARROW} **/inspect** — *Expose hidden details & EXIF data*\n` +
+          `${ARROW} **/checkpoint** — *View your bookmarked messages*`,
         inline: false,
       },
       {

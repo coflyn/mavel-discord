@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require("discord.js");
 const { MessageFlags } = require("discord.js");
+const { resolveEmoji } = require("../../utils/emoji-helper");
 const { resetTunnel } = require("../../utils/tunnel-server");
 const config = require("../../config");
 
@@ -23,7 +24,6 @@ module.exports = {
         return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
       }
       await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-      const { resolveEmoji } = require("../../utils/emoji-helper");
       const E_SUCCESS = resolveEmoji(interaction.guild, "ping_green", "✅");
       const E_ERROR = resolveEmoji(interaction.guild, "ping_red", "🔴");
 

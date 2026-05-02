@@ -12,7 +12,7 @@ const {
   getVpsArgs,
 } = require("../../utils/dlp-helpers");
 const { spawn } = require("child_process");
-const axios = require("axios");
+const http = require("../../utils/http");
 const cheerio = require("cheerio");
 
 const searchCache = new Map();
@@ -102,12 +102,7 @@ async function musicHandler(target, manualData = null) {
         const res = [];
         const searchUrl = `https://bandcamp.com/search?q=${encodeURIComponent(q)}&item_type=t`;
         try {
-          const { data } = await axios.get(searchUrl, {
-            headers: {
-              "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-            },
-          });
+          const { data } = await http.get(searchUrl);
 
           const $ = cheerio.load(data);
           $(".search-result-item, .searchresult, .data-search").each(

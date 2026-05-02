@@ -1,5 +1,5 @@
 const sharp = require("sharp");
-const axios = require("axios");
+const http = require("./http");
 
 let bgCache = {
   url: null,
@@ -11,7 +11,7 @@ async function getBackground(bannerUrl) {
   if (bgCache.url === finalUrl && bgCache.buffer) return bgCache.buffer;
 
   try {
-    const res = await axios.get(finalUrl, { responseType: "arraybuffer", timeout: 8000 });
+    const res = await http.get(finalUrl, { responseType: "arraybuffer", timeout: 8000 });
     bgCache.url = finalUrl;
     bgCache.buffer = res.data;
     return res.data;
@@ -28,7 +28,7 @@ async function generateCard(bannerUrl, avatarUrl, username, type = "welcome") {
     let avatarBuffer = null;
     const avatarSize = 250;
     try {
-      const avatarRes = await axios.get(avatarUrl, { responseType: "arraybuffer", timeout: 5000 });
+      const avatarRes = await http.get(avatarUrl, { responseType: "arraybuffer", timeout: 5000 });
       avatarBuffer = await sharp(avatarRes.data)
         .resize(avatarSize, avatarSize)
         .composite([{

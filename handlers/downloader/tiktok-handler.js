@@ -1,4 +1,4 @@
-const axios = require("axios");
+const http = require("../../utils/http");
 const {
   EmbedBuilder,
   ActionRowBuilder,
@@ -16,14 +16,9 @@ async function runTikTokFlow(target, url, options = {}) {
 
   try {
     const cleanUrl = url.split("?")[0].split("#")[0];
-    const res = await axios.get(
+    const res = await http.get(
       `https://www.tikwm.com/api/?url=${encodeURIComponent(cleanUrl)}`,
-      {
-        timeout: 25000,
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
-        }
-      },
+      { timeout: 25000 }
     );
 
     const data = res.data;

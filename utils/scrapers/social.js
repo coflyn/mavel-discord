@@ -1,16 +1,8 @@
-const axios = require("axios");
+const http = require("../http");
 const cheerio = require("cheerio");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-
-const COMMON_HEADERS = {
-  "User-Agent":
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-  Accept:
-    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-  "Accept-Language": "en-US,en;q=0.9",
-};
 
 function formatCount(num) {
   if (num === undefined || num === null) return "---";
@@ -58,7 +50,7 @@ async function scrapeInstagram(username) {
     };
     if (cookieHeader) headers["Cookie"] = cookieHeader;
 
-    const res = await axios.get(url, { headers, timeout: 10000 });
+    const res = await http.get(url, { headers, timeout: 10000 });
     const html = res.data;
     const $ = cheerio.load(html);
 
@@ -145,12 +137,11 @@ async function scrapeTikTok(username) {
       .update(cleanUser + ts + salt)
       .digest("hex");
 
-    const res = await axios.post(
+    const res = await http.post(
       "https://soft-tree-dc7e.9f45zxhnvv.workers.dev/",
       { username: cleanUser, ts: ts },
       {
         headers: {
-          ...COMMON_HEADERS,
           "X-App-Ts": ts.toString(),
           "X-App-Token": token,
           Origin: "https://omar-thing.site",
@@ -182,11 +173,9 @@ async function scrapeTikTok(username) {
 
   try {
     const url = `https://www.tiktok.com/@${cleanUser}`;
-    const res = await axios.get(url, {
+    const res = await http.get(url, {
+      uaType: "mobile",
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (iPhone; CPU iPhone OS 14_8 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1",
-        "Accept-Language": "en-US,en;q=0.9",
         Referer: "https://www.google.com/",
       },
       timeout: 8000,
@@ -232,13 +221,7 @@ async function scrapeTikTok(username) {
 
 async function scrapeYouTube(url) {
   try {
-    const res = await axios.get(url, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
-      },
-      timeout: 10000,
-    });
+    const res = await http.get(url, { uaType: "bot", timeout: 10000 });
 
     const $ = cheerio.load(res.data);
     const title =
@@ -263,11 +246,10 @@ async function scrapeYouTube(url) {
 
 async function scrapeReddit(topic) {
   try {
-    const res = await axios.get(
+    const res = await http.get(
       `https://www.reddit.com/search.json?q=${encodeURIComponent(topic)}&sort=relevance&t=week&limit=8`,
       {
         headers: {
-          ...COMMON_HEADERS,
           "User-Agent": "MaveL-Bot/1.0",
         },
         timeout: 10000,
@@ -304,8 +286,7 @@ async function searchSocials(username) {
   const results = [];
   const promises = sites.map(async (site) => {
     try {
-      const res = await axios.get(site.url, {
-        headers: COMMON_HEADERS,
+      const res = await http.get(site.url, {
         timeout: 5000,
         validateStatus: () => true,
       });

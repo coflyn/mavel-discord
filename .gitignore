@@ -5,9 +5,9 @@ database/downloader.json
 database/playlists.json
 database/settings.json
 database/stats.json
+database/checkpoints.json
 database/backups/
 *.log
 cookies.txt
 .DS_Store
 eng.traineddata
-yt-dlp

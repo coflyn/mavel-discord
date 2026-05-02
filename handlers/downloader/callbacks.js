@@ -1,9 +1,10 @@
 const fs = require("fs");
 const path = require("path");
-const { spawn } = require("child_process");
+const { spawn, execSync } = require("child_process");
 const { AttachmentBuilder, EmbedBuilder } = require("discord.js");
 const {
   getYtDlp,
+  getFfmpegPath,
   getDlpEnv,
   getJsRuntimeArgs,
   getCookiesArgs,
@@ -26,10 +27,34 @@ const config = require("../../config");
 const { getAssetUrl } = require("../../utils/tunnel-server");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const { getStatusEmbed } = require("../../utils/response-helper");
-const EC = require("../../utils/embed-colors");
+const colors = require("../../utils/embed-colors");
+const { File: MegaFile } = require("megajs");
+let ffprobePath;
+try {
+  ffprobePath = require("ffprobe-static").path;
+} catch (e) {
+  ffprobePath = null;
+}
+
+function formatTitleForDisplay(title) {
+  if (!title) return "Media Content";
+  const clean = title
+    .replace(/#\S+/g, "")
+    .replace(
+      /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F018}-\u{1F270}\u{1F170}-\u{1F251}]/gu,
+      "",
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const limit = 45;
+  return clean.length > limit
+    ? clean.substring(0, limit) + "..."
+    : clean || "Media Content";
+}
 
 const getPlatformColor = (platform) => {
-  if (!platform) return EC.CORE;
+  if (!platform) return colors.CORE;
   const p = platform.toLowerCase();
   if (
     [
@@ -42,24 +67,25 @@ const getPlatformColor = (platform) => {
       "pinterest",
     ].some((s) => p.includes(s))
   )
-    return EC.SOCIAL;
+    return colors.SOCIAL;
   if (
     ["spotify", "youtube", "ytm", "soundcloud", "bandcamp"].some((s) =>
       p.includes(s),
     )
   )
-    return EC.MUSIC_DL;
-  if (["scribd", "slideshare"].some((s) => p.includes(s))) return EC.DOCUMENT;
-  if (p.includes("pixiv")) return EC.ARTWORK;
+    return colors.MUSIC_DL;
+  if (["scribd", "slideshare"].some((s) => p.includes(s)))
+    return colors.DOCUMENT;
+  if (p.includes("pixiv")) return colors.ARTWORK;
   if (
     ["mega", "mediafire", "gdrive", "google drive", "cloud"].some((s) =>
       p.includes(s),
     )
   )
-    return EC.DOCUMENT;
-  return EC.CORE;
+    return colors.DOCUMENT;
+  return colors.CORE;
 };
-const axios = require("axios");
+const http = require("../../utils/http");
 const NodeID3 = require("node-id3");
 
 async function startDownload(interaction, jobId, format, options = {}) {
@@ -73,8 +99,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
   if (jobId) {
     job = db.jobs[jobId];
     if (!job) {
-      const { resolveEmoji } = require("../../utils/emoji-helper");
-      const E_ERROR = resolveEmoji(guild, "ping_red", "getEmoji('ping_red', '❌')");
+      const E_ERROR = resolveEmoji(interaction.guild, "ping_red", "❌");
       const errorMsg = `${E_ERROR} *Error: Request expired.*`;
       const editResponse = async (data) => {
         try {
@@ -90,8 +115,6 @@ async function startDownload(interaction, jobId, format, options = {}) {
   const url = job ? job.url : options.url;
   const title = job ? job.title : options.title || "External File";
   const userMention = job?.userId ? `<@${job.userId}>` : "";
-
-
 
   const statusContent = `*Queued (${format.toUpperCase()}${format === "mp4" ? ` ${resolution}p` : ""})...*`;
 
@@ -154,8 +177,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
   const platformColor = getPlatformColor(job?.platform || options.platform);
 
   const getStatus = (status, details) => {
-    return getStatusEmbed(guild, status, details, platformColor)
-      .setDescription(`### ${FIRE} **${status}**\n${ARROW} **File:** *${title || "Searching..."}*\n${ARROW} **Info:** *${details}*`);
+    return getStatusEmbed(guild, status, details, platformColor).setDescription(
+      `### ${FIRE} **${status}**\n${ARROW} **File:** *${title || "Searching..."}*\n${ARROW} **Info:** *${details}*`,
+    );
   };
 
   await editLocal({
@@ -184,7 +208,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
     const sanitizedTitle = sanitizeFilename(title, "media");
 
-    const outputBase = path.join(tempDir, `mave_${jobId || Date.now()}`);
+    const outputBase = path.join(tempDir, `dl_${jobId || Date.now()}`);
 
     try {
       await editLocal({
@@ -222,12 +246,8 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 throw new Error(`Local resource not found: ${cleanLocalPath}`);
               }
             } else {
-              const photoRes = await axios.get(photoUrl, {
+              const photoRes = await http.get(photoUrl, {
                 responseType: "arraybuffer",
-                headers: {
-                  "User-Agent":
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-                },
               });
               fs.writeFileSync(photoPath, photoRes.data);
             }
@@ -296,7 +316,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         doneEmbed.setDescription(
           (userMention ? `${userMention}\n\n` : "") +
             `${LEA} **Your media is ready**\n` +
-            `${ARROW} **Title:** *${title}*\n` +
+            `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
             `${ARROW} **Platform:** *${shouldBundle ? (isDocumentPlatform ? "PDF File" : "Image Gallery") : "Ready to save"}*\n` +
             `${ARROW} **Source:** *${platformName}*\n` +
             `${ARROW} **Files:** *${urls.length} Images*\n` +
@@ -320,7 +340,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
         });
 
         const totalSize = shouldBundle
-          ? (pdfPath && fs.existsSync(pdfPath) ? fs.statSync(pdfPath).size : sizeGall)
+          ? pdfPath && fs.existsSync(pdfPath)
+            ? fs.statSync(pdfPath).size
+            : sizeGall
           : sizeGall;
 
         const limitMB = 8;
@@ -340,7 +362,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `### ${DIAMOND} **Gallery Bundle Too Large**\n` +
-                `${ARROW} **Title:** *${title}*\n` +
+                `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
                 `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
                 `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 `${ARROW} **[${PING_GREEN} CLICK TO DOWNLOAD BUNDLE](${publicUrl})**\n\n` +
@@ -410,7 +432,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             ],
           });
 
-          const photoRes = await axios.get(photoUrl, {
+          const photoRes = await http.get(photoUrl, {
             responseType: "arraybuffer",
             headers: { Referer: "https://www.tikwm.com/" },
             timeout: 20000,
@@ -465,7 +487,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           .setDescription(
             (userMention ? `${userMention}\n\n` : "") +
               `${LEA} **Your media is ready**\n` +
-              `${ARROW} **Title:** *${title}*\n` +
+              `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
               `${ARROW} **Platform:** *TikTok (${shouldBundle ? "PDF Bundle" : "Direct Photos"})*\n` +
               `${ARROW} **Source:** *${job?.platform || options.platform || "TikTok"}*\n` +
               `${ARROW} **Pages:** *${urls.length} Photos*\n` +
@@ -488,7 +510,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
           });
 
         const totalSize = shouldBundle
-          ? (pdfPath && fs.existsSync(pdfPath) ? fs.statSync(pdfPath).size : sizeGallTK)
+          ? pdfPath && fs.existsSync(pdfPath)
+            ? fs.statSync(pdfPath).size
+            : sizeGallTK
           : sizeGallTK;
 
         const limitMB = 8;
@@ -508,7 +532,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `### ${DIAMOND} **Gallery Bundle Too Large**\n` +
-                `${ARROW} **Title:** *${title}*\n` +
+                `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
                 `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
                 `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 `${ARROW} **[${PING_GREEN} CLICK TO DOWNLOAD BUNDLE](${publicUrl})**\n\n` +
@@ -570,7 +594,12 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const directUrl = foundUrl;
         if (!directUrl) throw new Error("Source stream lost.");
 
-        let ext = format === "tkmp3" ? "mp3" : (job?.isVideo || job?.hasVideo) ? "mp4" : "jpg";
+        let ext =
+          format === "tkmp3"
+            ? "mp3"
+            : job?.isVideo || job?.hasVideo
+              ? "mp4"
+              : "jpg";
         if (directUrl.includes(".png")) ext = "png";
 
         const outputFile = path.join(
@@ -579,11 +608,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
         );
 
         try {
-          const res = await axios.get(directUrl, {
+          const res = await http.get(directUrl, {
             responseType: "arraybuffer",
             headers: {
-              "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
               Referer: directUrl.includes("twimg.com")
                 ? "https://x.com/"
                 : "https://www.google.com/",
@@ -628,7 +655,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 .setDescription(
                   (userMention ? `${userMention}\n\n` : "") +
                     `### ${DIAMOND} **File Too Large for Discord**\n` +
-                    `${ARROW} **Title:** *${title}*\n` +
+                    `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
                     `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
                     `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                     `${ARROW} **[DOWNLOAD HD VIDEO](${publicUrl})**\n\n` +
@@ -665,8 +692,8 @@ async function startDownload(interaction, jobId, format, options = {}) {
             .setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `${LEA} **Your media is ready**\n` +
-                `${ARROW} **Title:** *${title}*\n` +
-                `${ARROW} **Type:** *${(job?.isVideo || job?.hasVideo) ? "Video Stream" : "Static Image"}*\n` +
+                `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
+                `${ARROW} **Type:** *${job?.isVideo || job?.hasVideo ? "Video Stream" : "Static Image"}*\n` +
                 `${ARROW} **Platform:** *${job?.platform || options.platform || "TikTok"}*\n` +
                 `${ARROW} **Length:** *${job?.stats?.duration || "---"}*\n` +
                 `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
@@ -714,8 +741,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         );
 
         if (platform === "MEGA") {
-          const { File } = require("megajs");
-          const file = File.fromURL(url);
+          const file = MegaFile.fromURL(url);
           await file.loadAttributes();
 
           await new Promise((resolve, reject) => {
@@ -728,10 +754,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
           });
         } else if (fs.existsSync(directUrl)) {
           fs.copyFileSync(directUrl, outputFile);
-        } else {
-          const res = await axios.get(directUrl, {
+          const res = await http.get(directUrl, {
             responseType: "arraybuffer",
-            headers: { "User-Agent": "Mozilla/5.0" },
+            uaType: "bot",
             maxRedirects: 5,
           });
           fs.writeFileSync(outputFile, res.data);
@@ -740,7 +765,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         const attachment = new AttachmentBuilder(outputFile);
 
         const doneEmbed = new EmbedBuilder()
-          .setColor(EC.DOCUMENT)
+          .setColor(colors.DOCUMENT)
           .setAuthor({
             name: "MaveL Downloads",
             iconURL: interaction.client.user.displayAvatarURL(),
@@ -774,7 +799,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `### ${DIAMOND} **Cloud File Too Large**\n` +
-                `${ARROW} **Title:** *${title}*\n` +
+                `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
                 `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
                 `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 `${ARROW} **[DOWNLOAD FILE](${publicUrl})**\n\n` +
@@ -853,7 +878,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         });
 
         const doneEmbed = new EmbedBuilder()
-          .setColor(EC.MUSIC_DL)
+          .setColor(colors.MUSIC_DL)
           .setAuthor({
             name: "MaveL Downloads",
             iconURL: interaction.client.user.displayAvatarURL(),
@@ -864,7 +889,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           .setDescription(
             (userMention ? `${userMention}\n\n` : "") +
               `${LEA} **Your media is ready**\n` +
-              `${ARROW} **Title:** *${title}*\n` +
+              `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
               `${ARROW} **Platform:** *High-Fidelity Audio*\n` +
               `${ARROW} **Source:** *Spotify (Resolved)*\n` +
               `${ARROW} **Length:** *Track*\n` +
@@ -892,7 +917,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `### ${DIAMOND} **Audio File Too Large**\n` +
-                `${ARROW} **Title:** *${title}*\n` +
+                `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
                 `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
                 `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 `${ARROW} **[${PING_GREEN} DOWNLOAD MUSIC](${publicUrl})**\n\n` +
@@ -929,7 +954,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
           await advanceLog(interaction.client, {
             title: "Download Success (Spotify)",
-            color: parseInt(EC.MUSIC_DL.replace("#", ""), 16),
+            color: parseInt(colors.MUSIC_DL.replace("#", ""), 16),
             message: `Delivered audio file.`,
             user:
               (interaction.user || interaction.author || {}).tag ||
@@ -963,13 +988,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
             ],
           });
 
-          const photoRes = await axios.get(photoUrl, {
+          const photoRes = await http.get(photoUrl, {
             responseType: "arraybuffer",
-            headers: {
-              "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-              Referer: "https://www.pixiv.net/",
-            },
+            headers: { Referer: "https://www.pixiv.net/" },
             timeout: 30000,
           });
           fs.writeFileSync(photoPath, photoRes.data);
@@ -1011,7 +1032,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         }
 
         const doneEmbed = new EmbedBuilder()
-          .setColor(EC.ARTWORK)
+          .setColor(colors.ARTWORK)
           .setAuthor({
             name: "MaveL Downloads",
             iconURL: interaction.client.user.displayAvatarURL(),
@@ -1022,7 +1043,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           .setDescription(
             (userMention ? `${userMention}\n\n` : "") +
               `${LEA} **Your media is ready**\n` +
-              `${ARROW} **Title:** *${title}*\n` +
+              `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
               `${ARROW} **Platform:** *Pixiv (${shouldBundle ? "PDF Bundle" : "Direct Photos"})*\n` +
               `${ARROW} **Source:** *Pixiv (Archive)*\n` +
               `${ARROW} **Pages:** *${urls.length} Compiled*\n` +
@@ -1056,7 +1077,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `### ${DIAMOND} **Pixiv Gallery Too Large**\n` +
-                `${ARROW} **Title:** *${title}*\n` +
+                `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
                 `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
                 `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 `${ARROW} **[${PING_GREEN} CLICK TO DOWNLOAD BUNDLE](${publicUrl})**\n\n` +
@@ -1100,13 +1121,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
         await editLocal({
           embeds: [getStatus("Downloading", "Getting the video...")],
         });
-        const videoRes = await axios.get(directUrl, {
+        const videoRes = await http.get(directUrl, {
           responseType: "arraybuffer",
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-            Referer: "https://www.pixiv.net/",
-          },
+          headers: { Referer: "https://www.pixiv.net/" },
           timeout: 60000,
         });
         fs.writeFileSync(outputFile, videoRes.data);
@@ -1116,7 +1133,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         });
 
         const doneEmbed = new EmbedBuilder()
-          .setColor(EC.ARTWORK)
+          .setColor(colors.ARTWORK)
           .setAuthor({
             name: "MaveL Downloads",
             iconURL: interaction.client.user.displayAvatarURL(),
@@ -1125,7 +1142,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           .setImage(botBanner)
           .setDescription(
             `${LEA} **Your media is ready**\n` +
-              `${ARROW} **Title:** *${title}*\n` +
+              `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
               `${ARROW} **Platform:** *Pixiv Animation*\n` +
               `${ARROW} **Source:** *Pixiv (Ugoira)*\n` +
               `${ARROW} **Length:** *Animated*\n` +
@@ -1149,7 +1166,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `### ${DIAMOND} **Pixiv Animation Too Large**\n` +
-                `${ARROW} **Title:** *${title}*\n` +
+                `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
                 `${ARROW} **Size:** *${formatSize(stats.size)}*\n` +
                 `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 `${ARROW} **[DOWNLOAD UGOIRA VIDEO](${publicUrl})**\n\n` +
@@ -1295,7 +1312,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           .setDescription(
             (userMention ? `${userMention}\n\n` : "") +
               `${LEA} **Your media is ready**\n` +
-              `${ARROW} **Title:** *${title}*\n` +
+              `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
               `${ARROW} **Platform:** *Gallery Album*\n` +
               `${ARROW} **Source:** *${uploader || "System"}*\n` +
               `${ARROW} **Length:** *---*\n` +
@@ -1335,7 +1352,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `### ${DIAMOND} **Social Gallery Too Large**\n` +
-                `${ARROW} **Title:** *${title}*\n` +
+                `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
                 `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
                 `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
                 `${ARROW} **[DOWNLOAD GALLERY ASSETS](${publicUrl})**\n\n` +
@@ -1378,8 +1395,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           : format === "mp4"
             ? `${outputBase}.mp4`
             : `${outputBase}.mp3`;
-      const ua =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
+      const ua = http.getUserAgent("desktop");
       const referer =
         job?.referer ||
         (url.includes("tiktok.com")
@@ -1390,28 +1406,10 @@ async function startDownload(interaction, jobId, format, options = {}) {
               ? "https://x.com/"
               : "https://www.google.com/");
 
-      const binDir = path.join(tempDir, "bin");
-      if (!fs.existsSync(binDir)) fs.mkdirSync(binDir, { recursive: true });
-
-      const ffmpegBin = path.join(binDir, "ffmpeg");
-      const ffprobeBin = path.join(binDir, "ffprobe");
-
-      const ffprobePath = require("ffprobe-static").path;
-
-      if (!fs.existsSync(ffmpegBin)) {
-        try {
-          fs.symlinkSync(ffmpegStatic, ffmpegBin);
-        } catch (e) {
-          fs.copyFileSync(ffmpegStatic, ffmpegBin);
-        }
-      }
-      if (!fs.existsSync(ffprobeBin)) {
-        try {
-          fs.symlinkSync(ffprobePath, ffprobeBin);
-        } catch (e) {
-          fs.copyFileSync(ffprobePath, ffprobeBin);
-        }
-      }
+      const ffmpegBin = getFfmpegPath();
+      const ffmpegDir = path.dirname(ffmpegBin);
+      const ffprobeBinary =
+        ffprobePath || ffmpegBin.replace("ffmpeg", "ffprobe");
 
       const dlArgs =
         format === "mp4"
@@ -1486,6 +1484,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
                 ...getJsRuntimeArgs(),
                 ...getCookiesArgs(),
                 ...getVpsArgs(),
+                `--ffmpeg-location=${ffmpegDir}`,
                 "--user-agent",
                 ua,
                 "--referer",
@@ -1545,12 +1544,11 @@ async function startDownload(interaction, jobId, format, options = {}) {
           content: "",
         });
         try {
-          const response = await axios({
+          const response = await http.request({
             method: "get",
             url: directUrl,
             responseType: "stream",
             headers: {
-              "User-Agent": ua,
               Referer: referer,
               ...(job?.headers || {}),
             },
@@ -1594,7 +1592,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           outputFile,
         ];
 
-        const ffmpegProc = spawn(ffmpegStatic, ffmpegArgs);
+        const ffmpegProc = spawn(ffmpegBin, ffmpegArgs);
 
         let ffmpegError = "";
         ffmpegProc.stderr.on("data", (data) => {
@@ -1617,8 +1615,11 @@ async function startDownload(interaction, jobId, format, options = {}) {
         await editLocal({
           content: "",
         });
+        const dlpEnv = getDlpEnv();
+        dlpEnv.PATH = `${ffmpegDir}:/opt/homebrew/bin:/usr/local/bin:${dlpEnv.PATH || ""}`;
+
         const downloadProcess = spawn(getYtDlp(), dlArgs, {
-          env: getDlpEnv(),
+          env: dlpEnv,
         });
 
         downloadProcess.stdout.on("data", (data) => {
@@ -1634,28 +1635,39 @@ async function startDownload(interaction, jobId, format, options = {}) {
         );
 
         if (code !== 0) {
-          console.error(`[YT-DLP] Failed. Exit Code: ${code}`);
-          console.error(`[YT-DLP] Error Output: ${stderrOutput}`);
-          let smartError = "Download process failed.";
-          if (stderrOutput.includes("Private video"))
-            smartError = "This video is private.";
-          else if (stderrOutput.includes("Inappropriate content"))
-            smartError = "Video restricted due to content.";
-          else if (stderrOutput.includes("Sign in to confirm your age"))
-            smartError = "Age restricted video (requires new cookies).";
-          else if (stderrOutput.includes("Video unavailable"))
-            smartError = "Video is no longer available.";
-          else if (stderrOutput.includes("403: Forbidden"))
-            smartError = "Access forbidden (IP blocking or expired cookies).";
-          else if (
-            stderrOutput.includes("There is no video in this post") ||
-            stderrOutput.includes("no video found") ||
-            stderrOutput.includes("No video could be found in this tweet")
-          )
-            smartError =
-              "No video found in this link. For X/Twitter, this often happens for 18+ (sensitive) content or if the post only contains images/text.";
+          const baseNameMatch = path.basename(outputBase);
+          const hasFile = fs
+            .readdirSync(tempDir)
+            .some((f) => f.startsWith(baseNameMatch));
 
-          throw new Error(smartError);
+          if (hasFile) {
+            console.log(
+              `[YT-DLP] Process exited with code ${code}, but file was found. Proceeding...`,
+            );
+          } else {
+            console.error(`[YT-DLP] Failed. Exit Code: ${code}`);
+            console.error(`[YT-DLP] Error Output: ${stderrOutput}`);
+            let smartError = "Download process failed.";
+            if (stderrOutput.includes("Private video"))
+              smartError = "This video is private.";
+            else if (stderrOutput.includes("Inappropriate content"))
+              smartError = "Video restricted due to content.";
+            else if (stderrOutput.includes("Sign in to confirm your age"))
+              smartError = "Age restricted video (requires new cookies).";
+            else if (stderrOutput.includes("Video unavailable"))
+              smartError = "Video is no longer available.";
+            else if (stderrOutput.includes("403: Forbidden"))
+              smartError = "Access forbidden (IP blocking or expired cookies).";
+            else if (
+              stderrOutput.includes("There is no video in this post") ||
+              stderrOutput.includes("no video found") ||
+              stderrOutput.includes("No video could be found in this tweet")
+            )
+              smartError =
+                "No video found in this link. For X/Twitter, this often happens for 18+ (sensitive) content or if the post only contains images/text.";
+
+            throw new Error(smartError);
+          }
         }
       }
 
@@ -1713,7 +1725,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             .setDescription(
               (userMention ? `${userMention}\n\n` : "") +
                 `### ${DIAMOND} **File Too Large for Discord**\n` +
-                `${ARROW} **Title:** *${title}*\n` +
+                `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
                 `${ARROW} **Size:** *${sizeMB}*\n` +
                 `${ARROW} **Source:** *${job?.platform || options.platform || uploader || "---"}*\n` +
                 `${ARROW} **Length:** *${formatDuration(duration)}*\n` +
@@ -1780,7 +1792,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
         if (job?.thumbnail) {
           try {
-            const thumbRes = await axios.get(job.thumbnail, {
+            const thumbRes = await http.get(job.thumbnail, {
               responseType: "arraybuffer",
               timeout: 5000,
             });
@@ -1807,6 +1819,20 @@ async function startDownload(interaction, jobId, format, options = {}) {
         name: `${cleanBase}.${finalExt}`,
       });
 
+      const cleanDisplayTitle = (title || job?.title || "Media Content")
+        .replace(/#\S+/g, "")
+        .replace(
+          /[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E6}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F018}-\u{1F270}\u{1F170}-\u{1F251}]/gu,
+          "",
+        )
+        .replace(/\s+/g, " ")
+        .trim();
+
+      const safeTitle =
+        cleanDisplayTitle.length > 45
+          ? cleanDisplayTitle.substring(0, 45) + "..."
+          : cleanDisplayTitle || "Media Content";
+
       const doneEmbed = new EmbedBuilder()
         .setColor(platformColor)
         .setAuthor({
@@ -1819,8 +1845,8 @@ async function startDownload(interaction, jobId, format, options = {}) {
         .setDescription(
           (userMention ? `${userMention}\n\n` : "") +
             `${LEA} **Your media is ready**\n` +
-            `${ARROW} **Title:** *${title}*\n` +
-            `${ARROW} **Type:** *${job?.isMix ? "Mixed Content" : (job?.isVideo || job?.hasVideo) ? "Video/Reel" : job?.isGallery ? "Gallery" : "Photo"}*\n` +
+            `${ARROW} **Title:** *${safeTitle}*\n` +
+            `${ARROW} **Type:** *${job?.isMix ? "Mixed Content" : job?.isVideo || job?.hasVideo ? "Video/Reel" : job?.isGallery ? "Gallery" : "Photo"}*\n` +
             `${ARROW} **Platform:** *${format === "mp3" ? "Audio (MPEG-3)" : format === "photo" ? "Photo (JPG)" : job?.isGallery ? "Gallery (Batch)" : "Video (MP4)"}*\n` +
             `${ARROW} **Source:** *${job?.platform || options.platform || uploader || "---"}*\n` +
             `${ARROW} **Length:** *${formatDuration(duration)}*\n` +
@@ -1885,7 +1911,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         (interaction.user || interaction.author || {}).tag || "Unknown User";
       await advanceLog(interaction.client, {
         title: "Download Failed",
-        color: parseInt(EC.ERROR.replace("#", ""), 16),
+        color: parseInt(colors.ERROR.replace("#", ""), 16),
         message: e.message,
         user: userTag,
         platform: job?.platform || options.platform || "Platform",

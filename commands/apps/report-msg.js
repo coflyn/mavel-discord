@@ -6,6 +6,7 @@ const path = require("path");
 module.exports = {
   name: "app_report",
   async execute(interaction) {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     const msg = interaction.targetMessage;
 
     let logsChannelId = null;
@@ -18,21 +19,17 @@ module.exports = {
     } catch {}
 
     if (!logsChannelId) {
-      return interaction.reply({
+      return interaction.editReply({
         content: "*Error: Server logs channel is not configured.*",
-        flags: [MessageFlags.Ephemeral],
       });
     }
 
     const logChannel = interaction.guild.channels.cache.get(logsChannelId);
     if (!logChannel) {
-      return interaction.reply({
+      return interaction.editReply({
         content: "*Error: Configured logs channel is missing or inaccessible.*",
-        flags: [MessageFlags.Ephemeral],
       });
     }
-
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
 
     try {
       const NOTIF = resolveEmoji(interaction.guild, "notif", "🚨");

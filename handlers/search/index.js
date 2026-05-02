@@ -12,11 +12,11 @@ const {
   getCookiesArgs,
   getVpsArgs,
 } = require("../../utils/dlp-helpers");
-const axios = require("axios");
 const config = require("../../config");
 const { resolveEmoji } = require("../../utils/emoji-helper");
-const cheerio = require("cheerio");
 const colors = require("../../utils/embed-colors");
+const http = require("../../utils/http");
+const cheerio = require("cheerio");
 const searchCache = new Map();
 const CACHE_TTL = 10 * 60 * 1000;
 
@@ -160,12 +160,7 @@ module.exports = async function searchHandler(interaction) {
       const res = [];
       const searchUrl = `https://bandcamp.com/search?q=${encodeURIComponent(q)}&item_type=t`;
       try {
-        const { data } = await axios.get(searchUrl, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-          },
-        });
+        const { data } = await http.get(searchUrl);
 
         const $ = cheerio.load(data);
         $(".search-result-item, .searchresult, .data-search").each((i, el) => {
@@ -198,12 +193,7 @@ module.exports = async function searchHandler(interaction) {
       const res = [];
       const searchUrl = `https://duckduckgo.com/html/?q=${encodeURIComponent(q + " site:open.spotify.com/track")}`;
       try {
-        const { data } = await axios.get(searchUrl, {
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36",
-          },
-        });
+        const { data } = await http.get(searchUrl);
         const $ = cheerio.load(data);
         $(".result__a, .result__title a, a[data-testid='result-title-a']").each(
           (i, el) => {

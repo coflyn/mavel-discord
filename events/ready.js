@@ -46,9 +46,9 @@ module.exports = {
     const cookieCheck = checkCookiesStatus();
     if (config.logsChannelId) {
       await advanceLog(client, {
-        title: "Platform Initialization",
-        color: cookieCheck.color,
-        message: `*System check complete. Identity Status: ${cookieCheck.exists ? "Verified" : "Missing"} (${cookieCheck.daysOld} days old).*`,
+        title: "System Startup",
+        activity: "Booting Up",
+        message: `*System check complete. Login Status: ${cookieCheck.exists ? "Verified" : "Missing"} (${cookieCheck.daysOld} days old).*`,
       });
     }
 

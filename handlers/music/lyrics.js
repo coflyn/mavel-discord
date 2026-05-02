@@ -1,4 +1,4 @@
-const axios = require("axios");
+const http = require("../../utils/http");
 const cheerio = require("cheerio");
 
 async function findLyrics(query) {
@@ -6,19 +6,14 @@ async function findLyrics(query) {
     const searchUrl = `https://genius.com/api/search?q=${encodeURIComponent(query)}`;
     console.log(`[LYRICS] Searching Genius API: ${searchUrl}`);
 
-    const { data: searchRes } = await axios.get(searchUrl, {
-      headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36",
-      },
-    });
+    const { data: searchRes } = await http.get(searchUrl);
 
     const hits = searchRes.response.hits;
     if (!hits || hits.length === 0) return "*Lyrics not found.*";
 
     const geniusUrl = hits[0].result.url;
     console.log(`[LYRICS] Fetching lyrics from: ${geniusUrl}`);
-    const { data: lyricsPage } = await axios.get(geniusUrl);
+    const { data: lyricsPage } = await http.get(geniusUrl);
     const $$ = cheerio.load(lyricsPage);
 
     let lyrics = "";

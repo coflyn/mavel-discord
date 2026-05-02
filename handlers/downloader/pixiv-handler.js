@@ -1,4 +1,4 @@
-const axios = require("axios");
+const http = require("../../utils/http");
 
 const fs = require("fs");
 const path = require("path");
@@ -24,15 +24,9 @@ async function runPixivFlow(target, url, options = {}) {
     if (!illustIdMatch) throw new Error("Invalid Pixiv URL ID.");
     const illustId = illustIdMatch[1];
 
-    const res = await axios.get(
+    const res = await http.get(
       `https://www.phixiv.net/api/info?id=${illustId}`,
-      {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
-        },
-        timeout: 10000,
-      },
+      { timeout: 10000 }
     );
 
     if (res.data.error || !res.data.image_proxy_urls) {

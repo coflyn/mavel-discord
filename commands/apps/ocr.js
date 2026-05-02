@@ -1,24 +1,35 @@
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const Tesseract = require("tesseract.js");
 const { resolveEmoji } = require("../../utils/emoji-helper");
+const { botBanner } = require("../../config");
 
 module.exports = {
   name: "app_ocr",
   async execute(interaction) {
+    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     const msg = interaction.targetMessage;
+
+    const banner = botBanner || "";
+    let imageUrl = null;
 
     const attachment = msg.attachments.find((a) =>
       a.contentType?.startsWith("image/"),
     );
+    if (attachment) imageUrl = attachment.url;
 
-    if (!attachment) {
-      return interaction.reply({
-        content: "*Error: No image attachment found in this message.*",
-        flags: [MessageFlags.Ephemeral],
+    if (!imageUrl && msg.embeds.length > 0) {
+      const validEmbed = msg.embeds.find((e) => {
+        const url = e.image?.url || e.thumbnail?.url;
+        return url && (!botBanner || !url.includes(botBanner));
       });
+      if (validEmbed) imageUrl = validEmbed.image?.url || validEmbed.thumbnail?.url;
     }
 
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
+    if (!imageUrl) {
+      return interaction.editReply({
+        content: "*Error: No valid image found to extract text from.*",
+      });
+    }
 
     try {
       const PC = resolveEmoji(interaction.guild, "pc", "💻");
@@ -28,7 +39,7 @@ module.exports = {
 
       const {
         data: { text },
-      } = await Tesseract.recognize(attachment.url, "eng", {
+      } = await Tesseract.recognize(imageUrl, "eng", {
         logger: (m) => {},
       });
 

@@ -90,7 +90,7 @@ module.exports = {
             `${ARROW} This is your private space for downloads.\n` +
             `${ARROW} Other users can see this room in \`/room list\` and request to join.`
           )
-          .setFooter({ text: "MaveL Privacy Protection", iconURL: client.user.displayAvatarURL() })
+          .setFooter({ text: "MaveL Privacy", iconURL: client.user.displayAvatarURL() })
           .setTimestamp();
 
         await roomChannel.send({ content: `${user}`, embeds: [introEmbed], components: [row] });

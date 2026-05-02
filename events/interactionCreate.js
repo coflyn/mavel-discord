@@ -22,6 +22,7 @@ const searchHandler = require("../handlers/search");
 const downloaderHandler = require("../handlers/downloader");
 const converterHandler = require("../handlers/tools/converter");
 const { syncMissingEmojis } = require("../handlers/tools/emoji");
+const { resolveEmoji } = require("../utils/emoji-helper");
 
 const settingsPath = path.join(__dirname, "../database/settings.json");
 const cooldowns = new Map();
@@ -48,7 +49,10 @@ module.exports = {
                   flags: [MessageFlags.Ephemeral],
                 })
                 .catch(() => {});
-              setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
+              setTimeout(
+                () => interaction.deleteReply().catch(() => {}),
+                10000,
+              );
             }
             return;
           }
@@ -88,13 +92,22 @@ module.exports = {
         if (commandName === "Mock Message") commandName = "app_mock";
         if (commandName === "Trace Anime") commandName = "trace";
         if (commandName === "Trace Movie") commandName = "trace";
+        if (commandName === "Add Checkpoint") commandName = "app_checkpoint";
 
         const cmd = client.commands.get(commandName);
         if (cmd) return await cmd.execute(interaction, client);
       }
 
-      if (interaction.isButton() || interaction.isUserSelectMenu() || interaction.isStringSelectMenu()) {
-        if (interaction.customId && (interaction.customId.startsWith("ticket_") || interaction.customId.startsWith("room_"))) {
+      if (
+        interaction.isButton() ||
+        interaction.isUserSelectMenu() ||
+        interaction.isStringSelectMenu()
+      ) {
+        if (
+          interaction.customId &&
+          (interaction.customId.startsWith("ticket_") ||
+            interaction.customId.startsWith("room_"))
+        ) {
           const roomHandler = require("../handlers/tools/room-handler");
           await roomHandler(interaction);
           return;
@@ -111,17 +124,32 @@ module.exports = {
         if (customId.startsWith("music_select")) {
           const authorId = customId.split("_").pop();
           if (user.id !== authorId)
-            return interaction.reply({
-              content: "*Selection menu is not for you.*",
-              flags: [MessageFlags.Ephemeral],
-            }).then(() => setTimeout(() => interaction.deleteReply().catch(() => {}), 10000));
+            return interaction
+              .reply({
+                content: "*Selection menu is not for you.*",
+                flags: [MessageFlags.Ephemeral],
+              })
+              .then(() =>
+                setTimeout(
+                  () => interaction.deleteReply().catch(() => {}),
+                  10000,
+                ),
+              );
 
           const cached = musicCache.get(values[0]);
           if (!cached)
-            return interaction.reply({
-              content: "*Cache expired or bot restarted. Please search again.*",
-              flags: [MessageFlags.Ephemeral],
-            }).then(() => setTimeout(() => interaction.deleteReply().catch(() => {}), 10000));
+            return interaction
+              .reply({
+                content:
+                  "*Cache expired or bot restarted. Please search again.*",
+                flags: [MessageFlags.Ephemeral],
+              })
+              .then(() =>
+                setTimeout(
+                  () => interaction.deleteReply().catch(() => {}),
+                  10000,
+                ),
+              );
 
           await interaction
             .update({ content: `*Loading: ${cached.title}*`, components: [] })
@@ -135,10 +163,17 @@ module.exports = {
         if (customId.startsWith("search_select")) {
           const cached = globalSearchCache.get(values[0]);
           if (!cached)
-            return interaction.reply({
-              content: "*Cache expired. Search again.*",
-              flags: [MessageFlags.Ephemeral],
-            }).then(() => setTimeout(() => interaction.deleteReply().catch(() => {}), 10000));
+            return interaction
+              .reply({
+                content: "*Cache expired. Search again.*",
+                flags: [MessageFlags.Ephemeral],
+              })
+              .then(() =>
+                setTimeout(
+                  () => interaction.deleteReply().catch(() => {}),
+                  10000,
+                ),
+              );
 
           const typeSelection = customId.split("_").pop();
           const type = ["ytm", "bc", "spot"].includes(typeSelection)
@@ -222,10 +257,17 @@ module.exports = {
             if (!state) return;
             const E_DIAMOND = resolveEmoji(interaction.guild, "diamond", "🔀");
             if (state.queue.length === 0)
-              return interaction.reply({
-                content: `### ${E_DIAMOND} **Your list is currently empty**`,
-                flags: [MessageFlags.Ephemeral],
-              }).then(() => setTimeout(() => interaction.deleteReply().catch(() => {}), 10000));
+              return interaction
+                .reply({
+                  content: `### ${E_DIAMOND} **Your list is currently empty**`,
+                  flags: [MessageFlags.Ephemeral],
+                })
+                .then(() =>
+                  setTimeout(
+                    () => interaction.deleteReply().catch(() => {}),
+                    10000,
+                  ),
+                );
             const newMode = state.shuffle ? "off" : "on";
             await notifyControl(`Shuffle ${newMode.toUpperCase()}`);
             player.toggleShuffle(guildId, newMode);
@@ -259,7 +301,10 @@ module.exports = {
               content: `### ${E_ANNO} **Upcoming Songs**\n${list.join("\n").substring(0, 1900) || "*The list is currently empty.*"}`,
               flags: [64],
             });
-            return setTimeout(() => interaction.deleteReply().catch(() => {}), 30000);
+            return setTimeout(
+              () => interaction.deleteReply().catch(() => {}),
+              30000,
+            );
           }
 
           if (value === "clear") {
@@ -270,7 +315,10 @@ module.exports = {
               content: `${E_LEA} **List cleared.**`,
               flags: [64],
             });
-            return setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
+            return setTimeout(
+              () => interaction.deleteReply().catch(() => {}),
+              15000,
+            );
           }
 
           if (value === "playlist") {
@@ -281,7 +329,10 @@ module.exports = {
                 content: `### ${E_THREE} **No Saved Playlists Found**`,
                 flags: [64],
               });
-              return setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
+              return setTimeout(
+                () => interaction.deleteReply().catch(() => {}),
+                15000,
+              );
             }
             const menu = new StringSelectMenuBuilder()
               .setCustomId("music_load_playlist")
@@ -293,7 +344,10 @@ module.exports = {
               components: [new ActionRowBuilder().addComponents(menu)],
               flags: [64],
             });
-            return setTimeout(() => interaction.deleteReply().catch(() => {}), 60000);
+            return setTimeout(
+              () => interaction.deleteReply().catch(() => {}),
+              60000,
+            );
           }
 
           if (value === "skip") {
@@ -316,14 +370,21 @@ module.exports = {
             content: `*Enqueued ${list.length} tracks.*`,
             components: [],
           });
-          return setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
+          return setTimeout(
+            () => interaction.deleteReply().catch(() => {}),
+            15000,
+          );
         }
       }
 
-      if (interaction.isButton() || interaction.isUserSelectMenu() || interaction.isStringSelectMenu()) {
+      if (
+        interaction.isButton() ||
+        interaction.isUserSelectMenu() ||
+        interaction.isStringSelectMenu()
+      ) {
         if (interaction.customId === "sync_emojis")
           return await syncMissingEmojis(interaction);
-          
+
         if (interaction.isButton()) {
           return await downloaderHandler.handleDownloadCallback(interaction);
         }
@@ -363,23 +424,30 @@ module.exports = {
                 name: "MaveL System Notice",
                 iconURL: client.user.displayAvatarURL(),
               })
-              .setTitle("🛰️ **Infrastructure Restriction**")
+              .setTitle("🛰️ **System Notice**")
               .setDescription(
                 `### **Commands Disabled in DMs**\n` +
-                  `*To maintain high performance and ensure all security protocols, MaveL commands are strictly restricted to **Official Server Channels**.*\n\n` +
+                  `*To maintain stability and performance, MaveL commands are restricted to **Official Server Channels**.*\n\n` +
                   `**Why is this restricted?**\n` +
-                  `• *Server-side asset caching*\n` +
-                  `• *Multi-threaded download stability*\n` +
-                  `• *Community & Support sync*\n\n` +
-                  `Please use MaveL within our **[Official Discord Server](${serverInvite})** to access all downloader features and administrative tools.`,
+                  `• *Stable media processing*\n` +
+                  `• *Reliable download speeds*\n` +
+                  `• *Official support access*\n\n` +
+                  `Please use MaveL within our **[Official Discord Server](${serverInvite})** to access all features and tools.`,
               )
-              .setFooter({ text: "MaveL Environment Protection Unit" })
+              .setFooter({ text: "MaveL Security System" })
               .setTimestamp();
 
-            return interaction.reply({
-              embeds: [embed],
-              flags: [MessageFlags.Ephemeral],
-            }).then(() => setTimeout(() => interaction.deleteReply().catch(() => {}), 60000));
+            return interaction
+              .reply({
+                embeds: [embed],
+                flags: [MessageFlags.Ephemeral],
+              })
+              .then(() =>
+                setTimeout(
+                  () => interaction.deleteReply().catch(() => {}),
+                  60000,
+                ),
+              );
           }
         }
 
@@ -392,7 +460,60 @@ module.exports = {
         });
 
         const command = client.commands.get(commandName);
-        if (command) await command.execute(interaction, client);
+        if (command) {
+          const isTicketRoom =
+            interaction.channel.name &&
+            (interaction.channel.name.startsWith("🔒") ||
+              interaction.channel.name.startsWith("📁"));
+          const isDownloaderChannel =
+            !config.allowedChannelId ||
+            interaction.channel.id === config.allowedChannelId ||
+            isTicketRoom;
+          const isMusicChannel =
+            config.musicChannelId &&
+            interaction.channel.id === config.musicChannelId;
+          const isAdminChannel =
+            config.adminChannelId &&
+            interaction.channel.id === config.adminChannelId;
+          const PING_RED = resolveEmoji(interaction.guild, "ping_red", "🔴");
+
+          if (command.category === "music") {
+            if (!isMusicChannel && !isAdminChannel) {
+              return interaction
+                .reply({
+                  content: `### ${PING_RED} **Wrong Channel**\n*Music commands only work in <#${config.musicChannelId}>.*`,
+                  flags: [MessageFlags.Ephemeral],
+                })
+                .then(() =>
+                  setTimeout(
+                    () => interaction.deleteReply().catch(() => {}),
+                    10000,
+                  ),
+                );
+            }
+          }
+
+          if (
+            command.category === "downloader" ||
+            command.category === "search"
+          ) {
+            if (!isDownloaderChannel && !isAdminChannel) {
+              return interaction
+                .reply({
+                  content: `### ${PING_RED} **Wrong Channel**\n*Search and Download commands only work in <#${config.allowedChannelId}> or **Private Rooms**.*`,
+                  flags: [MessageFlags.Ephemeral],
+                })
+                .then(() =>
+                  setTimeout(
+                    () => interaction.deleteReply().catch(() => {}),
+                    10000,
+                  ),
+                );
+            }
+          }
+
+          await command.execute(interaction, client);
+        }
       }
     } catch (err) {
       console.error("[INTERACTION-FATAL]", err);
