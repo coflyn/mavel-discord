@@ -12,12 +12,13 @@ const fs = require("fs");
 const http = require("../../utils/http");
 const { advanceLog } = require("../../utils/logger");
 const { PDFDocument } = require("pdf-lib");
-const { chromium } = require("playwright");
+const { getPage } = require("../../utils/browser");
 const mammoth = require("mammoth");
 const { getAssetUrl } = require("../../utils/tunnel-server");
 const { bundleImagesToPdf } = require("../../utils/filetools");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const colors = require("../../utils/embed-colors");
+const { getTempDir } = require("../../utils/filetools");
 
 module.exports = async function converterHandler(interaction) {
   if (interaction.isMessageContextMenuCommand()) {
@@ -40,9 +41,7 @@ module.exports = async function converterHandler(interaction) {
   const E_PING_GREEN = getEmoji("ping_green", "🟢");
   const E_PING_RED = getEmoji("ping_red", "🔴");
 
-  const rootTempDir = path.join(__dirname, "../../temp");
-  if (!fs.existsSync(rootTempDir))
-    fs.mkdirSync(rootTempDir, { recursive: true });
+  const rootTempDir = getTempDir();
 
   if (interaction.isMessageContextMenuCommand()) {
     const targetMsg = interaction.targetMessage;
@@ -270,8 +269,7 @@ module.exports = async function converterHandler(interaction) {
       const { value: html } = await mammoth.convertToHtml({
         path: localPaths[0],
       });
-      const browser = await chromium.launch({ headless: true }),
-        page = await browser.newPage();
+      const page = await getPage();
       await page.setContent(
         `<style>body{font-family:sans-serif;padding:40px;line-height:1.6}img{max-width:100%}</style>${html}`,
       );
@@ -281,7 +279,7 @@ module.exports = async function converterHandler(interaction) {
         margin: { top: "20mm", right: "20mm", bottom: "20mm", left: "20mm" },
         printBackground: true,
       });
-      await browser.close();
+      if (page) await page.close();
     } else {
       let ffmpegBin = "ffmpeg";
       try {

@@ -2,9 +2,10 @@ const http = require("../../utils/http");
 const { EmbedBuilder, MessageFlags, AttachmentBuilder } = require("discord.js");
 const colors = require("../../utils/embed-colors");
 const { resolveEmoji } = require("../../utils/emoji-helper");
-const { chromium } = require("playwright");
+const { getPage } = require("../../utils/browser");
 const fs = require("fs");
 const path = require("path");
+const { getTempDir } = require("../../utils/filetools");
 
 module.exports = async function traceHandler(interaction) {
   await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -103,23 +104,13 @@ module.exports = async function traceHandler(interaction) {
 
       return await interaction.editReply({ embeds: [successEmbed] });
     } else {
-      const browser = await chromium.launch({
-        headless: true,
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-blink-features=AutomationControlled",
-          "--use-gl=desktop",
-        ],
-      });
-
+      let page;
       try {
-        const context = await browser.newContext({
-          userAgent: userAgents.get("desktop"),
+        page = await getPage({
+          userAgent: http.getUserAgent("desktop"),
           viewport: { width: 1280, height: 900 },
           deviceScaleFactor: 1,
         });
-        const page = await context.newPage();
 
         const lensUrl = `https://lens.google.com/uploadbyurl?url=${encodeURIComponent(imageUrl)}`;
         await page
@@ -215,8 +206,7 @@ module.exports = async function traceHandler(interaction) {
         }
 
         const bestResult = results[0];
-        const tempDir = path.join(__dirname, "../../temp");
-        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+        const tempDir = getTempDir();
         const proofName = `trace_proof_${Date.now()}.png`;
         const proofPath = path.join(tempDir, proofName);
 
@@ -256,7 +246,7 @@ module.exports = async function traceHandler(interaction) {
           setTimeout(() => fs.unlinkSync(proofPath), 15000);
         }
       } finally {
-        await browser.close();
+        if (page) await page.close();
       }
     }
 

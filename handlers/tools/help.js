@@ -25,6 +25,18 @@ module.exports = async function helpHandler(interaction) {
   const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
   try {
+    const isAdmin =
+      interaction.member?.permissions.has("Administrator") ||
+      (await (async () => {
+        try {
+          const app = await interaction.client.application.fetch();
+          const ownerId = app.owner?.ownerId || app.owner?.id;
+          return interaction.user.id === ownerId;
+        } catch {
+          return false;
+        }
+      })());
+
     const embed = new EmbedBuilder()
       .setColor(colors.HELP)
       .setAuthor({
@@ -39,8 +51,9 @@ module.exports = async function helpHandler(interaction) {
 
     embed.setDescription(
       `*MaveL is a fast and easy music player and media downloader for your Discord server.*`,
-    )
-    .addFields(
+    );
+
+    const fields = [
       {
         name: `${DIAMOND || "✨"} **Main Features**`,
         value:
@@ -60,7 +73,7 @@ module.exports = async function helpHandler(interaction) {
           `${ARROW} **/banner** — *Get server/user banner link*\n` +
           `${ARROW} **/emoji list** — *List all server emojis*\n` +
           `${ARROW} **/emoji** ${LOCK} — *Manage server emojis (add/rename/delete)*\n` +
-           `${ARROW} **/emoji needs** ${LOCK} — *Add missing system emojis*\n` +
+          `${ARROW} **/emoji needs** ${LOCK} — *Add missing system emojis*\n` +
           `${ARROW} **/info** — *Check user info and profile*\n` +
           `${ARROW} **/ss** — *Capture a screenshot of any website*\n` +
           `${ARROW} **/inspect** — *Expose hidden details & EXIF data*\n` +
@@ -108,7 +121,20 @@ module.exports = async function helpHandler(interaction) {
           `${ARROW} **/ping** — *Check latency and bot speed*`,
         inline: false,
       },
-    )
+    ];
+
+    const filteredFields = fields
+      .map((field) => {
+        if (isAdmin) return field;
+        const lines = field.value
+          .split("\n")
+          .filter((line) => !line.includes(LOCK));
+        if (lines.length === 0) return null;
+        return { name: field.name, value: lines.join("\n"), inline: field.inline };
+      })
+      .filter(Boolean);
+
+    embed.addFields(filteredFields)
     .setFooter({
       text: "MaveL Bot Support",
       iconURL: interaction.client.user.displayAvatarURL(),

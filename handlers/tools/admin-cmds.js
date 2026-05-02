@@ -10,6 +10,7 @@ const { exec } = require("child_process");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const { advanceLog } = require("../../utils/logger");
 const colors = require("../../utils/embed-colors");
+const { getTempDir } = require("../../utils/filetools");
 
 const settingsPath = path.join(__dirname, "../../database/settings.json");
 
@@ -128,8 +129,8 @@ async function handlePurge(interaction) {
     return setTimeout(() => interaction.deleteReply().catch(() => {}), 15000);
   }
 
-  const tempDir = path.join(__dirname, "../../temp");
-  if (!fs.existsSync(tempDir)) {
+  const tempDir = getTempDir();
+  if (!require("fs").existsSync(tempDir)) {
     await (interaction.deferred
       ? interaction.editReply({
           content: "*No temporary files found.*",

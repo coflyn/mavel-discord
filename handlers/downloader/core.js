@@ -15,7 +15,7 @@ const {
   getCookiesArgs,
   getVpsArgs,
 } = require("../../utils/dlp-helpers");
-const { createJob, formatNumber, advanceLog } = require("./core-helpers");
+const { createJob, formatNumber, advanceLog, loadDB, saveDB } = require("./core-helpers");
 const {
   getStatusEmbed,
   editResponse,
@@ -95,156 +95,40 @@ async function runYtDlpFlow(target, url, options = {}) {
   const _editResponse = async (data) =>
     await editResponse(target, statusMsg, data);
 
-  if (url.includes("pixiv.net")) {
-    const jobResult = await runPixivFlow(target, url, { statusMsg });
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(
-        target,
-        jobResult.jobId,
-        jobResult.isUgoira ? "pixiv_ugoira" : "pixiv_gallery",
-        { statusMsg: jobResult.statusMsg },
-      );
-    }
-    return;
-  }
-  if (url.includes("tiktok.com")) {
-    const jobResult = await runTikTokFlow(target, url, {
-      isCommand: target.isChatInputCommand && target.isChatInputCommand(),
-      statusMsg,
-      ...options,
-    });
-    if (
-      !(target.isChatInputCommand && target.isChatInputCommand()) &&
-      jobResult &&
-      jobResult.jobId
-    ) {
-      return await startDownload(
-        target,
-        jobResult.jobId,
-        jobResult.isGallery ? "tkgallery" : "tkmp4",
-        { statusMsg: jobResult.statusMsg },
-      );
-    }
-    return;
-  }
+  const routeConfigs = [
+    { m: ["pixiv.net"], h: runPixivFlow, f: r => r.isUgoira ? "pixiv_ugoira" : "pixiv_gallery", u: false },
+    { m: ["tiktok.com"], h: runTikTokFlow, f: r => r.isGallery ? "tkgallery" : "tkmp4", u: false, opts: t => ({ isCommand: t.isChatInputCommand && t.isChatInputCommand() }), cond: t => !(t.isChatInputCommand && t.isChatInputCommand()) },
+    { m: ["open.spotify.com"], h: runSpotifyFlow, f: () => "spmp3", u: false },
+    { m: ["bandcamp.com"], h: runBandcampFlow, f: r => r.isAlbum ? "twgallery" : "mp3", u: false },
+    { m: ["music.youtube.com"], h: runYtmFlow, f: () => "mp3", u: false },
+    { m: ["youtube.com", "youtu.be"], h: runYoutubeFlow, f: (r, o) => o.type || "mp4", u: false },
+    { m: ["mediafire.com", "drive.google.com", "mega.nz", "mega.co.nz"], h: runCloudFlow, u: false, dir: true },
+    { m: ["instagram.com"], h: runInstagramFlow, f: r => r.isMix || r.isGallery ? "twgallery" : r.isVideo ? "mp4" : "photo", u: true },
+    { m: ["twitter.com", "://x.com", "vxtwitter.com", "fixupx.com"], h: runTwitterFlow, f: r => r.isGallery ? "twgallery" : r.isVideo ? "mp4" : "photo", u: true },
+    { m: ["threads.net", "threads.com"], h: runThreadsFlow, f: (r, o) => o.type || "mp4", u: true },
+    { m: ["soundcloud.com"], h: runSoundcloudFlow, f: () => "mp3", u: true }
+  ];
 
-  if (url.includes("open.spotify.com")) {
-    const jobResult = await runSpotifyFlow(target, url, { statusMsg });
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(target, jobResult.jobId, "spmp3", {
-        statusMsg: jobResult.statusMsg,
-      });
-    }
-    return;
-  }
-  if (url.includes("bandcamp.com")) {
-    const jobResult = await runBandcampFlow(target, url, { statusMsg });
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(
-        target,
-        jobResult.jobId,
-        jobResult.isAlbum ? "twgallery" : "mp3",
-        { statusMsg: jobResult.statusMsg },
-      );
-    }
-    return;
-  }
-  if (url.includes("music.youtube.com")) {
-    const jobResult = await runYtmFlow(target, url, { statusMsg });
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(target, jobResult.jobId, "mp3", {
-        statusMsg: jobResult.statusMsg,
-      });
-    }
-    return;
-  }
-  if (url.includes("youtube.com") || url.includes("youtu.be")) {
-    const jobResult = await runYoutubeFlow(target, url, {
-      statusMsg,
-      ...options,
-    });
-    if (jobResult && jobResult.jobId) {
-      const finalFormat = options.type || "mp4";
-      return await startDownload(target, jobResult.jobId, finalFormat, {
-        statusMsg: jobResult.statusMsg,
-      });
-    }
-    return;
-  }
-  if (
-    url.includes("mediafire.com") ||
-    url.includes("drive.google.com") ||
-    url.includes("mega.nz") ||
-    url.includes("mega.co.nz")
-  ) {
-    return await runCloudFlow(target, url, { statusMsg });
-  }
-
-  if (finalUrl.includes("instagram.com")) {
-    const jobResult = await runInstagramFlow(target, finalUrl, { statusMsg });
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(
-        target,
-        jobResult.jobId,
-        jobResult.isMix || jobResult.isGallery
-          ? "twgallery"
-          : jobResult.isVideo
-            ? "mp4"
-            : "photo",
-        {
+  for (const route of routeConfigs) {
+    const targetUrl = route.u ? finalUrl : url;
+    if (route.m.some((match) => targetUrl.includes(match))) {
+      const extraOpts = route.opts ? route.opts(target) : {};
+      if (route.dir) {
+        return await route.h(target, targetUrl, { statusMsg, ...options, ...extraOpts });
+      }
+      const jobResult = await route.h(target, targetUrl, { statusMsg, ...options, ...extraOpts });
+      const shouldProceed = route.cond ? route.cond(target) : true;
+      if (shouldProceed && jobResult && jobResult.jobId) {
+        return await startDownload(target, jobResult.jobId, route.f(jobResult, options), {
           statusMsg: jobResult.statusMsg,
-        },
-      );
+          ...(route.ext || {})
+        });
+      }
+      return null;
     }
-    return null;
   }
 
-  if (
-    finalUrl.includes("twitter.com") ||
-    finalUrl.includes("://x.com") ||
-    finalUrl.includes("vxtwitter.com") ||
-    finalUrl.includes("fixupx.com")
-  ) {
-    const jobResult = await runTwitterFlow(target, finalUrl, { statusMsg });
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(
-        target,
-        jobResult.jobId,
-        jobResult.isGallery ? "twgallery" : jobResult.isVideo ? "mp4" : "photo",
-        {
-          statusMsg: jobResult.statusMsg,
-        },
-      );
-    }
-    return null;
-  }
-
-  if (finalUrl.includes("threads.net") || finalUrl.includes("threads.com")) {
-    const jobResult = await runThreadsFlow(target, finalUrl, {
-      statusMsg,
-      ...options,
-    });
-    if (!jobResult) return null;
-    if (jobResult.jobId && jobResult.jobId !== null) {
-      const finalFormat = options.type || "mp4";
-      return await startDownload(target, jobResult.jobId, finalFormat, {
-        statusMsg: jobResult.statusMsg,
-      });
-    }
-    return null;
-  }
-
-  if (finalUrl.includes("soundcloud.com")) {
-    const jobResult = await runSoundcloudFlow(target, finalUrl, { statusMsg });
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(target, jobResult.jobId, "mp3", {
-        statusMsg: jobResult.statusMsg,
-      });
-    }
-    return null;
-  }
-
-  if (finalUrl.includes("pinterest.com") || finalUrl.includes("pin.it")) {
+    if (finalUrl.includes("pinterest.com") || finalUrl.includes("pin.it")) {
     const isVideo = await new Promise((resolve) => {
       const timeout = setTimeout(() => {
         resolve(false);
@@ -335,123 +219,37 @@ async function runYtDlpFlow(target, url, options = {}) {
     return;
   }
 
-  if (
-    finalUrl.includes("facebook.com") ||
-    finalUrl.includes("fb.watch") ||
-    finalUrl.includes("fb.com")
-  ) {
-    const jobResult = await require("./facebook-handler").runFacebookFlow(
-      target,
-      finalUrl,
-      { statusMsg, ...options },
-    );
-    if (jobResult && jobResult.jobId) {
-      const finalFormat = options.type || "mp4";
-      return await startDownload(target, jobResult.jobId, finalFormat, {
-        statusMsg: jobResult.statusMsg,
-      });
+  const postRouteConfigs = [
+    { m: ["facebook.com", "fb.watch", "fb.com"], h: require("./facebook-handler").runFacebookFlow, f: (r, o) => o.type || "mp4" },
+    { m: ["slideshare.net"], h: require("./slideshare-handler").runSlideshareFlow, f: () => "twgallery" },
+    { m: ["scribd.com"], h: runScribdFlow, f: () => "twgallery" },
+    { m: ["academia.edu"], h: runAcademiaFlow, f: () => "twgallery" },
+    { m: ["calameo.com"], h: runCalameoFlow, f: () => "twgallery" },
+    { m: ["komiku.id", "komiku.com", "komiku.org"], h: runKomikuFlow, f: () => "twgallery" },
+    { m: ["docplayer", "dplayer"], h: runDPlayerFlow, f: () => "cloud" },
+    { m: ["nhentai.net", "cin.mom"], h: runNSrvFlow, f: () => "twgallery", ext: { platform: "Signal Archive" } },
+    { m: ["pornhub.com", "xnxx.com", "xvideos.com", "eporner.com"], h: runPSrvFlow, dir: true },
+    { m: ["doujindesu.tv"], h: runDSrvFlow, f: () => "twgallery", ext: { platform: "Proxy Sync" } }
+  ];
+
+  for (const route of postRouteConfigs) {
+    if (route.m.some((match) => finalUrl.includes(match))) {
+      const extraOpts = route.opts ? route.opts(target) : {};
+      if (route.dir) {
+        return await route.h(target, finalUrl, { statusMsg, ...options, ...extraOpts });
+      }
+      const jobResult = await route.h(target, finalUrl, { statusMsg, ...options, ...extraOpts });
+      const shouldProceed = route.cond ? route.cond(target) : true;
+      if (shouldProceed && jobResult && jobResult.jobId) {
+        return await startDownload(target, jobResult.jobId, route.f(jobResult, options), {
+          statusMsg: jobResult.statusMsg,
+          ...(route.ext || {})
+        });
+      }
+      return null;
     }
-    return;
   }
 
-  if (finalUrl.includes("slideshare.net")) {
-    const jobResult = await require("./slideshare-handler").runSlideshareFlow(
-      target,
-      finalUrl,
-      { statusMsg },
-    );
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(target, jobResult.jobId, "twgallery", {
-        statusMsg: jobResult.statusMsg,
-      });
-    }
-    return;
-  }
-
-  if (finalUrl.includes("scribd.com")) {
-    const jobResult = await runScribdFlow(target, finalUrl, { statusMsg });
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(target, jobResult.jobId, "twgallery", {
-        statusMsg: jobResult.statusMsg,
-      });
-    }
-    return;
-  }
-
-  if (finalUrl.includes("academia.edu")) {
-    const jobResult = await runAcademiaFlow(target, finalUrl, { statusMsg });
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(target, jobResult.jobId, "twgallery", {
-        statusMsg: jobResult.statusMsg,
-      });
-    }
-    return;
-  }
-
-  if (finalUrl.includes("calameo.com")) {
-    const jobResult = await runCalameoFlow(target, finalUrl, { statusMsg });
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(target, jobResult.jobId, "twgallery", {
-        statusMsg: jobResult.statusMsg,
-      });
-    }
-    return;
-  }
-
-  if (
-    finalUrl.includes("komiku.id") ||
-    finalUrl.includes("komiku.com") ||
-    finalUrl.includes("komiku.org")
-  ) {
-    const jobResult = await runKomikuFlow(target, finalUrl, { statusMsg });
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(target, jobResult.jobId, "twgallery", {
-        statusMsg: jobResult.statusMsg,
-      });
-    }
-    return;
-  }
-
-  if (finalUrl.includes("docplayer") || finalUrl.includes("dplayer")) {
-    const jobResult = await runDPlayerFlow(target, finalUrl, { statusMsg });
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(target, jobResult.jobId, "cloud", {
-        statusMsg: jobResult.statusMsg,
-      });
-    }
-    return;
-  }
-
-  if (finalUrl.includes("nhentai.net") || finalUrl.includes("cin.mom")) {
-    const jobResult = await runNSrvFlow(target, finalUrl, { statusMsg });
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(target, jobResult.jobId, "twgallery", {
-        statusMsg: jobResult.statusMsg,
-        platform: "Signal Archive",
-      });
-    }
-    return;
-  }
-
-  if (
-    finalUrl.includes("pornhub.com") ||
-    finalUrl.includes("xnxx.com") ||
-    finalUrl.includes("xvideos.com") ||
-    finalUrl.includes("eporner.com")
-  ) {
-    return await runPSrvFlow(target, finalUrl, { statusMsg });
-  }
-
-  if (finalUrl.includes("doujindesu.tv")) {
-    const jobResult = await runDSrvFlow(target, finalUrl, { statusMsg });
-    if (jobResult && jobResult.jobId) {
-      return await startDownload(target, jobResult.jobId, "twgallery", {
-        statusMsg: jobResult.statusMsg,
-        platform: "Proxy Sync",
-      });
-    }
-    return;
-  }
   const referer = finalUrl.includes("capcut.com")
     ? "https://www.capcut.com/"
     : "https://www.google.com/";
@@ -523,6 +321,8 @@ async function runYtDlpFlow(target, url, options = {}) {
         extractor: "Generic",
         directUrl: null,
       });
+
+      const db = loadDB();
 
       if (code !== 0 || !metadata.trim()) {
         if (url.includes("instagram.com")) {

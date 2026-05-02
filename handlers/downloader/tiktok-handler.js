@@ -107,14 +107,8 @@ async function runTikTokFlow(target, url, options = {}) {
       components.push(row);
     }
 
-    if (options.isCommand && options.type) {
-      const finalFormat =
-        options.type === "mp3" ? "tkmp3" : isGallery ? "tkgallery" : "tkmp4";
-      return await startDownload(target, jobId, finalFormat, { statusMsg: ctx.statusMsg });
-    }
-
-    const resMsg = await ctx.editResponse({ embeds: [foundEmbed], components });
-    return { jobId, isGallery, statusMsg: resMsg };
+    const finalFormat = options?.type === "mp3" ? "mp3" : isGallery ? "tkgallery" : "mp4";
+    return await ctx.finalize(jobId, finalFormat, foundEmbed, {...options,  extraRet: { isGallery }});
   } catch (e) {
     console.error("[TIKTOK-FLOW] Error:", e.message);
     await ctx.editResponse({

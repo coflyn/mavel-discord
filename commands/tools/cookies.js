@@ -1,8 +1,8 @@
-const { SlashCommandBuilder } = require("discord.js");
+const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const cookiesHandler = require("../../handlers/tools/cookies");
 
 module.exports = {
-  slashData: new SlashCommandBuilder()
+  slashData: new SlashCommandBuilder().setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
       .setName("cookies")
       .setDescription("Update or refresh cookie settings"),
   name: "cookies",

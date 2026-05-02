@@ -1,9 +1,9 @@
-const { SlashCommandBuilder } = require("discord.js");
+const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const config = require("../../config");
 
 module.exports = {
-  slashData: new SlashCommandBuilder()
+  slashData: new SlashCommandBuilder().setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
       .setName("move")
       .setDescription("Add the bot to a different server"),
   name: "move",

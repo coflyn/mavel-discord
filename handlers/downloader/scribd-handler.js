@@ -1,4 +1,4 @@
-const { chromium } = require("playwright");
+const { getPage } = require("../../utils/browser");
 const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
@@ -10,7 +10,7 @@ async function runScribdFlow(target, url, options = {}) {
   const ARCHIVE = ctx.getEmoji("camera", "📷");
   await ctx.init("Searching...", "Finding the document...", { silent: true });
 
-  let browser;
+  let page;
   try {
     const docIdMatch = url.match(/document\/(\d+)/);
     if (!docIdMatch) throw new Error("Could not extract a valid Document ID.");
@@ -20,11 +20,7 @@ async function runScribdFlow(target, url, options = {}) {
     const { getChromiumResolverRules } = require("../../utils/dns-bypass");
     const resolverRules = await getChromiumResolverRules(url);
 
-    browser = await chromium.launch({
-      headless: true,
-      args: resolverRules,
-    });
-    const context = await browser.newContext({
+    page = await getPage({
       viewport: { width: 1400, height: 2000 },
       deviceScaleFactor: 2,
     });
@@ -46,8 +42,6 @@ async function runScribdFlow(target, url, options = {}) {
       `;
       document.documentElement.appendChild(style);
     });
-
-    const page = await context.newPage();
     await page.goto(embedUrl, { waitUntil: "networkidle", timeout: 60000 });
 
 
@@ -84,11 +78,11 @@ async function runScribdFlow(target, url, options = {}) {
     if (pageCount === 0)
       throw new Error("We couldn't find any pages in this document.");
 
-    const tempDir = path.join(__dirname, "../../temp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    const tempDir = getTempDir();
 
     const imageUrls = [];
     const { generateJobId } = require("./core-helpers");
+const { getTempDir } = require("../../utils/filetools");
     const jobId = generateJobId();
 
     await ctx.editResponse({
@@ -133,7 +127,7 @@ async function runScribdFlow(target, url, options = {}) {
       imageUrls.push(screenshotPath);
     }
 
-    await browser.close();
+    if (page) await page.close();
 
     createJob(target, {
       jobId,
@@ -164,10 +158,9 @@ async function runScribdFlow(target, url, options = {}) {
           `*Creating your PDF with high quality...*`,
       );
 
-    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
-    return { jobId, statusMsg: resMsg };
+    return await ctx.finalize(jobId, null, foundEmbed, {...options});
   } catch (e) {
-    if (browser) await browser.close();
+    if (page) await page.close();
     console.error("[SCRIBD-FLOW] Error:", e.message);
     await ctx.editResponse({
       embeds: [ctx.statusEmbed("Download Failed", e.message)],

@@ -1,10 +1,11 @@
 const { EmbedBuilder, AttachmentBuilder, MessageFlags } = require("discord.js");
-const { chromium } = require("playwright");
+const { getPage } = require("../../utils/browser");
 const path = require("path");
 const fs = require("fs");
 const colors = require("../../utils/embed-colors");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const http = require("../../utils/http");
+const { getTempDir } = require("../../utils/filetools");
 
 module.exports = async function ssHandler(interaction) {
   await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -26,9 +27,7 @@ module.exports = async function ssHandler(interaction) {
   };
 
   try {
-    const rootTempDir = path.join(__dirname, "../../temp");
-    if (!fs.existsSync(rootTempDir))
-      fs.mkdirSync(rootTempDir, { recursive: true });
+    const rootTempDir = getTempDir();
 
     const outputName = `screenshot_${Date.now()}.png`;
     const outputPath = path.join(rootTempDir, outputName);
@@ -50,19 +49,14 @@ module.exports = async function ssHandler(interaction) {
       ],
     });
 
-    const browser = await chromium.launch({ 
-      headless: true,
-      args: ['--disable-web-security', '--no-sandbox']
-    });
-
+    let page;
     try {
-      const context = await browser.newContext({
+      page = await getPage({
         viewport: viewports[device],
         deviceScaleFactor: 2,
         colorScheme: theme,
         userAgent: http.getUserAgent(device === "mobile" ? "mobile" : "desktop")
       });
-      const page = await context.newPage();
 
       const response = await page.goto(targetUrl, { 
         waitUntil: "networkidle", 
@@ -111,7 +105,7 @@ module.exports = async function ssHandler(interaction) {
         5000,
       );
     } finally {
-      await browser.close();
+      if (page) await page.close();
     }
   } catch (err) {
     let errorDetail = err.message;

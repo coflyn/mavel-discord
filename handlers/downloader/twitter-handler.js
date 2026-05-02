@@ -278,25 +278,8 @@ const colors = require("../../utils/embed-colors");
       foundEmbed.setThumbnail(thumbnail);
     }
 
-    if (options.isCommand && options.type) {
-      const finalFormat =
-        options.type === "mp3"
-          ? "mp3"
-          : isVideo
-            ? "mp4"
-            : allImages.length > 1
-              ? "twgallery"
-              : "photo";
-      return await startDownload(target, jobId, finalFormat, { statusMsg });
-    }
-
-    await ctx.editResponse({ embeds: [foundEmbed] });
-    return {
-      jobId,
-      statusMsg: ctx.statusMsg,
-      isVideo: isVideo,
-      isGallery: !isVideo && allImages.length > 1,
-    };
+    const finalFormat = options?.type === "mp3" ? "mp3" : isVideo ? "mp4" : allImages.length > 1 ? "twgallery" : "photo";
+    return await ctx.finalize(jobId, finalFormat, foundEmbed, {...options,  extraRet: { isVideo: isVideo, isGallery: !isVideo && allImages.length > 1 }});
   } catch (e) {
     console.error("[TWITTER-FLOW] Critical Error:", e.message);
     return null;

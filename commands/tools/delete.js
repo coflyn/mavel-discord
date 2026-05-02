@@ -7,7 +7,7 @@ const { resolveEmoji } = require("../../utils/emoji-helper");
 const { SlashCommandBuilder } = require("discord.js");
 
 module.exports = {
-  slashData: new SlashCommandBuilder()
+  slashData: new SlashCommandBuilder().setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .setName("delete")
     .setDescription("Purge bot messages in DMs or Clean chat messages in Servers")
     .addIntegerOption((opt) =>

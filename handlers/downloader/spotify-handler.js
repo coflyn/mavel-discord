@@ -54,12 +54,7 @@ async function runSpotifyFlow(target, url, options = {}) {
                 iconURL: target.client.user.displayAvatarURL()
             });
 
-        if (options.isCommand && options.type) {
-            return await startDownload(target, jobId, "spmp3", { statusMsg });
-        }
-
-        await ctx.editResponse({ embeds: [foundEmbed] });
-        return { jobId, statusMsg: ctx.statusMsg };
+        return await ctx.finalize(jobId, "spmp3", foundEmbed, {...options});
 
     } catch (e) {
         console.error("[SPOTIFY-FLOW] Error:", e.message);

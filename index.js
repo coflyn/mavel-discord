@@ -12,6 +12,7 @@ const path = require("path");
 const { advanceLog } = require("./utils/logger");
 const { stopTunnel } = require("./utils/tunnel-server");
 const { player } = require("./handlers/music");
+const { closeBrowser } = require("./utils/browser");
 
 const NETWORK_HICCUP_CODES = [
   "521",
@@ -45,16 +46,15 @@ const emojiCache = new Map();
 const EMOJI_TTL = 5 * 60 * 1000;
 
 const logPath = path.join(__dirname, "bot.log");
-const logStream = fs.createWriteStream(logPath, { flags: "a" });
 const originalConsoleLog = console.log;
 const originalConsoleError = console.error;
 
 console.log = function (d) {
-  logStream.write(`[${new Date().toISOString()}] ${d}\n`);
+  fs.appendFile(logPath, `[${new Date().toISOString()}] ${d}\n`, () => {});
   originalConsoleLog.apply(console, arguments);
 };
 console.error = function (d) {
-  logStream.write(`[${new Date().toISOString()}] [ERROR] ${d}\n`);
+  fs.appendFile(logPath, `[${new Date().toISOString()}] [ERROR] ${d}\n`, () => {});
   originalConsoleError.apply(console, arguments);
 };
 
@@ -160,6 +160,9 @@ async function gracefulShutdown(signal) {
   }
   try {
     stopTunnel();
+  } catch (e) {}
+  try {
+    await closeBrowser();
   } catch (e) {}
   if (client) client.destroy();
   process.exit(0);

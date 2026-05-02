@@ -88,8 +88,7 @@ async function runYtmFlow(target, url, options = {}) {
       return await startDownload(target, jobId, "mp3", { statusMsg: ctx.statusMsg });
     }
 
-    await ctx.editResponse({ embeds: [foundEmbed] });
-    return { jobId, statusMsg: ctx.statusMsg };
+    return await ctx.finalize(jobId, null, foundEmbed, {...options});
   } catch (e) {
     console.error("[YTM-FLOW] Error:", e.message);
     await ctx.editResponse({

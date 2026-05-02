@@ -1,22 +1,19 @@
-const { chromium } = require("playwright");
+const { getPage } = require("../../utils/browser");
 const fs = require("fs");
 const path = require("path");
 const http = require("../../utils/http");
 const { createJob, createHandlerContext } = require("./core-helpers");
 
 async function runSlideshareFlow(target, url, options = {}) {
-  let browser;
+  let page;
   const ctx = createHandlerContext(target, options);
   const ARCHIVE = ctx.getEmoji("camera", "📷");
   await ctx.init("Searching...", "Opening the slides...", { silent: true });
 
   try {
-    browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
+    page = await getPage({
       viewport: { width: 1200, height: 800 },
     });
-
-    const page = await context.newPage();
     await page.goto(url, { waitUntil: "networkidle", timeout: 60000 });
 
     const urlSlugMatch = url.match(/slideshare\.net\/[^\/]+\/([^\/\?]+)/);
@@ -52,7 +49,7 @@ async function runSlideshareFlow(target, url, options = {}) {
       );
     });
 
-    await browser.close();
+    if (page) await page.close();
 
     const filteredUrls = imageUrlsRaw
       .filter((u) => u && u.startsWith("http"))
@@ -64,11 +61,11 @@ async function runSlideshareFlow(target, url, options = {}) {
       throw new Error("Could not extract slide assets.");
     }
 
-    const tempDir = path.join(__dirname, "../../temp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    const tempDir = getTempDir();
 
     const localPaths = [];
     const { generateJobId } = require("./core-helpers");
+const { getTempDir } = require("../../utils/filetools");
     const jobId = generateJobId();
 
     await ctx.editResponse({
@@ -139,7 +136,7 @@ async function runSlideshareFlow(target, url, options = {}) {
 
     return { jobId, statusMsg: ctx.statusMsg };
   } catch (e) {
-    if (browser) await browser.close();
+    if (page) await page.close();
     await ctx.editResponse({
       embeds: [ctx.statusEmbed("Download Failed", e.message)],
     }).catch(() => {});

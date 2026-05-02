@@ -1,4 +1,4 @@
-const { chromium } = require("playwright");
+const { getPage } = require("../../utils/browser");
 const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder } = require("discord.js");
@@ -13,15 +13,12 @@ async function runCalameoFlow(target, url, options = {}) {
   const NOTIF = ctx.getEmoji("notif", "🔔");
   await ctx.init("Searching...", "Finding the publication...", { silent: true });
 
-  let browser;
+  let page;
   try {
-    browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
+    page = await getPage({
       viewport: { width: 1400, height: 1800 },
       deviceScaleFactor: 2,
     });
-
-    const page = await context.newPage();
 
     await ctx.editResponse({
       embeds: [
@@ -75,10 +72,10 @@ async function runCalameoFlow(target, url, options = {}) {
         "Could not detect publication pages. Try again or check the link.",
       );
 
-    const tempDir = path.join(__dirname, "../../temp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    const tempDir = getTempDir();
 
     const { generateJobId } = require("./core-helpers");
+const { getTempDir } = require("../../utils/filetools");
     const jobId = generateJobId();
     const imageUrls = [];
 
@@ -107,7 +104,7 @@ async function runCalameoFlow(target, url, options = {}) {
       if (i > 150) break;
     }
 
-    await browser.close();
+    if (page) await page.close();
 
     createJob(target, {
       jobId,
@@ -130,10 +127,9 @@ async function runCalameoFlow(target, url, options = {}) {
           `*Bundling Ultra-HD pages into PDF...*`,
       );
 
-    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
-    return { jobId, statusMsg: resMsg };
+    return await ctx.finalize(jobId, null, foundEmbed, {...options});
   } catch (e) {
-    if (browser) await browser.close();
+    if (page) await page.close();
     console.error("[CALAMEO-JS] Error:", e.message);
     await ctx.editResponse({
       embeds: [ctx.statusEmbed("Failed", e.message)],

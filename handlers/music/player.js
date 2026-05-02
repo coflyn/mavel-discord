@@ -1,3 +1,4 @@
+const { getTempDir } = require("../../utils/filetools");
 const {
   joinVoiceChannel,
   createAudioPlayer,
@@ -27,7 +28,7 @@ const { resolveEmoji } = require("../../utils/emoji-helper");
 const { REQUIRED_EMOJIS } = require("../../utils/emoji-registry");
 const { advanceLog } = require("../../utils/logger");
 const colors = require("../../utils/embed-colors");
-const CACHE_DIR = path.join(__dirname, "../../temp/cache");
+const CACHE_DIR = path.join(getTempDir(), "cache");
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
 
 class MusicPlayer {

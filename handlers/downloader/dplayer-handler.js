@@ -1,23 +1,21 @@
-const { chromium } = require("playwright");
+const { getPage } = require("../../utils/browser");
 const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder } = require("discord.js");
 const { createJob, createHandlerContext } = require("./core-helpers");
 const http = require("../../utils/http");
+const { getTempDir } = require("../../utils/filetools");
 
 async function runDPlayerFlow(target, url, options = {}) {
   const ctx = createHandlerContext(target, options);
   const DOC = ctx.getEmoji("camera", "📄");
   await ctx.init("Reading DocPlayer", "Opening browser...");
 
-  let browser;
+  let page;
   try {
-    browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
+    page = await getPage({
       userAgent: http.getUserAgent("desktop"),
     });
-
-    const page = await context.newPage();
     let capturedPdfUrl = null;
     let capturedHeaders = {};
 
@@ -74,10 +72,9 @@ async function runDPlayerFlow(target, url, options = {}) {
     });
     const pdfBuffer = await pdfResponse.body();
 
-    await browser.close();
+    if (page) await page.close();
 
-    const tempDir = path.join(__dirname, "../../temp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    const tempDir = getTempDir();
 
     const { generateJobId } = require("./core-helpers");
 const colors = require("../../utils/embed-colors");
@@ -110,10 +107,9 @@ const colors = require("../../utils/embed-colors");
           `*Finalizing file and sending to chat...*`,
       );
 
-    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
-    return { jobId, statusMsg: resMsg };
+    return await ctx.finalize(jobId, null, foundEmbed, {...options});
   } catch (e) {
-    if (browser) await browser.close();
+    if (page) await page.close();
     console.error("[DOCPLAYER-JS] Error:", e.message);
     await ctx.editResponse({
       embeds: [ctx.statusEmbed("Failed", e.message)],

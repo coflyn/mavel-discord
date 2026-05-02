@@ -302,15 +302,13 @@ async function runInstagramFlow(target, url, options = {}) {
           ],
         });
 
-        let browser;
+        let page;
         try {
-          const { chromium } = require("playwright");
-          browser = await chromium.launch({ headless: true });
-          const context = await browser.newContext({
-            userAgent: userAgents.get("desktop"),
+          const { getPage } = require("../../utils/browser");
+          page = await getPage({
+            userAgent: http.getUserAgent("desktop"),
             viewport: { width: 1280, height: 720 },
           });
-          const page = await context.newPage();
 
           const embedUrl = cleanUrl.endsWith("/")
             ? cleanUrl + "embed/"
@@ -485,9 +483,9 @@ async function runInstagramFlow(target, url, options = {}) {
             thumbnail = pageData.image || thumbnail;
             scrapeSuccess = true;
           }
-          await browser.close();
+          if (page) await page.close();
         } catch (err) {
-          if (browser) await browser.close();
+          if (page) await page.close();
           console.error("[INSTA-BROWSER-FAIL]", err.message);
         }
       }
@@ -589,33 +587,8 @@ async function runInstagramFlow(target, url, options = {}) {
 
     const components = [row];
 
-    if (options.isCommand && options.type) {
-      const finalFormat =
-        options.type === "mp3"
-          ? "mp3"
-          : isVideo
-            ? "mp4"
-            : allImages.length > 1
-              ? "twgallery"
-              : "photo";
-      return await require("./callbacks").startDownload(
-        target,
-        jobId,
-        finalFormat,
-        { statusMsg },
-      );
-    }
-
-    const resMsg = await ctx.editResponse({
-      embeds: [foundEmbed],
-      components: options.isCommand ? components : [],
-    });
-    return {
-      jobId,
-      statusMsg: resMsg,
-      isGallery: !isVideo && allImages.length > 1,
-      isVideo,
-    };
+    const finalFormat = options?.type === "mp3" ? "mp3" : isVideo ? "mp4" : allImages.length > 1 ? "iggallery" : "photo";
+    return await ctx.finalize(jobId, finalFormat, foundEmbed, {...options,  extraRet: { isGallery: !isVideo && allImages.length > 1, isVideo },  components: options.isCommand ? components : []});
   } catch (e) {
     console.error("[INSTA-FLOW] Error:", e.message);
     return null;

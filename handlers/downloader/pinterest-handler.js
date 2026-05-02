@@ -1,4 +1,4 @@
-const { chromium } = require("playwright");
+const { getPage } = require("../../utils/browser");
 const fs = require("fs");
 const path = require("path");
 const http = require("../../utils/http");
@@ -7,17 +7,14 @@ const { createJob, createHandlerContext } = require("./core-helpers");
 const { startDownload } = require("./callbacks");
 
 async function runPinterestFlow(target, url, options = {}) {
-  let browser;
+  let page;
   const ctx = createHandlerContext(target, options);
   await ctx.init("Pinterest", "Getting Pinterest Pin info...");
 
   try {
-    browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
+    page = await getPage({
       viewport: { width: 1200, height: 800 },
     });
-
-    const page = await context.newPage();
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 30000 });
 
     const pinData = await page.evaluate(() => {
@@ -48,7 +45,7 @@ async function runPinterestFlow(target, url, options = {}) {
       };
     });
 
-    await browser.close();
+    if (page) await page.close();
 
     let finalMediaUrl = null;
     let isVideo = false;
@@ -118,10 +115,10 @@ async function runPinterestFlow(target, url, options = {}) {
       throw new Error("Could not find Pin or media file.");
     }
 
-    const tempDir = path.join(__dirname, "../../temp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    const tempDir = getTempDir();
 
     const { generateJobId } = require("./core-helpers");
+const { getTempDir } = require("../../utils/filetools");
     const jobId = generateJobId();
 
     let ext = finalMediaUrl.split(".").pop().split("?")[0].toLowerCase();
@@ -146,11 +143,7 @@ async function runPinterestFlow(target, url, options = {}) {
         imageUrls: [],
       });
 
-      if (options.isCommand && options.type) {
-        return await startDownload(target, jobId, "mp4", { statusMsg: ctx.statusMsg });
-      }
-
-      return { jobId, statusMsg: ctx.statusMsg, isGallery: false };
+      return await ctx.finalize(jobId, "mp4", foundEmbed, {...options,  extraRet: { isGallery: false }});
     }
 
     await ctx.editResponse({
@@ -189,7 +182,7 @@ async function runPinterestFlow(target, url, options = {}) {
 
     return { jobId, statusMsg: ctx.statusMsg, isGallery: true };
   } catch (e) {
-    if (browser) await browser.close();
+    if (page) await page.close();
     console.error(`[PINTEREST-FAIL] ${e.message}`);
     await ctx.editResponse({
       embeds: [ctx.statusEmbed("Download Failed", e.message)],

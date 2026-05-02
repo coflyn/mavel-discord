@@ -84,12 +84,7 @@ async function runYoutubeFlow(target, url, options = {}) {
         iconURL: target.client.user.displayAvatarURL(),
       });
 
-    if (options.isCommand && options.type) {
-      return await startDownload(target, jobId, options.type, { statusMsg: ctx.statusMsg });
-    }
-
-    await ctx.editResponse({ embeds: [foundEmbed] });
-    return { jobId, statusMsg: ctx.statusMsg, isShorts };
+    return await ctx.finalize(jobId, options.type, foundEmbed, {...options,  extraRet: { isShorts }});
   } catch (e) {
     console.error("[YOUTUBE-FLOW] Error:", e.message);
     await ctx.editResponse({

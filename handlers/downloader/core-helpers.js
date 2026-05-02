@@ -10,6 +10,7 @@ const {
   editResponse,
   sendInitialStatus,
 } = require("../../utils/response-helper");
+const { getTempDir } = require("../../utils/filetools");
 
 const dbPath = path.join(__dirname, "../../database/downloader.json");
 
@@ -19,8 +20,8 @@ function loadDB() {
 }
 
 function cleanupTemp() {
-  const tempDir = path.join(__dirname, "../../temp");
-  if (!fs.existsSync(tempDir)) return;
+  const tempDir = getTempDir();
+  if (!require("fs").existsSync(tempDir)) return;
 
   const now = Date.now();
   const expiry = 10 * 60 * 1000;
@@ -248,6 +249,21 @@ function createHandlerContext(target, options = {}) {
     } else {
       ctx.statusMsg = await sendInitialStatus(target, platformName, statusText);
     }
+  };
+
+  ctx.finalize = async (jobId, format, foundEmbed, options = {}) => {
+    if (options.isCommand && options.type && format) {
+      const { startDownload } = require("./callbacks");
+      return await startDownload(target, jobId, format, { statusMsg: ctx.statusMsg });
+    }
+    
+    const editPayload = { embeds: [foundEmbed] };
+    if (options.components) {
+      editPayload.components = options.components;
+    }
+    
+    const resMsg = await ctx.editResponse(editPayload);
+    return { jobId, statusMsg: resMsg, ...(options.extraRet || {}) };
   };
 
   return ctx;

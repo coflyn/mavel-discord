@@ -1,4 +1,4 @@
-const { chromium } = require("playwright");
+const { getPage } = require("../../utils/browser");
 const { spawn } = require("child_process");
 
 const { createJob, createHandlerContext } = require("./core-helpers");
@@ -44,19 +44,14 @@ async function runPSrvFlow(target, url, options = {}) {
   }
 
   if (isPornhub) {
-    let browser;
+    let page;
     try {
       const resolverArgs = await getChromiumResolverRules(normalizedUrl);
-      browser = await chromium.launch({
-        headless: true,
-        args: [...resolverArgs],
-      });
-      const context = await browser.newContext({
+      page = await getPage({
         viewport: { width: 1280, height: 720 },
         ignoreHTTPSErrors: true,
         userAgent: http.getUserAgent("desktop"),
       });
-      const page = await context.newPage();
 
       await context.addCookies([
         { name: "age_verified", value: "1", domain: ".pornhub.com", path: "/" },
@@ -204,11 +199,11 @@ async function runPSrvFlow(target, url, options = {}) {
       });
 
       const { startDownload } = require("./callbacks");
-      await browser.close();
+      if (page) await page.close();
       return await startDownload(target, jobId, "mp4", { statusMsg: ctx.statusMsg });
     } catch (e) {
       console.error("[PSRV-PH] Error:", e.message);
-      if (browser) await browser.close();
+      if (page) await page.close();
       await ctx.editResponse({
         embeds: [ctx.statusEmbed("Failed", `Details: ${e.message}`)],
       });

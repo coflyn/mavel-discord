@@ -1,8 +1,8 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="logo2.svg">
-    <source media="(prefers-color-scheme: light)" srcset="logo1.svg">
-    <img alt="MaveL Logo" src="logo1.svg" width="200">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/mavel-logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/mavel-logo-light.svg">
+    <img alt="MaveL Logo" src="assets/mavel-logo-light.svg" width="200">
   </picture>
 </p>
 
@@ -70,9 +70,10 @@ Use the /room create command to generate your personal workspace. Once created, 
 
 MaveL is designed with a security-first mindset.
 
-- Data Isolation: User data and playlist settings are stored securely and are not shared across different servers.
-- Manual Cleanup: Administrators can use the /purge command to wipe temporary files and logs instantly.
-- Access Control: The room system uses Discord's native permission overwrites to ensure that private rooms remain truly private.
+- **Data Isolation:** User data and playlist settings are stored securely and are not shared across different servers.
+- **Dynamic Command Menus:** System maintenance and administrative slash commands are strictly hidden from regular users natively via Discord's `setDefaultMemberPermissions`. The `/help` menu also dynamically filters content based on user roles.
+- **Manual Cleanup:** Administrators can use the `/purge` command to wipe temporary files and logs instantly.
+- **Access Control:** The room system uses Discord's native permission overwrites to ensure that private rooms remain truly private.
 
 ## Restricted and Specialized Content
 
@@ -180,14 +181,22 @@ MaveL uses an intelligent caching system to provide instant music playback. If t
 
 MaveL utilizes a dynamic, directory-based command loader architecture. When new commands are added to the `/commands` directory or descriptions are updated, run the `deploy-commands.js` script manually (`node deploy-commands.js`). The script will automatically scan all subdirectories, collect the updated `slashData`, and seamlessly sync the changes with Discord's global command list.
 
-## Technology Stack
+## Technology Stack & Architecture
 
 MaveL is built on a modern and efficient stack to ensure stability under heavy load:
 
-- Core: Node.js with Discord.js v14.
-- Media Extraction: Custom wrappers for yt-dlp and various specialized scraping engines.
-- Audio Engine: FFmpeg and @discordjs/voice for optimized stream processing.
-- Data Management: Lightweight JSON-based local database for rapid response times.
+- **Core:** Node.js with Discord.js v14.
+- **Media Extraction:** Custom wrappers for yt-dlp and various specialized scraping engines.
+- **Audio Engine:** FFmpeg and `@discordjs/voice` for optimized stream processing.
+- **Data Management:** Lightweight JSON-based local database for rapid response times.
+
+### Performance & Memory Optimization
+
+To operate efficiently on standard VPS environments, MaveL implements several advanced architectural patterns:
+
+- **DRY Orchestration:** Platform routing and message formatting are centralized into core helper modules (e.g., `ctx.finalize`), eliminating hundreds of lines of redundant code and ensuring consistent embed styling across 20+ platforms.
+- **Playwright Singleton Manager:** Instead of launching a new headless browser for every scraping task, MaveL uses a global Singleton Browser (`utils/browser.js`). Individual requests run in isolated contexts, drastically reducing RAM overhead and preventing memory leaks.
+- **Self-Healing I/O:** Temporary files, database writes, and activity logs are managed asynchronously with safe file-locking patterns, preventing `EIO` crashes during intensive I/O operations.
 
 ## Command Reference
 

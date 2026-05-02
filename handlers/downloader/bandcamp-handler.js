@@ -84,14 +84,7 @@ async function runBandcampFlow(target, url, options = {}) {
         iconURL: target.client.user.displayAvatarURL(),
       });
 
-    if (options.isCommand && options.type) {
-      return await startDownload(target, jobId, isAlbum ? "twgallery" : "mp3", {
-        statusMsg: ctx.statusMsg,
-      });
-    }
-
-    await ctx.editResponse({ embeds: [foundEmbed] });
-    return { jobId, statusMsg: ctx.statusMsg, isAlbum };
+    return await ctx.finalize(jobId, isAlbum ? "twgallery" : "mp3", foundEmbed, {...options,  extraRet: { isAlbum }});
   } catch (e) {
     console.error("[BANDCAMP-FLOW] Error:", e.message);
     await ctx.editResponse({

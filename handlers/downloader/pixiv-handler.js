@@ -77,17 +77,7 @@ async function runPixivFlow(target, url, options = {}) {
           `*Found via Pixiv Downloader*`,
       );
 
-    if (options.isCommand && options.type) {
-      return await startDownload(
-        target,
-        jobId,
-        isUgoira ? "pixiv_ugoira" : "pixiv_gallery",
-        { statusMsg: ctx.statusMsg },
-      );
-    }
-
-    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
-    return { jobId, isUgoira, statusMsg: resMsg };
+    return await ctx.finalize(jobId, isUgoira ? "pixiv_ugoira" : "pixiv_gallery", foundEmbed, { ...options, extraRet: { isUgoira }  });
   } catch (e) {
     console.error("[PIXIV-FLOW] Error:", e.message);
     await ctx.editResponse({

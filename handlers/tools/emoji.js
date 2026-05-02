@@ -79,23 +79,24 @@ async function handleAdd(interaction) {
       headers: {
         "User-Agent": http.getUserAgent("desktop"),
       },
+      responseType: "arraybuffer",
+      validateStatus: () => true,
     };
 
-    let response = await fetch(finalUrl, fetchOptions);
+    let response = await http.get(finalUrl, fetchOptions);
 
-    if (!response.ok && finalUrl.includes("cdn.discordapp.com")) {
+    if (response.status !== 200 && finalUrl.includes("cdn.discordapp.com")) {
       finalUrl = `https://cdn.discordapp.com/emojis/${emojiId}.png?quality=lossless`;
-      response = await fetch(finalUrl, fetchOptions);
+      response = await http.get(finalUrl, fetchOptions);
     }
 
-    if (!response.ok) {
+    if (response.status !== 200) {
       return interaction.editReply(
         "*Could not find a valid emoji or image with that ID or Link.*",
       );
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(response.data);
 
     const emoji = await interaction.guild.emojis.create({
       attachment: buffer,
@@ -210,10 +211,11 @@ async function handleInfo(interaction) {
     headers: {
       "User-Agent": http.getUserAgent("bot"),
     },
+    validateStatus: () => true,
   };
 
-  let response = await fetch(animatedUrl, fetchOptions);
-  const isAnimated = response.ok;
+  let response = await http.get(animatedUrl, fetchOptions);
+  const isAnimated = response.status === 200;
   const finalUrl = isAnimated ? animatedUrl : staticUrl;
 
   const AMOGUS =
@@ -437,15 +439,18 @@ module.exports.syncMissingEmojis = async function (interaction) {
     const emojiId = req.id;
     const animatedUrl = `https://cdn.discordapp.com/emojis/${emojiId}.gif?quality=lossless`;
     const staticUrl = `https://cdn.discordapp.com/emojis/${emojiId}.png?quality=lossless`;
-    const fetchOptions = { headers: { "User-Agent": http.getUserAgent("bot") } };
+    const fetchOptions = { 
+      headers: { "User-Agent": http.getUserAgent("bot") },
+      responseType: "arraybuffer",
+      validateStatus: () => true,
+    };
 
     try {
-      let response = await fetch(animatedUrl, fetchOptions);
-      if (!response.ok) response = await fetch(staticUrl, fetchOptions);
+      let response = await http.get(animatedUrl, fetchOptions);
+      if (response.status !== 200) response = await http.get(staticUrl, fetchOptions);
 
-      if (response.ok) {
-        const arrayBuffer = await response.arrayBuffer();
-        const buffer = Buffer.from(arrayBuffer);
+      if (response.status === 200) {
+        const buffer = Buffer.from(response.data);
         await interaction.guild.emojis.create({
           attachment: buffer,
           name: req.name,

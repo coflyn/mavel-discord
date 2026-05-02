@@ -84,13 +84,8 @@ async function runFacebookFlow(target, url, options = {}) {
           `*Everything is ready. Starting the download...*`,
       );
 
-    if (options.isCommand && options.type) {
-      const finalFormat = options.type === "mp3" ? "mp3" : videoUrl ? "mp4" : "photo";
-      return await startDownload(target, jobId, finalFormat, { statusMsg });
-    }
-
-    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
-    return { jobId, statusMsg: resMsg };
+    const finalFormat = options?.type === "mp3" ? "mp3" : videoUrl ? "mp4" : "photo";
+    return await ctx.finalize(jobId, finalFormat, foundEmbed, { ...options });
   } catch (e) {
     console.error("[FB-FLOW] Error:", e.message);
     return null;

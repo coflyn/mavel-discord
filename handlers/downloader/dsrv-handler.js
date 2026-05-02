@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const { createJob, createHandlerContext } = require("./core-helpers");
 const http = require("../../utils/http");
+const { getTempDir } = require("../../utils/filetools");
 
 const COMMON_HEADERS = {
   "User-Agent": http.getUserAgent("desktop"),
@@ -97,8 +98,7 @@ async function runDSrvFlow(target, url, options = {}) {
     const docTitle =
       $("title").text().replace(" - Doujindesu", "").trim() ||
       `Chapter_${chapterId}`;
-    const tempDir = path.join(__dirname, "../../temp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    const tempDir = getTempDir();
 
     const localPaths = [];
     const total = imageUrls.length;

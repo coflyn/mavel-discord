@@ -4,6 +4,7 @@ const path = require("path");
 const fs = require("fs");
 const http = require("../../utils/http");
 const colors = require("../../utils/embed-colors");
+const { getTempDir } = require("../../utils/filetools");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 
 module.exports = async function inspectorHandler(interaction) {
@@ -95,9 +96,7 @@ module.exports = async function inspectorHandler(interaction) {
       ],
     });
 
-    const rootTempDir = path.join(__dirname, "../../temp");
-    if (!fs.existsSync(rootTempDir))
-      fs.mkdirSync(rootTempDir, { recursive: true });
+    const rootTempDir = getTempDir();
     const inputPath = path.join(
       rootTempDir,
       `inspect_${Date.now()}_${filesToProcess[0].name.replace(/[^\w.-]/g, "_")}`,

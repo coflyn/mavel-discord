@@ -57,4 +57,9 @@ async function bundleImagesToPdf(imagePaths) {
 module.exports = {
   bundleImagesToPdf,
   tempPath,
+  TEMP_DIR,
+  getTempDir: () => {
+    if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
+    return TEMP_DIR;
+  }
 };

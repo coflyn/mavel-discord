@@ -1,4 +1,4 @@
-const { chromium } = require("playwright");
+const { getPage } = require("../../utils/browser");
 const fs = require("fs");
 const path = require("path");
 const http = require("../../utils/http");
@@ -17,14 +17,11 @@ async function runKomikuFlow(target, url, options = {}) {
   if (url.includes("komiku.id"))
     normalizedUrl = normalizedUrl.replace("komiku.id", "komiku.com");
 
-  let browser;
+  let page;
   try {
-    browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
-      userAgent: userAgents.get("desktop"),
+    page = await getPage({
+      userAgent: http.getUserAgent("desktop"),
     });
-
-    const page = await context.newPage();
 
     await ctx.editResponse({
       embeds: [
@@ -78,10 +75,10 @@ async function runKomikuFlow(target, url, options = {}) {
     if (imageUrls.length === 0)
       throw new Error("No manga panels found in this chapter.");
 
-    const tempDir = path.join(__dirname, "../../temp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    const tempDir = getTempDir();
 
     const { generateJobId } = require("./core-helpers");
+const { getTempDir } = require("../../utils/filetools");
     const jobId = generateJobId();
     const localPaths = [];
 
@@ -120,7 +117,7 @@ async function runKomikuFlow(target, url, options = {}) {
       }
     }
 
-    await browser.close();
+    if (page) await page.close();
 
     createJob(target, {
       jobId,
@@ -144,10 +141,9 @@ async function runKomikuFlow(target, url, options = {}) {
           `*Compiling manga into PDF...*`,
       );
 
-    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
-    return { jobId, statusMsg: resMsg };
+    return await ctx.finalize(jobId, null, foundEmbed, {...options});
   } catch (e) {
-    if (browser) await browser.close();
+    if (page) await page.close();
     console.error("[KOMIKU-JS] Error:", e.message);
     await ctx.editResponse({
       embeds: [ctx.statusEmbed("Failed", e.message)],

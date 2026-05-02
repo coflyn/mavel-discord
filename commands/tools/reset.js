@@ -1,11 +1,11 @@
-const { SlashCommandBuilder } = require("discord.js");
+const { SlashCommandBuilder, PermissionFlagsBits } = require("discord.js");
 const { MessageFlags } = require("discord.js");
 const { resolveEmoji } = require("../../utils/emoji-helper");
 const { resetTunnel } = require("../../utils/tunnel-server");
 const config = require("../../config");
 
 module.exports = {
-  slashData: new SlashCommandBuilder()
+  slashData: new SlashCommandBuilder().setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
       .setName("reset")
       .setDescription("Fix connection or system issues")
       .addSubcommand((sub) =>

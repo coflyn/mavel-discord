@@ -1,4 +1,4 @@
-const { chromium } = require("playwright");
+const { getPage } = require("../../utils/browser");
 const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder } = require("discord.js");
@@ -6,6 +6,7 @@ const { createJob, createHandlerContext, generateJobId } = require("./core-helpe
 const { bundleImagesToPdf } = require("../../utils/filetools");
 const colors = require("../../utils/embed-colors");
 const http = require("../../utils/http");
+const { getTempDir } = require("../../utils/filetools");
 
 async function runAcademiaFlow(target, url, options = {}) {
   const ctx = createHandlerContext(target, options);
@@ -14,15 +15,12 @@ async function runAcademiaFlow(target, url, options = {}) {
   const BOOK = ctx.getEmoji("camera", "📖");
   await ctx.init("Searching...", "Finding the document...", { silent: true });
 
-  let browser;
+  let page;
   try {
-    browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
+    page = await getPage({
       viewport: { width: 1400, height: 1080 },
       userAgent: http.getUserAgent("desktop"),
     });
-
-    const page = await context.newPage();
 
     await ctx.editResponse({
       embeds: [
@@ -75,8 +73,7 @@ async function runAcademiaFlow(target, url, options = {}) {
 
     if (pageCount === 0) throw new Error("No pages detected on this document.");
 
-    const tempDir = path.join(__dirname, "../../temp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    const tempDir = getTempDir();
 
     const jobId = generateJobId();
     const imageUrls = [];
@@ -109,7 +106,7 @@ async function runAcademiaFlow(target, url, options = {}) {
       imageUrls.push(screenshotPath);
     }
 
-    await browser.close();
+    if (page) await page.close();
 
     createJob(target, {
       jobId,
@@ -132,10 +129,9 @@ async function runAcademiaFlow(target, url, options = {}) {
           `*Making your PDF file now...*`,
       );
 
-    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
-    return { jobId, statusMsg: resMsg };
+    return await ctx.finalize(jobId, null, foundEmbed, {...options});
   } catch (e) {
-    if (browser) await browser.close();
+    if (page) await page.close();
     console.error("[ACADEMIA-JS] Error:", e.message);
     await ctx.editResponse({
       embeds: [ctx.statusEmbed("Failed", e.message)],

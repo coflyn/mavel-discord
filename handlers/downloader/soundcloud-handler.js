@@ -22,13 +22,13 @@ async function runSoundcloudFlow(target, url, options = {}) {
         withResponse: true,
       });
     } else if (target.isChatInputCommand && target.isChatInputCommand()) {
-      statusMsg = await target.reply({
+      ctx.statusMsg = await target.reply({
         embeds: [initialEmbed],
         flags: [MessageFlags.Ephemeral],
         withResponse: true,
       });
     } else {
-      statusMsg = target.reply
+      ctx.statusMsg = target.reply
         ? await target.reply({ embeds: [initialEmbed], withResponse: true })
         : await target.channel.send({ embeds: [initialEmbed] });
     }
@@ -216,12 +216,7 @@ async function runSoundcloudFlow(target, url, options = {}) {
         iconURL: target.client.user.displayAvatarURL(),
       });
 
-    if (options.isCommand && options.type) {
-      return await startDownload(target, jobId, "mp3", { statusMsg: ctx.statusMsg });
-    }
-
-    const resMsg = await ctx.editResponse({ embeds: [foundEmbed] });
-    return { jobId, statusMsg: resMsg };
+    return await ctx.finalize(jobId, "mp3", foundEmbed, { ...options });
   } catch (e) {
     console.error("[SC-FLOW] Error:", e.message);
     await ctx.editResponse({

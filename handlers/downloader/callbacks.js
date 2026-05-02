@@ -87,6 +87,7 @@ const getPlatformColor = (platform) => {
 };
 const http = require("../../utils/http");
 const NodeID3 = require("node-id3");
+const { getTempDir } = require("../../utils/filetools");
 
 async function startDownload(interaction, jobId, format, options = {}) {
   const botUser = await interaction.client.user.fetch();
@@ -203,8 +204,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
   }
 
   downloadQueue.add(async () => {
-    const tempDir = path.join(__dirname, "../../temp");
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+    const tempDir = getTempDir();
 
     const sanitizedTitle = sanitizeFilename(title, "media");
 
