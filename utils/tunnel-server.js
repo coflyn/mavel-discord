@@ -7,6 +7,10 @@ const app = express();
 let tunnelUrl = null;
 let cfProcess = null;
 let currentPort = 3033;
+let healthCheckInterval = null;
+let failureCount = 0;
+let isResetting = false;
+let tunnelStartTime = 0;
 
 function launchCloudflared(port, resolve) {
   if (cfProcess) {
@@ -16,32 +20,52 @@ function launchCloudflared(port, resolve) {
   }
 
   console.log("[TUNNEL] Connecting to edge...");
-  const cfBinary = process.platform === "darwin" 
-    ? (fs.existsSync("/opt/homebrew/bin/cloudflared") ? "/opt/homebrew/bin/cloudflared" : "cloudflared")
-    : (fs.existsSync("/usr/local/bin/cloudflared") ? "/usr/local/bin/cloudflared" : "cloudflared");
+  const cfBinary =
+    process.platform === "darwin"
+      ? fs.existsSync("/opt/homebrew/bin/cloudflared")
+        ? "/opt/homebrew/bin/cloudflared"
+        : "cloudflared"
+      : fs.existsSync("/usr/local/bin/cloudflared")
+        ? "/usr/local/bin/cloudflared"
+        : "cloudflared";
 
   cfProcess = spawn(cfBinary, [
     "tunnel",
     "--url",
-    `http://127.0.0.1:${port}`,
+    `http://localhost:${port}`,
     "--no-autoupdate",
+    "--protocol",
+    "http2"
   ]);
 
   cfProcess.stderr.on("data", (data) => {
     const output = data.toString();
+
+    if (
+      output.includes("error") ||
+      output.includes("ERR") ||
+      output.includes("failed")
+    ) {
+      console.log(`[CLOUDFLARED-LOG] ${output.trim()}`);
+    }
+
     const match = output.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
     if (match) {
       const newUrl = match[0];
       if (tunnelUrl !== newUrl) {
         tunnelUrl = newUrl;
+        tunnelStartTime = Date.now();
         console.log(`[TUNNEL] Active Hub: ${tunnelUrl}`);
+        startHealthCheck();
         if (resolve) resolve(tunnelUrl);
       }
     }
   });
 
   cfProcess.on("close", (code, signal) => {
-    console.log(`[TUNNEL] Tunnel closed (code: ${code}, signal: ${signal}). Reconnecting...`);
+    console.log(
+      `[TUNNEL] Tunnel closed (code: ${code}, signal: ${signal}). Reconnecting...`,
+    );
     tunnelUrl = null;
     setTimeout(() => launchCloudflared(port), 5000);
   });
@@ -52,10 +76,14 @@ async function startTunnel(port = 3033) {
   const tempPath = path.join(__dirname, "../temp");
   if (!fs.existsSync(tempPath)) fs.mkdirSync(tempPath, { recursive: true });
 
-  app.use("/v", (req, res, next) => {
-    res.setHeader("Content-Disposition", "attachment");
-    next();
-  }, express.static(tempPath));
+  app.use(
+    "/v",
+    (req, res, next) => {
+      res.setHeader("Content-Disposition", "attachment");
+      next();
+    },
+    express.static(tempPath),
+  );
 
   app.get("/health", (req, res) => {
     res.json({ status: "OK", uptime: process.uptime() });
@@ -96,6 +124,68 @@ async function resetTunnel() {
     });
   }
   return null;
+}
+
+function startHealthCheck() {
+  if (healthCheckInterval) {
+    clearInterval(healthCheckInterval);
+    clearTimeout(healthCheckInterval);
+  }
+  failureCount = 0;
+
+  const check = async () => {
+    if (!tunnelUrl || isResetting) return;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+      const res = await fetch(`${tunnelUrl}/health`, {
+        signal: controller.signal,
+        headers: { "Cache-Control": "no-cache" },
+      }).catch((e) => {
+        throw new Error(e.message);
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        if (
+          (res.status === 1033 || res.status === 530) &&
+          Date.now() - tunnelStartTime < 120000
+        ) {
+          console.log(
+            `[TUNNEL-WATCHDOG] Tunnel warming up (${res.status}). Skipping...`,
+          );
+          failureCount = 0;
+          return;
+        }
+        throw new Error(`HTTP ${res.status}`);
+      }
+      failureCount = 0;
+    } catch (err) {
+      failureCount++;
+      console.warn(
+        `[TUNNEL-WATCHDOG] Check failed (${err.message}). Attempt ${failureCount}/3`,
+      );
+
+      if (failureCount >= 3) {
+        console.error(
+          `[TUNNEL-WATCHDOG] 3 consecutive failures. Auto-recovering...`,
+        );
+        isResetting = true;
+        await resetTunnel();
+        isResetting = false;
+        failureCount = 0;
+      }
+    }
+  };
+
+  console.log("[TUNNEL-WATCHDOG] First check in 30 seconds...");
+  healthCheckInterval = setTimeout(() => {
+    check();
+    healthCheckInterval = setInterval(check, 60 * 1000);
+  }, 30000);
 }
 
 function getAssetUrl(filename) {

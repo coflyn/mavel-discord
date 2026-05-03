@@ -6,78 +6,28 @@ const path = require("path");
 module.exports = {
   name: "app_report",
   async execute(interaction) {
-    await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
     const msg = interaction.targetMessage;
+    const {
+      ModalBuilder,
+      TextInputBuilder,
+      TextInputStyle,
+      ActionRowBuilder,
+    } = require("discord.js");
 
-    let logsChannelId = null;
-    try {
-      const dbPath = path.join(__dirname, "../../database/settings.json");
-      if (fs.existsSync(dbPath)) {
-        const db = JSON.parse(fs.readFileSync(dbPath));
-        logsChannelId = db.logsChannelId;
-      }
-    } catch {}
+    const modal = new ModalBuilder()
+      .setCustomId(`report_msg_${msg.id}`)
+      .setTitle("Report Message");
 
-    if (!logsChannelId) {
-      return interaction.editReply({
-        content: "*Error: Server logs channel is not configured.*",
-      });
-    }
+    const reasonInput = new TextInputBuilder()
+      .setCustomId("reason")
+      .setLabel("Reason for reporting")
+      .setStyle(TextInputStyle.Paragraph)
+      .setPlaceholder("Why should this message be removed or reviewed?")
+      .setRequired(true)
+      .setMaxLength(1000);
 
-    const logChannel = interaction.guild.channels.cache.get(logsChannelId);
-    if (!logChannel) {
-      return interaction.editReply({
-        content: "*Error: Configured logs channel is missing or inaccessible.*",
-      });
-    }
+    modal.addComponents(new ActionRowBuilder().addComponents(reasonInput));
 
-    try {
-      const NOTIF = resolveEmoji(interaction.guild, "notif", "🚨");
-
-      const embed = new EmbedBuilder()
-        .setColor("#e74c3c")
-        .setTitle(`${NOTIF} User Report: Flagged Message`)
-        .addFields(
-          {
-            name: "Reported By",
-            value: `${interaction.user} (\`${interaction.user.id}\`)`,
-            inline: true,
-          },
-          {
-            name: "Message Author",
-            value: `${msg.author} (\`${msg.author.id}\`)`,
-            inline: true,
-          },
-          {
-            name: "Channel",
-            value: `${interaction.channel} | [Jump to Message](${msg.url})`,
-            inline: false,
-          },
-          {
-            name: "Content",
-            value: msg.content
-              ? `\`\`\`\n${msg.content.substring(0, 1000)}\n\`\`\``
-              : "*[No Text Content]*",
-            inline: false,
-          },
-        )
-        .setTimestamp();
-
-      if (msg.attachments.size > 0) {
-        embed.addFields({
-          name: "Attachments",
-          value: msg.attachments.map((a) => `[${a.name}](${a.url})`).join("\n"),
-        });
-      }
-
-      await logChannel.send({ embeds: [embed] });
-      await interaction.editReply({
-        content: `*Message successfully flagged and reported to admins.*`,
-      });
-    } catch (e) {
-      await interaction.editReply({
-        content: `*Failed to send report. Please check channel permissions.*`,
-      });
-    }
+    await interaction.showModal(modal);
   },
 };

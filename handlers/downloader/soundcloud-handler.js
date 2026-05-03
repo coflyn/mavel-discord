@@ -191,7 +191,7 @@ async function runSoundcloudFlow(target, url, options = {}) {
           : mediaUrl,
     });
 
-    const LEA = ctx.getEmoji("ping_green", "✅");
+    const CHECK = ctx.getEmoji("check", "✅");
     const NOTIF = ctx.getEmoji("notif", "🔔");
     const isLocked = discoveryPath.includes("Locked");
 
@@ -202,7 +202,7 @@ async function runSoundcloudFlow(target, url, options = {}) {
       )
       .setThumbnail(thumbnail)
       .setDescription(
-        `### ${LEA} **${isLocked ? "Preview Found" : "Song Found"}**\n` +
+        `### ${CHECK} **${isLocked ? "Preview Found" : "Song Found"}**\n` +
           `${ctx.ARROW} **Title:** *${title}*\n` +
           `${ctx.ARROW} **Artist:** *${artist}*\n` +
           `${ctx.ARROW} **Plays:** *${stats.plays}*\n` +

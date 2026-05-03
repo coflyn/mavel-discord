@@ -2,7 +2,14 @@ const { getPage } = require("../../utils/browser");
 const fs = require("fs");
 const path = require("path");
 const http = require("../../utils/http");
-const { createJob, createHandlerContext } = require("./core-helpers");
+const {
+  createJob,
+  createHandlerContext,
+  generateJobId,
+} = require("./core-helpers");
+const { getTempDir } = require("../../utils/filetools");
+const colors = require("../../utils/embed-colors");
+const { EmbedBuilder } = require("discord.js");
 
 const { startDownload } = require("./callbacks");
 
@@ -116,9 +123,6 @@ async function runPinterestFlow(target, url, options = {}) {
     }
 
     const tempDir = getTempDir();
-
-    const { generateJobId } = require("./core-helpers");
-const { getTempDir } = require("../../utils/filetools");
     const jobId = generateJobId();
 
     let ext = finalMediaUrl.split(".").pop().split("?")[0].toLowerCase();
@@ -143,7 +147,22 @@ const { getTempDir } = require("../../utils/filetools");
         imageUrls: [],
       });
 
-      return await ctx.finalize(jobId, "mp4", foundEmbed, {...options,  extraRet: { isGallery: false }});
+      const CHECK = ctx.getEmoji("check", "✅");
+      const NOTIF = ctx.getEmoji("notif", "🔔");
+      const foundEmbed = new EmbedBuilder()
+        .setColor(colors.SOCIAL)
+        .setTitle(`${NOTIF} **Pinterest Video Found**`)
+        .setDescription(
+          `### ${CHECK} **Video Link Ready**\n` +
+            `${ctx.ARROW} **Title:** *${pinData.title || "Pinterest Pin"}*\n` +
+            `${ctx.ARROW} **Type:** *Pinterest Video*\n\n` +
+            `*Everything is ready. Starting the download...*`,
+        );
+
+      return await ctx.finalize(jobId, "mp4", foundEmbed, {
+        ...options,
+        extraRet: { isGallery: false },
+      });
     }
 
     await ctx.editResponse({
@@ -177,16 +196,20 @@ const { getTempDir } = require("../../utils/filetools");
     });
 
     if (options.isCommand && options.type) {
-      return await startDownload(target, jobId, "twgallery", { statusMsg: ctx.statusMsg });
+      return await startDownload(target, jobId, "twgallery", {
+        statusMsg: ctx.statusMsg,
+      });
     }
 
     return { jobId, statusMsg: ctx.statusMsg, isGallery: true };
   } catch (e) {
     if (page) await page.close();
     console.error(`[PINTEREST-FAIL] ${e.message}`);
-    await ctx.editResponse({
-      embeds: [ctx.statusEmbed("Download Failed", e.message)],
-    }).catch(() => {});
+    await ctx
+      .editResponse({
+        embeds: [ctx.statusEmbed("Download Failed", e.message)],
+      })
+      .catch(() => {});
     return null;
   }
 }

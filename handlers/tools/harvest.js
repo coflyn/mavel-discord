@@ -22,7 +22,6 @@ async function harvestHandler(interaction) {
   const FIRE = getEmoji("purple_fire", "🔥");
   const ARROW = getEmoji("arrow", "»");
   const ANNO = getEmoji("anno", "📢");
-  const LEA = getEmoji("lea", "✅");
   const DIAMOND = getEmoji("diamond", "💎");
   const BOOK = getEmoji("book", "📖");
   const PC = getEmoji("pc", "💻");

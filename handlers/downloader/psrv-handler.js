@@ -1,8 +1,9 @@
 const { getPage } = require("../../utils/browser");
 const { spawn } = require("child_process");
 
-const { createJob, createHandlerContext } = require("./core-helpers");
+const { createJob, createHandlerContext, generateJobId } = require("./core-helpers");
 const http = require("../../utils/http");
+const { getTempDir } = require("../../utils/filetools");
 const {
   getYtDlp,
   getDlpEnv,
@@ -53,7 +54,7 @@ async function runPSrvFlow(target, url, options = {}) {
         userAgent: http.getUserAgent("desktop"),
       });
 
-      await context.addCookies([
+      await page.context().addCookies([
         { name: "age_verified", value: "1", domain: ".pornhub.com", path: "/" },
         {
           name: "access_granted",

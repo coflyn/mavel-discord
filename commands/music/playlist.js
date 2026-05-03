@@ -92,12 +92,12 @@ module.exports = {
         return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
       }
 
-      const LEA = interaction.guild.emojis.cache.find((e) => e.name === "ping_green")?.toString() || "✅";
+      const CHECK = interaction.guild.emojis.cache.find((e) => e.name === "ping_green")?.toString() || "✅";
       const ARROW = interaction.guild.emojis.cache.find((e) => e.name === "arrow")?.toString() || "•";
 
       const listEmbed = new EmbedBuilder()
         .setColor("#a29bfe")
-        .setDescription(`### ${LEA} **Saved Playlists**\n` + names.map((n) => `${ARROW} \`${n}\` (${lists[n].length} tracks)`).join("\n"))
+        .setDescription(`### ${CHECK} **Saved Playlists**\n` + names.map((n) => `${ARROW} \`${n}\` (${lists[n].length} tracks)`).join("\n"))
         .setFooter({ text: `MaveL | Total Playlists: ${names.length}` });
 
       await interaction.reply({ embeds: [listEmbed], flags: [MessageFlags.Ephemeral] });

@@ -4,6 +4,8 @@ const path = require("path");
 const cheerio = require("cheerio");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
 const { createJob, createHandlerContext } = require("./core-helpers");
+const userAgents = require("../../utils/user-agents");
+const colors = require("../../utils/embed-colors");
 
 function formatDuration(seconds) {
   if (!seconds || seconds === "---") return "---";
@@ -36,22 +38,34 @@ async function runTwitterFlow(target, url, options = {}) {
     let scrapeSuccess = false;
 
     const { spawn } = require("child_process");
-    const { getCookiesArgs, getYtDlp, getDlpEnv } = require("../../utils/dlp-helpers");
-const colors = require("../../utils/embed-colors");
+    const {
+      getCookiesArgs,
+      getYtDlp,
+      getDlpEnv,
+    } = require("../../utils/dlp-helpers");
 
     try {
       const ytTarget = url;
       const ytCheck = await new Promise((resolve) => {
         const timeout = setTimeout(() => resolve(null), 12000);
-        const proc = spawn(getYtDlp(), [
-          ...getCookiesArgs("twitter"),
-          "--simulate", "--get-url",
-          "--format", "bestvideo+bestaudio/best",
-          "--add-header", `User-Agent:${userAgents.get("desktop")}`,
-          ytTarget,
-        ], { env: getDlpEnv() });
+        const proc = spawn(
+          getYtDlp(),
+          [
+            ...getCookiesArgs("twitter"),
+            "--simulate",
+            "--get-url",
+            "--format",
+            "bestvideo+bestaudio/best",
+            "--add-header",
+            `User-Agent:${userAgents.get("desktop")}`,
+            ytTarget,
+          ],
+          { env: getDlpEnv() },
+        );
         let stdout = "";
-        proc.stdout.on("data", (d) => { stdout += d.toString(); });
+        proc.stdout.on("data", (d) => {
+          stdout += d.toString();
+        });
         proc.on("close", (code) => {
           clearTimeout(timeout);
           const out = stdout.trim();
@@ -59,7 +73,10 @@ const colors = require("../../utils/embed-colors");
             resolve(out.split("\n")[0]);
           else resolve(null);
         });
-        proc.on("error", () => { clearTimeout(timeout); resolve(null); });
+        proc.on("error", () => {
+          clearTimeout(timeout);
+          resolve(null);
+        });
       });
 
       if (
@@ -74,14 +91,21 @@ const colors = require("../../utils/embed-colors");
         scrapeSuccess = true;
 
         const meta = await new Promise((resolve) => {
-          const metaProc = spawn(getYtDlp(), [
-            ...getCookiesArgs("twitter"),
-            "--simulate",
-            "--print", "%(uploader)s|%(title)s|%(thumbnail)s|%(duration)s",
-            ytTarget,
-          ], { env: getDlpEnv() });
+          const metaProc = spawn(
+            getYtDlp(),
+            [
+              ...getCookiesArgs("twitter"),
+              "--simulate",
+              "--print",
+              "%(uploader)s|%(title)s|%(thumbnail)s|%(duration)s",
+              ytTarget,
+            ],
+            { env: getDlpEnv() },
+          );
           let stdout = "";
-          metaProc.stdout.on("data", (d) => { stdout += d.toString(); });
+          metaProc.stdout.on("data", (d) => {
+            stdout += d.toString();
+          });
           metaProc.on("close", () => resolve(stdout.trim() || "|||"));
           metaProc.on("error", () => resolve("|||"));
         });
@@ -260,14 +284,14 @@ const colors = require("../../utils/embed-colors");
       twUrls: allImages,
     });
 
-    const LEA = ctx.getEmoji("ping_green", "✅");
+    const CHECK = ctx.getEmoji("check", "✅");
     const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
       .setColor(colors.SOCIAL)
       .setTitle(`${NOTIF} **X Post Found**`)
       .setDescription(
-        `### ${LEA} **Media Found**\n` +
+        `### ${CHECK} **Media Found**\n` +
           `${ctx.ARROW} **Author:** *${author}*\n` +
           `${ctx.ARROW} **Content:** *${title.length > 50 ? title.substring(0, 47) + "..." : title}*\n` +
           `${ctx.ARROW} **Type:** *X Video*\n\n` +
@@ -278,8 +302,21 @@ const colors = require("../../utils/embed-colors");
       foundEmbed.setThumbnail(thumbnail);
     }
 
-    const finalFormat = options?.type === "mp3" ? "mp3" : isVideo ? "mp4" : allImages.length > 1 ? "twgallery" : "photo";
-    return await ctx.finalize(jobId, finalFormat, foundEmbed, {...options,  extraRet: { isVideo: isVideo, isGallery: !isVideo && allImages.length > 1 }});
+    const finalFormat =
+      options?.type === "mp3"
+        ? "mp3"
+        : isVideo
+          ? "mp4"
+          : allImages.length > 1
+            ? "twgallery"
+            : "photo";
+    return await ctx.finalize(jobId, finalFormat, foundEmbed, {
+      ...options,
+      extraRet: {
+        isVideo: isVideo,
+        isGallery: !isVideo && allImages.length > 1,
+      },
+    });
   } catch (e) {
     console.error("[TWITTER-FLOW] Critical Error:", e.message);
     return null;

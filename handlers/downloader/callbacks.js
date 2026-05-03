@@ -126,16 +126,19 @@ async function startDownload(interaction, jobId, format, options = {}) {
           const msg =
             statusMsg.resource?.message || statusMsg.message || statusMsg;
           if (msg && typeof msg.delete === "function") {
-            await msg.delete().catch(() => {});
+            if (msg.channel && msg.guild) {
+              await msg.delete().catch(() => {});
+            }
           }
         }
+
         if (interaction && typeof interaction.deleteReply === "function") {
           await interaction.deleteReply().catch(() => {});
         }
       } catch (e) {
-        console.error("[CLEANUP-STATUS] Error:", e.message);
+        // Silent
       }
-    }, 3000);
+    }, 4000);
   };
 
   const editLocal = async (data) => {
@@ -168,12 +171,11 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
   const ARROW = getEmoji("arrow", "»");
   const NOTIF = getEmoji("notif", "🔔");
-  const LEA = getEmoji("ping_green", "✅");
-  const AMOGUS = getEmoji("lea", "🛰️");
+  const CHECK = getEmoji("check", "✅");
+  const LEA = getEmoji("lea", "🛰️");
   const FIRE = getEmoji("purple_fire", "🔥");
   const TIME = getEmoji("time", "⏳");
   const CHEST = getEmoji("chest", "📦");
-  const CHECK = getEmoji("check", "✅");
 
   const platformColor = getPlatformColor(job?.platform || options.platform);
 
@@ -265,7 +267,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
           "Calaméo",
           "Komiku",
         ].includes(platformName);
-        const shouldBundle = photoPaths.length > 5 || isDocumentPlatform;
+        const shouldBundle =
+          photoPaths.length > 10 ||
+          (isDocumentPlatform && photoPaths.length > 1);
         let pdfPath = null;
         let attachments = [];
 
@@ -359,9 +363,12 @@ async function startDownload(interaction, jobId, format, options = {}) {
               interaction.guild?.emojis.cache
                 .find((e) => e.name === "check")
                 ?.toString() || "🟢";
+            const embedTitle = shouldBundle
+              ? "Gallery PDF Archive"
+              : "Media Gallery Link";
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
-                `### ${DIAMOND} **Gallery Bundle Too Large**\n` +
+                `### ${DIAMOND} **${embedTitle}**\n` +
                 `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
                 `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
                 `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
@@ -441,7 +448,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           photoPaths.push(photoPath);
         }
 
-        const shouldBundle = photoPaths.length > 5;
+        const shouldBundle = photoPaths.length > 10;
         let pdfPath = null;
         let attachments = [];
 
@@ -529,9 +536,12 @@ async function startDownload(interaction, jobId, format, options = {}) {
               interaction.guild?.emojis.cache
                 .find((e) => e.name === "check")
                 ?.toString() || "🟢";
+            const embedTitle = shouldBundle
+              ? "Gallery PDF Archive"
+              : "Media Gallery Link";
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
-                `### ${DIAMOND} **Gallery Bundle Too Large**\n` +
+                `### ${DIAMOND} **${embedTitle}**\n` +
                 `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
                 `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
                 `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
@@ -997,7 +1007,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           photoPaths.push(photoPath);
         }
 
-        const shouldBundle = photoPaths.length > 5;
+        const shouldBundle = photoPaths.length > 10;
         let pdfPath = null;
         let attachments = [];
 

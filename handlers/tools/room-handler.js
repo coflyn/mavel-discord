@@ -27,12 +27,25 @@ module.exports = async function handleTicketInteraction(interaction) {
   const ownerId = parts[parts.length - 1];
 
   if (prefix === "ticket") {
-    if (
-      user.id !== ownerId &&
-      !interaction.member.permissions.has(PermissionFlagsBits.Administrator)
-    ) {
+    const isOwner = user.id === ownerId;
+    const isAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+
+    if (action === "close") {
+      if (!isOwner && !isAdmin) {
+        await interaction.reply({
+          content: `${E_ERROR} *Error: Only the room owner or an administrator can close this room.*`,
+          flags: [MessageFlags.Ephemeral],
+        });
+        return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
+      }
+      await interaction.reply({ content: "🔒 *Closing room in 5 seconds...*" });
+      setTimeout(() => channel.delete().catch(() => {}), 5000);
+      return;
+    }
+
+    if (!isOwner) {
       await interaction.reply({
-        content: "*Error: Only the room owner can use these controls.*",
+        content: `${E_ERROR} *Security Error: Only the room owner can manage members. Admins can only close the room.*`,
         flags: [MessageFlags.Ephemeral],
       });
       return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
@@ -40,11 +53,6 @@ module.exports = async function handleTicketInteraction(interaction) {
   }
 
   if (!isMenu) {
-    if (action === "close") {
-      await interaction.reply({ content: "🔒 *Closing room in 5 seconds...*" });
-      setTimeout(() => channel.delete().catch(() => {}), 5000);
-      return;
-    }
 
     if (action === "add") {
       const select = new UserSelectMenuBuilder()
@@ -222,12 +230,13 @@ module.exports = async function handleTicketInteraction(interaction) {
       const ownerMatch = channel.name.match(/room-(.+)/);
       const ownerName = ownerMatch ? ownerMatch[1] : "Unknown";
 
-      const isOwner = channel
-        .permissionsFor(user)
-        .has(PermissionFlagsBits.ManageChannels);
+      const roomOwnerName = channel.name.split("-").pop();
+      const isOwner = user.username.toLowerCase().includes(roomOwnerName) || 
+                      interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+
       if (!isOwner) {
         await interaction.reply({
-          content: `${E_ERROR} *Only the room owner can decide.*`,
+          content: `${E_ERROR} *Security Notice: Only the room owner or an administrator can decide on join requests.*`,
           flags: [64],
         });
         return setTimeout(

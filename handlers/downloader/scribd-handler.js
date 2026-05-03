@@ -2,8 +2,9 @@ const { getPage } = require("../../utils/browser");
 const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
-const { createJob, createHandlerContext } = require("./core-helpers");
+const { createJob, createHandlerContext, generateJobId } = require("./core-helpers");
 const colors = require("../../utils/embed-colors");
+const { getTempDir } = require("../../utils/filetools");
 
 async function runScribdFlow(target, url, options = {}) {
   const ctx = createHandlerContext(target, options);
@@ -25,12 +26,12 @@ async function runScribdFlow(target, url, options = {}) {
       deviceScaleFactor: 2,
     });
 
-    await context.route("**/*osano*/**", (route) => route.abort());
-    await context.route("**/*consent*/**", (route) => route.abort());
-    await context.route("**/*analytics*/**", (route) => route.abort());
-    await context.route("**/*googletagmanager*/**", (route) => route.abort());
+    await page.context().route("**/*osano*/**", (route) => route.abort());
+    await page.context().route("**/*consent*/**", (route) => route.abort());
+    await page.context().route("**/*analytics*/**", (route) => route.abort());
+    await page.context().route("**/*googletagmanager*/**", (route) => route.abort());
 
-    await context.addInitScript(() => {
+    await page.context().addInitScript(() => {
       const style = document.createElement("style");
       style.textContent = `
         .osano-cm-window, .osano-cm-dialog, .osano-cm-window__dialog,
@@ -81,8 +82,6 @@ async function runScribdFlow(target, url, options = {}) {
     const tempDir = getTempDir();
 
     const imageUrls = [];
-    const { generateJobId } = require("./core-helpers");
-const { getTempDir } = require("../../utils/filetools");
     const jobId = generateJobId();
 
     await ctx.editResponse({
@@ -145,13 +144,13 @@ const { getTempDir } = require("../../utils/filetools");
       imageUrls: imageUrls,
     });
 
-    const LEA = ctx.getEmoji("check", "✅");
+    const CHECK = ctx.getEmoji("check", "✅");
     const NOTIF = ctx.getEmoji("notif", "🔔");
     const foundEmbed = new EmbedBuilder()
       .setColor(colors.DOCUMENT)
       .setTitle(`${ARCHIVE} **Scribd Document Found**`)
       .setDescription(
-        `### ${LEA} **File Ready**\n` +
+        `### ${CHECK} **File Ready**\n` +
           `${ctx.ARROW} **Title:** *${docTitle}*\n` +
           `${ctx.ARROW} **Total Pages:** *${pageCount}*\n` +
           `${ctx.ARROW} **Quality:** *Ultra-HD (2.0x Scaled)*\n\n` +

@@ -62,7 +62,7 @@ async function runPixivFlow(target, url, options = {}) {
     const botUser = await target.client.user.fetch();
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
-    const LEA = ctx.getEmoji("ping_green", "✅");
+    const CHECK = ctx.getEmoji("check", "✅");
     const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
@@ -70,7 +70,7 @@ async function runPixivFlow(target, url, options = {}) {
       .setTitle(`${NOTIF} **Pixiv Info Found**`)
       .setThumbnail(thumbnail)
       .setDescription(
-        `### ${LEA} *Artwork Found*\n` +
+        `### ${CHECK} *Artwork Found*\n` +
           `${ctx.ARROW} **Title:** *${title}*\n` +
           `${ctx.ARROW} **Artist:** *${author}*\n` +
           `${ctx.ARROW} **Type:** *${isUgoira ? "Ugoku-Illust (MP4)" : `Gallery (${imageProxyUrls.length} Pages)`}*\n\n` +

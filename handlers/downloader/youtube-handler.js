@@ -1,6 +1,10 @@
 const { spawn } = require("child_process");
 const { EmbedBuilder, MessageFlags } = require("discord.js");
-const { createJob, createHandlerContext, formatNumber } = require("./core-helpers");
+const {
+  createJob,
+  createHandlerContext,
+  formatNumber,
+} = require("./core-helpers");
 const {
   getYtDlp,
   getDlpEnv,
@@ -44,11 +48,12 @@ async function runYoutubeFlow(target, url, options = {}) {
     const author = json.uploader || "Unknown Uploader";
     const title = json.title || "Untitled Video";
     const thumbnail = json.thumbnail || "";
-    
+
     const stats = {
       views: json.view_count || 0,
       likes: json.like_count || 0,
-      duration: json.duration_string || `${Math.floor((json.duration || 0) / 60)}m`,
+      duration:
+        json.duration_string || `${Math.floor((json.duration || 0) / 60)}m`,
       uploader: author,
     };
 
@@ -65,7 +70,7 @@ async function runYoutubeFlow(target, url, options = {}) {
       directUrl: null,
     });
 
-    const LEA = ctx.getEmoji("check", "✅");
+    const CHECK = ctx.getEmoji("check", "✅");
     const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
@@ -73,7 +78,7 @@ async function runYoutubeFlow(target, url, options = {}) {
       .setTitle(`${NOTIF} **YouTube Video Found**`)
       .setImage(thumbnail)
       .setDescription(
-        `### ${LEA} *Media Found*\n` +
+        `### ${CHECK} *Media Found*\n` +
           `${ctx.ARROW} **Title:** *${title}*\n` +
           `${ctx.ARROW} **Channel:** *${author}*\n` +
           `${ctx.ARROW} **Type:** *YouTube ${isShorts ? "Short" : "Video"}*\n\n` +
@@ -84,7 +89,10 @@ async function runYoutubeFlow(target, url, options = {}) {
         iconURL: target.client.user.displayAvatarURL(),
       });
 
-    return await ctx.finalize(jobId, options.type, foundEmbed, {...options,  extraRet: { isShorts }});
+    return await ctx.finalize(jobId, options.type, foundEmbed, {
+      ...options,
+      extraRet: { isShorts },
+    });
   } catch (e) {
     console.error("[YOUTUBE-FLOW] Error:", e.message);
     await ctx.editResponse({

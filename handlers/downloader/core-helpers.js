@@ -19,36 +19,35 @@ function loadDB() {
   return JSON.parse(fs.readFileSync(dbPath));
 }
 
-function cleanupTemp() {
+async function cleanupTemp() {
   const tempDir = getTempDir();
-  if (!require("fs").existsSync(tempDir)) return;
+  if (!fs.existsSync(tempDir)) return;
 
   const now = Date.now();
   const expiry = 10 * 60 * 1000;
 
-  const sweep = (dir) => {
+  const sweep = async (dir) => {
     try {
-      if (!fs.existsSync(dir)) return;
-      const items = fs.readdirSync(dir);
-      items.forEach((item) => {
+      const items = await fs.promises.readdir(dir);
+      for (const item of items) {
         const itemPath = path.join(dir, item);
-        const stats = fs.statSync(itemPath);
+        const stats = await fs.promises.stat(itemPath);
 
         if (stats.isDirectory()) {
-          sweep(itemPath);
+          await sweep(itemPath);
         } else if (stats.isFile()) {
           const age = now - stats.mtimeMs;
           if (age > expiry) {
-            fs.unlinkSync(itemPath);
+            await fs.promises.unlink(itemPath).catch(() => {});
           }
         }
-      });
+      }
     } catch (e) {
       console.error(`[CLEANUP] Error during sweep in ${dir}:`, e.message);
     }
   };
 
-  sweep(tempDir);
+  await sweep(tempDir);
 }
 
 function saveDB(db) {
@@ -63,7 +62,6 @@ function saveDB(db) {
     }
   }
 
-  cleanupTemp();
   fs.writeFileSync(dbPath, JSON.stringify(db, null, 2));
 }
 
@@ -254,14 +252,16 @@ function createHandlerContext(target, options = {}) {
   ctx.finalize = async (jobId, format, foundEmbed, options = {}) => {
     if (options.isCommand && options.type && format) {
       const { startDownload } = require("./callbacks");
-      return await startDownload(target, jobId, format, { statusMsg: ctx.statusMsg });
+      return await startDownload(target, jobId, format, {
+        statusMsg: ctx.statusMsg,
+      });
     }
-    
+
     const editPayload = { embeds: [foundEmbed] };
     if (options.components) {
       editPayload.components = options.components;
     }
-    
+
     const resMsg = await ctx.editResponse(editPayload);
     return { jobId, statusMsg: resMsg, ...(options.extraRet || {}) };
   };

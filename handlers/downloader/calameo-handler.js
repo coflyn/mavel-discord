@@ -9,7 +9,7 @@ const colors = require("../../utils/embed-colors");
 async function runCalameoFlow(target, url, options = {}) {
   const ctx = createHandlerContext(target, options);
   const MAG = ctx.getEmoji("camera", "📕");
-  const LEA = ctx.getEmoji("check", "✅");
+  const CHECK = ctx.getEmoji("check", "✅");
   const NOTIF = ctx.getEmoji("notif", "🔔");
   await ctx.init("Searching...", "Finding the publication...", { silent: true });
 
@@ -121,7 +121,7 @@ const { getTempDir } = require("../../utils/filetools");
       .setColor(colors.DOCUMENT)
       .setTitle(`${MAG} **Calaméo Ready**`)
       .setDescription(
-        `### ${LEA} **Processing Complete**\n` +
+        `### ${CHECK} **Processing Complete**\n` +
           `${ctx.ARROW} **Title:** *${docTitle}*\n` +
           `${ctx.ARROW} **Platform:** *CALAMEO*\n\n` +
           `*Bundling Ultra-HD pages into PDF...*`,

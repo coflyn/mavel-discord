@@ -10,7 +10,7 @@ const { getTempDir } = require("../../utils/filetools");
 
 async function runAcademiaFlow(target, url, options = {}) {
   const ctx = createHandlerContext(target, options);
-  const LEA = ctx.getEmoji("check", "✅");
+  const CHECK = ctx.getEmoji("check", "✅");
   const NOTIF = ctx.getEmoji("notif", "🔔");
   const BOOK = ctx.getEmoji("camera", "📖");
   await ctx.init("Searching...", "Finding the document...", { silent: true });
@@ -123,7 +123,7 @@ async function runAcademiaFlow(target, url, options = {}) {
       .setColor(colors.CORE)
       .setTitle(`${BOOK} **Academia Document Ready**`)
       .setDescription(
-        `### ${LEA} **Finished!**\n` +
+        `### ${CHECK} **Finished!**\n` +
           `${ctx.ARROW} **Title:** *${docTitle}*\n` +
           `${ctx.ARROW} **Pages:** *${pageCount}*\n\n` +
           `*Making your PDF file now...*`,

@@ -9,7 +9,7 @@ const { createJob, createHandlerContext, generateJobId } = require("./core-helpe
 async function runKomikuFlow(target, url, options = {}) {
   const ctx = createHandlerContext(target, options);
   const MANGA = ctx.getEmoji("camera", "🎌");
-  const LEA = ctx.getEmoji("check", "✅");
+  const CHECK = ctx.getEmoji("check", "✅");
 
   await ctx.init("Reading Komiku", "Opening browser...");
 
@@ -134,7 +134,7 @@ const { getTempDir } = require("../../utils/filetools");
       .setColor(colors.DOCUMENT)
       .setTitle(`${MANGA} **Komiku Chapter Ready**`)
       .setDescription(
-        `### ${LEA} **Processing Complete**\n` +
+        `### ${CHECK} **Processing Complete**\n` +
           `${ctx.ARROW} **Title:** *${docTitle}*\n` +
           `${ctx.ARROW} **Pages:** *${localPaths.length} Panels*\n` +
           `${ctx.ARROW} **Link:** [Original Link](<${url}>)\n\n` +

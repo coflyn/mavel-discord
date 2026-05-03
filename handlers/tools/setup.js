@@ -36,7 +36,7 @@ module.exports = async function setupHandler(interaction) {
   const TEMPLE = resolveEmoji(interaction.guild, "megaphone", "🏛️");
   const ADMIN = resolveEmoji(interaction.guild, "diamond", "🛡️");
   const CHECK = resolveEmoji(interaction.guild, "ping_green", "✅");
-  const LEA = resolveEmoji(interaction.guild, "lea", "👥");
+  const LEA = resolveEmoji(interaction.guild, "lea", "👤");
 
   let currentCategory = "download";
 
@@ -46,6 +46,7 @@ module.exports = async function setupHandler(interaction) {
       logs: "General Logs",
       music: "Music Control",
       gateway: "Gateway (Welcome/Goodbye)",
+      reports: "User Reports/Bugs",
       private: "Private Admin",
       autorole: "Auto Role (New Members)",
     };
@@ -64,6 +65,7 @@ module.exports = async function setupHandler(interaction) {
           `${ARROW} **Music:** <#${config.musicChannelId || "Not Set"}>\n` +
           `${ARROW} **Gateway:** <#${config.gatewayChannelId || "Not Set"}>\n` +
           `${ARROW} **Private Admin:** <#${config.adminChannelId || "Not Set"}>\n` +
+          `${ARROW} **User Reports:** <#${config.reportsChannelId || "Not Set"}>\n` +
           `${ARROW} **Auto Role:** \`${roleName}\``,
       })
       .setFooter({ text: "1. Pick Category -> 2. Select Channel/Role -> 3. Finish" });
@@ -80,6 +82,7 @@ module.exports = async function setupHandler(interaction) {
             { label: "General Logs Channel", value: "logs", emoji: LOGS, default: currentCategory === "logs" },
             { label: "Music Control Channel", value: "music", emoji: MUSIC, default: currentCategory === "music" },
             { label: "Gateway (Welcome/Env)", value: "gateway", emoji: TEMPLE, default: currentCategory === "gateway" },
+            { label: "User Reports/Bugs", value: "reports", emoji: NOTIF, default: currentCategory === "reports" },
             { label: "Private Admin Channel", value: "private", emoji: ADMIN, default: currentCategory === "private" },
             { label: "Auto Role Member", value: "autorole", emoji: LEA, default: currentCategory === "autorole" },
           ])
@@ -182,6 +185,9 @@ module.exports = async function setupHandler(interaction) {
         } else if (currentCategory === "private") {
           settings.adminChannelId = channelId;
           config.adminChannelId = channelId;
+        } else if (currentCategory === "reports") {
+          settings.reportsChannelId = channelId;
+          config.reportsChannelId = channelId;
         }
 
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));

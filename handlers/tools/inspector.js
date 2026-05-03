@@ -6,6 +6,7 @@ const http = require("../../utils/http");
 const colors = require("../../utils/embed-colors");
 const { getTempDir } = require("../../utils/filetools");
 const { resolveEmoji } = require("../../utils/emoji-helper");
+const config = require("../../config");
 
 module.exports = async function inspectorHandler(interaction) {
   await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
@@ -37,7 +38,7 @@ module.exports = async function inspectorHandler(interaction) {
           );
         }
         if (filesToProcess.length === 0 && currentMsg.embeds.length > 0) {
-          const botBanner = require("../../config").botBanner || "";
+          const botBanner = config.botBanner || "";
           currentMsg.embeds.forEach((embed) => {
             const mediaUrl =
               embed.image?.url ||

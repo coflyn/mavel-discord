@@ -2,8 +2,9 @@ const { getPage } = require("../../utils/browser");
 const fs = require("fs");
 const path = require("path");
 const { EmbedBuilder } = require("discord.js");
-const { createJob, createHandlerContext } = require("./core-helpers");
+const { createJob, createHandlerContext, generateJobId } = require("./core-helpers");
 const http = require("../../utils/http");
+const colors = require("../../utils/embed-colors");
 const { getTempDir } = require("../../utils/filetools");
 
 async function runDPlayerFlow(target, url, options = {}) {
@@ -67,7 +68,7 @@ async function runDPlayerFlow(target, url, options = {}) {
       (await page.title()).split(" - DocPlayer")[0].trim() ||
       "DocPlayer Document";
 
-    const pdfResponse = await context.request.get(capturedPdfUrl, {
+    const pdfResponse = await page.context().request.get(capturedPdfUrl, {
       headers: capturedHeaders,
     });
     const pdfBuffer = await pdfResponse.body();
@@ -76,8 +77,6 @@ async function runDPlayerFlow(target, url, options = {}) {
 
     const tempDir = getTempDir();
 
-    const { generateJobId } = require("./core-helpers");
-const colors = require("../../utils/embed-colors");
     const jobId = generateJobId();
     const outputPath = path.join(tempDir, `dp_${jobId}.pdf`);
     fs.writeFileSync(outputPath, pdfBuffer);
@@ -96,12 +95,12 @@ const colors = require("../../utils/embed-colors");
       directUrl: outputPath,
     });
 
-    const LEA = ctx.getEmoji("check", "✅");
+    const CHECK = ctx.getEmoji("check", "✅");
     const foundEmbed = new EmbedBuilder()
       .setColor(colors.DOCUMENT)
       .setTitle(`${DOC} **DocPlayer Ready**`)
       .setDescription(
-        `### ${LEA} **Source Captured**\n` +
+        `### ${CHECK} **Source Captured**\n` +
           `${ctx.ARROW} **Title:** *${docTitle}*\n` +
           `${ctx.ARROW} **Platform:** *DOCPLAYER*\n\n` +
           `*Finalizing file and sending to chat...*`,

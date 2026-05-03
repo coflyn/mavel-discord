@@ -153,15 +153,14 @@ async function runThreadsFlow(target, url, options = {}) {
       directUrl: videoUrl || imageUrl,
     });
 
-    const LEA = ctx.getEmoji("ping_green", "✅");
+    const CHECK = ctx.getEmoji("check", "✅");
     const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
       .setColor(colors.SOCIAL)
-      .setTitle(`${NOTIF} **Threads Post Found**`)
-      .setThumbnail(imageUrl || "")
+      .setTitle(`${NOTIF} **Threads Content Found**`)
       .setDescription(
-        `### ${LEA} **Media Found**\n` +
+        `### ${CHECK} **Media Ready**\n` +
           `${ctx.ARROW} **Title:** *${displayTitle}*\n` +
           `${ctx.ARROW} **Type:** *${videoUrl ? "Video" : "Photo"}*\n` +
           `${ctx.ARROW} **Author:** *${author || "Threads User"}*\n\n` +

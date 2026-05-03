@@ -68,9 +68,9 @@ async function runYtDlpFlow(target, url, options = {}) {
   const getEmoji = (name, fallback) => resolveEmoji(guild, name, fallback);
 
   const ARROW = getEmoji("arrow", "•");
-  const AMOGUS = getEmoji("lea", "🛰️");
+  const LEA = getEmoji("lea", "🛰️");
   const FIRE = getEmoji("purple_fire", "🔥");
-  const E_SUCCESS = getEmoji("ping_green", "✅");
+  const CHECK = getEmoji("check", "✅");
   const E_ERROR = getEmoji("ping_red", "❌");
 
   const initialEmbed = getStatusEmbed(
@@ -367,7 +367,9 @@ async function runYtDlpFlow(target, url, options = {}) {
         }
       } else {
         try {
-          const json = JSON.parse(metadata.trim().split("\n")[0]);
+          const jsonStr = metadata.trim().split("\n").find(l => l.trim().startsWith("{"));
+          if (!jsonStr) throw new Error("No JSON metadata found");
+          const json = JSON.parse(jsonStr);
           const hasVideo = json.formats?.some(
             (f) => f.vcodec !== "none" && f.vcodec !== undefined,
           );
@@ -447,7 +449,7 @@ async function runYtDlpFlow(target, url, options = {}) {
         .setTitle(`${FIRE} **Media Found**`)
         .setImage(botBanner)
         .setDescription(
-          `### ${E_SUCCESS} **Link Found**\n` +
+          `### ${CHECK} **Link Found**\n` +
             `${ARROW} **Topic:** *${safeTitle}*\n` +
             `${ARROW} **Platform:** *${finalPlatform.toUpperCase()}*\n\n` +
             `**${formatNumber(likes)}** *Likes*  •  **${formatNumber(comments)}** *Comments*  •  **${formatNumber(views)}** *Views*`,

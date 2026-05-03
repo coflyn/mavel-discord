@@ -23,44 +23,76 @@ const downloaderHandler = require("../handlers/downloader");
 const converterHandler = require("../handlers/tools/converter");
 const { syncMissingEmojis } = require("../handlers/tools/emoji");
 const { resolveEmoji } = require("../utils/emoji-helper");
+const modalHandler = require("../handlers/tools/modal-handler");
 
 const settingsPath = path.join(__dirname, "../database/settings.json");
+let settingsCache = null;
+let lastSettingsRead = 0;
+const SETTINGS_REFRESH_INTERVAL = 10000;
+
 const cooldowns = new Map();
 const COOLDOWN_TIME = 60000;
 const MAX_COMMANDS_PER_WINDOW = 2;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of cooldowns.entries()) {
+    if (typeof value === "object" && !value.start) {
+      let hasRecent = false;
+      for (const cmd in value) {
+        if (now - value[cmd] < 3600000) {
+          hasRecent = true;
+          break;
+        }
+      }
+      if (!hasRecent) cooldowns.delete(key);
+    } else if (value.start && now - value.start > COOLDOWN_TIME) {
+      cooldowns.delete(key);
+    }
+  }
+}, 600000);
 
 module.exports = {
   name: "interactionCreate",
   async execute(interaction, client) {
     try {
-      if (fs.existsSync(settingsPath)) {
-        const settings = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
-        if (settings.isHibernating) {
-          const isWakeup =
-            interaction.isChatInputCommand?.() &&
-            interaction.commandName === "wakeup";
-          const isAutocomplete = interaction.isAutocomplete?.();
-          if (!isWakeup && !isAutocomplete) {
-            if (!interaction.replied && !interaction.deferred) {
-              await interaction
-                .reply({
-                  content:
-                    "💤 *MaveL is currently in sleep mode. Use `/wakeup` to wake the bot.*",
-                  flags: [MessageFlags.Ephemeral],
-                })
-                .catch(() => {});
-              setTimeout(
-                () => interaction.deleteReply().catch(() => {}),
-                10000,
-              );
-            }
-            return;
+      const now = Date.now();
+      if (
+        !settingsCache ||
+        now - lastSettingsRead > SETTINGS_REFRESH_INTERVAL
+      ) {
+        if (fs.existsSync(settingsPath)) {
+          settingsCache = JSON.parse(fs.readFileSync(settingsPath, "utf-8"));
+          lastSettingsRead = now;
+        }
+      }
+
+      if (settingsCache?.isHibernating) {
+        const isWakeup =
+          interaction.isChatInputCommand?.() &&
+          interaction.commandName === "wakeup";
+        const isAutocomplete = interaction.isAutocomplete?.();
+        if (!isWakeup && !isAutocomplete) {
+          if (!interaction.replied && !interaction.deferred) {
+            await interaction
+              .reply({
+                content:
+                  "💤 *MaveL is currently in sleep mode. Use `/wakeup` to wake the bot.*",
+                flags: [MessageFlags.Ephemeral],
+              })
+              .catch(() => {});
+            setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
           }
+          return;
         }
       }
     } catch (e) {}
 
     try {
+      if (interaction.isModalSubmit()) {
+        return await modalHandler(interaction);
+      }
+
       if (interaction.isAutocomplete()) {
         const { commandName } = interaction;
         if (commandName === "playlist") {
@@ -418,20 +450,24 @@ module.exports = {
               console.error("[DM-INVITE-GEN] Error:", e.message);
             }
 
+            const LEA = resolveEmoji(null, "lea", "🛰️");
+            const ARROW = resolveEmoji(null, "arrow", "»");
+            const ANNO = resolveEmoji(null, "anno", "📢");
+
             const embed = new EmbedBuilder()
               .setColor("#d63031")
               .setAuthor({
                 name: "MaveL System Notice",
                 iconURL: client.user.displayAvatarURL(),
               })
-              .setTitle("🛰️ **System Notice**")
+              .setTitle(`${LEA} **System Notice**`)
               .setDescription(
                 `### **Commands Disabled in DMs**\n` +
                   `*To maintain stability and performance, MaveL commands are restricted to **Official Server Channels**.*\n\n` +
-                  `**Why is this restricted?**\n` +
-                  `• *Stable media processing*\n` +
-                  `• *Reliable download speeds*\n` +
-                  `• *Official support access*\n\n` +
+                  `**${ANNO} Why is this restricted?**\n` +
+                  `${ARROW} *Stable media processing*\n` +
+                  `${ARROW} *Reliable download speeds*\n` +
+                  `${ARROW} *Official support access*\n\n` +
                   `Please use MaveL within our **[Official Discord Server](${serverInvite})** to access all features and tools.`,
               )
               .setFooter({ text: "MaveL Security System" })
@@ -476,6 +512,8 @@ module.exports = {
             config.adminChannelId &&
             interaction.channel.id === config.adminChannelId;
           const PING_RED = resolveEmoji(interaction.guild, "ping_red", "🔴");
+          const NOTIF = resolveEmoji(interaction.guild, "notif", "🔔");
+          const TIME = resolveEmoji(interaction.guild, "time", "⌛");
 
           if (command.category === "music") {
             if (!isMusicChannel && !isAdminChannel) {
@@ -511,6 +549,71 @@ module.exports = {
                 );
             }
           }
+
+          const now = Date.now();
+          const globalKey = `${interaction.user.id}_global`;
+          const globalData = cooldowns.get(globalKey) || {
+            count: 0,
+            start: now,
+          };
+
+          if (now - globalData.start > COOLDOWN_TIME) {
+            globalData.count = 0;
+            globalData.start = now;
+          }
+
+          if (globalData.count >= MAX_COMMANDS_PER_WINDOW) {
+            const waitTime = Math.ceil(
+              (COOLDOWN_TIME - (now - globalData.start)) / 1000,
+            );
+            return interaction
+              .reply({
+                content: `### ${PING_RED} **Rate Limit Reached**\n*MaveL only allows **${MAX_COMMANDS_PER_WINDOW} commands per minute** to maintain stability. Try again in **${waitTime}s**.*`,
+                flags: [MessageFlags.Ephemeral],
+              })
+              .then(() =>
+                setTimeout(
+                  () => interaction.deleteReply().catch(() => {}),
+                  10000,
+                ),
+              );
+          }
+
+          globalData.count++;
+          cooldowns.set(globalKey, globalData);
+
+          const categoryCooldowns = {
+            downloader: 15000,
+            search: 10000,
+            music: 5000,
+            tools: command.name === "ss" ? 30000 : 3000,
+          };
+
+          const cooldownAmount =
+            command.cooldown || categoryCooldowns[command.category] || 3000;
+          const userCooldowns = cooldowns.get(interaction.user.id) || {};
+          const lastUsed = userCooldowns[command.name] || 0;
+
+          if (now - lastUsed < cooldownAmount) {
+            const timeLeft = (
+              (cooldownAmount - (now - lastUsed)) /
+              1000
+            ).toFixed(1);
+            return interaction
+              .reply({
+                content: `### ${TIME} **Cooldown Active**\n*Please wait **${timeLeft}s** before using \`/${command.name}\` again to keep MaveL stable.*`,
+                flags: [MessageFlags.Ephemeral],
+              })
+              .then(() =>
+                setTimeout(
+                  () => interaction.deleteReply().catch(() => {}),
+                  5000,
+                ),
+              );
+          }
+
+          userCooldowns[command.name] = now;
+          cooldowns.set(interaction.user.id, userCooldowns);
 
           await command.execute(interaction, client);
         }

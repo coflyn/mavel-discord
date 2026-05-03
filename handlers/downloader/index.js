@@ -57,7 +57,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
     const DOTS = getEmoji("three_dots", "🎵");
     const COIN = getEmoji("coin", "☁️");
     const FIRE = getEmoji("purple_fire", "✨");
-    const LEA = getEmoji("ping_green", "✅");
+    const CHECK = getEmoji("check", "✅");
 
     const botUser = await target.client.user.fetch();
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
@@ -100,7 +100,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
           inline: false,
         },
         {
-          name: `|| ${LEA} **Restricted Content** ||`,
+          name: `|| ${CHECK} **Restricted Content** ||`,
           value: `|| ${ARROW} *nhentai, Pornhub, XNXX, XVideos, EPorner, DoujinDesu* ||`,
           inline: false,
         },

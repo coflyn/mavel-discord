@@ -176,48 +176,58 @@ async function handlePurge(interaction) {
 }
 
 async function handleBackup(interaction) {
+  const { spawn } = require("child_process");
+  const { getAssetUrl } = require("../../utils/tunnel-server");
   const dbDir = path.join(__dirname, "../../database");
-  const backupDir = path.join(dbDir, "backups");
-  if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+  const tempDir = getTempDir();
 
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const currentBackupDir = path.join(backupDir, `backup-${timestamp}`);
-  fs.mkdirSync(currentBackupDir);
+  const zipName = `backup-${timestamp}.zip`;
+  const zipPath = path.join(tempDir, zipName);
 
-  advanceLog(interaction.client, {
-    type: "admin",
-    title: "Data Backup",
-    activity: "Database Backup",
-    message: `System database backup created: \`backup-${timestamp}\``,
-    user: `${interaction.user.tag}`,
-    guild: interaction.guild.name,
-  });
-
-  const files = fs.readdirSync(dbDir).filter((f) => f.endsWith(".json"));
-  const attachments = [];
-
-  files.forEach((f) => {
-    const filePath = path.join(dbDir, f);
-    fs.copyFileSync(filePath, path.join(currentBackupDir, f));
-    attachments.push(new AttachmentBuilder(filePath));
-  });
-
-  const LEA = resolveEmoji(interaction.guild, "ping_green", "✅");
+  const CHECK = resolveEmoji(interaction.guild, "ping_green", "✅");
+  const TIME = resolveEmoji(interaction.guild, "time", "⌛");
 
   await (interaction.deferred
     ? interaction.editReply({
-        content: `### ${LEA} **Backup Successful**\n*The System Logs have been saved and sent to this channel. File: \`backup-${timestamp}\`*`,
-        files: attachments,
+        content: `### ${TIME} **Creating Backup...**\n*Packaging database files into a secure archive...*`,
       })
     : interaction.reply({
-        content: `### ${LEA} **Backup Successful**\n*The System Logs have been saved and sent to this channel. File: \`backup-${timestamp}\`*`,
-        files: attachments,
+        content: `### ${TIME} **Creating Backup...**\n*Packaging database files into a secure archive...*`,
         flags: [MessageFlags.Ephemeral],
       }));
-  setTimeout(() => interaction.deleteReply().catch(() => {}), 180000);
+
+  const zipProcess = spawn("zip", ["-j", zipPath, path.join(dbDir, "*.json")]);
+
+  zipProcess.on("close", async (code) => {
+    if (code !== 0) {
+      console.error(`[BACKUP] Zip failed with code ${code}`);
+      return interaction.editReply({
+        content: "*Error: Failed to create database backup archive.*",
+      });
+    }
+
+    advanceLog(interaction.client, {
+      type: "admin",
+      title: "Data Backup",
+      activity: "Database Backup",
+      message: `System database backup created: \`${zipName}\``,
+      user: `${interaction.user.tag}`,
+      guild: interaction.guild.name,
+    });
+
+    const publicUrl = getAssetUrl(zipName);
+    const downloadLink = publicUrl ? `**[DOWNLOAD DATABASE BACKUP](${publicUrl})**` : "*Tunnel offline. Link unavailable.*";
+
+    await interaction.editReply({
+      content: `### ${CHECK} **Backup Successful**\n*The database has been archived and hosted securely.*\n\n${downloadLink}\n\n*This link will expire in 10 minutes.*`,
+    });
+
+    setTimeout(() => {
+      if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+    }, 10 * 60 * 1000);
+  });
 }
-
-
 
 async function handleLogs(interaction) {
   const logPath = path.join(__dirname, "../../bot.log");

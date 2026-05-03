@@ -35,15 +35,15 @@ async function runSpotifyFlow(target, url, options = {}) {
         const botUser = await target.client.user.fetch();
         const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
-        const LEA = ctx.getEmoji("ping_green", "✅");
+        const CHECK = ctx.getEmoji("check", "✅");
         const NOTIF = ctx.getEmoji("notif", "🔔");
 
         const foundEmbed = new EmbedBuilder()
             .setColor(colors.MUSIC_DL)
-            .setTitle(`${NOTIF} **Spotify Link Found**`)
+            .setTitle(`${NOTIF} **Spotify Track Found**`)
             .setThumbnail(thumbnail)
             .setDescription(
-                `### ${LEA} *Link Found*\n` +
+                `### ${CHECK} **Ready to Download**\n` +
                 `${ctx.ARROW} **Track:** *${trackName}*\n` +
                 `${ctx.ARROW} **Artist:** *${artist}*\n` +
                 `${ctx.ARROW} **Type:** *Song Info*\n\n` +

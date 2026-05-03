@@ -2,6 +2,7 @@ const http = require("../../utils/http");
 const { EmbedBuilder, MessageFlags, AttachmentBuilder } = require("discord.js");
 const colors = require("../../utils/embed-colors");
 const { resolveEmoji } = require("../../utils/emoji-helper");
+const config = require("../../config");
 const { getPage } = require("../../utils/browser");
 const fs = require("fs");
 const path = require("path");
@@ -127,7 +128,7 @@ module.exports = async function traceHandler(interaction) {
             .catch(() => {});
         }
 
-        await page.waitForTimeout(5000);
+        await new Promise((r) => setTimeout(r, 5000));
 
         let results = await page.evaluate(() => {
           const findTitles = () => {
@@ -182,7 +183,7 @@ module.exports = async function traceHandler(interaction) {
           await page
             .goto(yandexUrl, { waitUntil: "networkidle", timeout: 30000 })
             .catch(() => {});
-          await page.waitForTimeout(2000);
+          await new Promise((r) => setTimeout(r, 2000));
 
           const yanResults = await page.evaluate(() => {
             const titles = Array.from(

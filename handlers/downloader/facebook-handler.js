@@ -69,7 +69,7 @@ async function runFacebookFlow(target, url, options = {}) {
       directUrl: videoUrl || imageUrl,
     });
 
-    const LEA = ctx.getEmoji("ping_green", "✅");
+    const CHECK = ctx.getEmoji("check", "✅");
     const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
@@ -77,14 +77,15 @@ async function runFacebookFlow(target, url, options = {}) {
       .setTitle(`${NOTIF} **Facebook Video Found**`)
       .setThumbnail(imageUrl || "")
       .setDescription(
-        `### ${LEA} **File Found**\n` +
+        `### ${CHECK} **File Found**\n` +
           `${ctx.ARROW} **Title:** *${title}*\n` +
           `${ctx.ARROW} **Type:** *${videoUrl ? "Video" : "Photo"}*\n` +
           `${ctx.ARROW} **Author:** *${author}*\n\n` +
           `*Everything is ready. Starting the download...*`,
       );
 
-    const finalFormat = options?.type === "mp3" ? "mp3" : videoUrl ? "mp4" : "photo";
+    const finalFormat =
+      options?.type === "mp3" ? "mp3" : videoUrl ? "mp4" : "photo";
     return await ctx.finalize(jobId, finalFormat, foundEmbed, { ...options });
   } catch (e) {
     console.error("[FB-FLOW] Error:", e.message);

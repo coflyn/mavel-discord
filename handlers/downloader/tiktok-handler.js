@@ -6,7 +6,11 @@ const {
   ButtonStyle,
   MessageFlags,
 } = require("discord.js");
-const { createJob, createHandlerContext, formatNumber } = require("./core-helpers");
+const {
+  createJob,
+  createHandlerContext,
+  formatNumber,
+} = require("./core-helpers");
 const { startDownload } = require("./callbacks");
 const colors = require("../../utils/embed-colors");
 
@@ -18,7 +22,7 @@ async function runTikTokFlow(target, url, options = {}) {
     const cleanUrl = url.split("?")[0].split("#")[0];
     const res = await http.get(
       `https://www.tikwm.com/api/?url=${encodeURIComponent(cleanUrl)}`,
-      { timeout: 25000 }
+      { timeout: 25000 },
     );
 
     const data = res.data;
@@ -59,7 +63,7 @@ async function runTikTokFlow(target, url, options = {}) {
     const botUser = await target.client.user.fetch();
     const botBanner = botUser.bannerURL({ dynamic: true, size: 1024 });
 
-    const LEA = ctx.getEmoji("ping_green", "✅");
+    const CHECK = ctx.getEmoji("check", "✅");
     const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
@@ -67,7 +71,7 @@ async function runTikTokFlow(target, url, options = {}) {
       .setTitle(`${NOTIF} **TikTok Found**`)
       .setThumbnail(formatUrl(cover))
       .setDescription(
-        `### ${LEA} *Link Found*\n` +
+        `### ${CHECK} *Link Found*\n` +
           `${ctx.ARROW} **Topic:** *${title.substring(0, 100)}*\n` +
           `${ctx.ARROW} **Author:** *${author}*\n` +
           `${ctx.ARROW} **Quality:** *HD (No Watermark)*\n\n` +
@@ -107,8 +111,12 @@ async function runTikTokFlow(target, url, options = {}) {
       components.push(row);
     }
 
-    const finalFormat = options?.type === "mp3" ? "mp3" : isGallery ? "tkgallery" : "mp4";
-    return await ctx.finalize(jobId, finalFormat, foundEmbed, {...options,  extraRet: { isGallery }});
+    const finalFormat =
+      options?.type === "mp3" ? "mp3" : isGallery ? "tkgallery" : "mp4";
+    return await ctx.finalize(jobId, finalFormat, foundEmbed, {
+      ...options,
+      extraRet: { isGallery },
+    });
   } catch (e) {
     console.error("[TIKTOK-FLOW] Error:", e.message);
     await ctx.editResponse({

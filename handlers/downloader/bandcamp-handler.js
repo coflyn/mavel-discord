@@ -65,15 +65,15 @@ async function runBandcampFlow(target, url, options = {}) {
       directUrl: json.url || null,
     });
 
-    const LEA = ctx.getEmoji("ping_green", "✅");
+    const CHECK = ctx.getEmoji("check", "✅");
     const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const foundEmbed = new EmbedBuilder()
       .setColor(colors.MUSIC_DL)
-      .setTitle(`${NOTIF} **Bandcamp Audio Ready**`)
+      .setTitle(`${NOTIF} **Bandcamp Content Found**`)
       .setThumbnail(thumbnail)
       .setDescription(
-        `### ${LEA} *Song Found*\n` +
+        `### ${CHECK} **Ready to Download**\n` +
           `${ctx.ARROW} **Title:** *${isAlbum ? `[Album] ${trackTitle}` : trackTitle}*\n` +
           `${ctx.ARROW} **Artist:** *${artist}*\n` +
           `${ctx.ARROW} **Type:** *${isAlbum ? "Album" : "Track"}*\n\n` +

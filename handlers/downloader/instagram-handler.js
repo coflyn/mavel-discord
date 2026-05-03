@@ -8,14 +8,15 @@ const {
   MessageFlags,
 } = require("discord.js");
 const { createJob, createHandlerContext } = require("./core-helpers");
+const colors = require("../../utils/embed-colors");
 
 async function runInstagramFlow(target, url, options = {}) {
   const ctx = createHandlerContext(target, options);
   await ctx.init("Instagram Link Found", "Getting post info...");
 
-
   try {
     const cleanUrl = url.includes("?") ? url.split("?")[0] : url;
+    const finalPlatform = "Instagram";
     const isReel =
       cleanUrl.includes("/reel/") ||
       cleanUrl.includes("/reels/") ||
@@ -273,8 +274,8 @@ async function runInstagramFlow(target, url, options = {}) {
           allImages = tempImages;
         }
 
-        const isReel = cleanUrl.includes("/reel/");
-        isVideo = !!directVideo && (isReel || !fallbackImage);
+        const isReelShort = cleanUrl.includes("/reel/");
+        isVideo = !!directVideo && (isReelShort || !fallbackImage);
 
         if (directVideo && allImages.length > 0) {
           isMix = true;
@@ -295,10 +296,7 @@ async function runInstagramFlow(target, url, options = {}) {
       } catch (e) {
         await ctx.editResponse({
           embeds: [
-            ctx.statusEmbed(
-              "Instagram Link Lost",
-              "Starting the download...",
-            ),
+            ctx.statusEmbed("Instagram Link Lost", "Starting the download..."),
           ],
         });
 
@@ -518,7 +516,7 @@ async function runInstagramFlow(target, url, options = {}) {
       allImages,
     });
 
-    const LEA = ctx.getEmoji("ping_green", "✅");
+    const CHECK = ctx.getEmoji("check", "✅");
     const NOTIF = ctx.getEmoji("notif", "🔔");
 
     const formatDuration = (s) => {
@@ -533,7 +531,7 @@ async function runInstagramFlow(target, url, options = {}) {
       .setColor(colors.SOCIAL)
       .setTitle(`${NOTIF} **Instagram Post Found**`)
       .setDescription(
-        `### ${LEA} **Post Found**\n` +
+        `### ${CHECK} **Post Found**\n` +
           `${ctx.ARROW} **Author:** *${author}*\n` +
           `${ctx.ARROW} **Type:** *Instagram ${isMix ? "Mixed Files" : isVideo ? "Video/Reel" : allImages.length > 1 ? `Gallery (${allImages.length})` : "Photo"}*\n` +
           `${ctx.ARROW} **Title:** *${title || "Instagram Media"}*\n` +
@@ -587,8 +585,19 @@ async function runInstagramFlow(target, url, options = {}) {
 
     const components = [row];
 
-    const finalFormat = options?.type === "mp3" ? "mp3" : isVideo ? "mp4" : allImages.length > 1 ? "iggallery" : "photo";
-    return await ctx.finalize(jobId, finalFormat, foundEmbed, {...options,  extraRet: { isGallery: !isVideo && allImages.length > 1, isVideo },  components: options.isCommand ? components : []});
+    const finalFormat =
+      options?.type === "mp3"
+        ? "mp3"
+        : isVideo
+          ? "mp4"
+          : allImages.length > 1
+            ? "twgallery"
+            : "photo";
+    return await ctx.finalize(jobId, finalFormat, foundEmbed, {
+      ...options,
+      extraRet: { isGallery: !isVideo && allImages.length > 1, isVideo },
+      components: options.isCommand ? components : [],
+    });
   } catch (e) {
     console.error("[INSTA-FLOW] Error:", e.message);
     return null;

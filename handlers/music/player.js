@@ -7,6 +7,7 @@ const {
   AudioPlayerStatus,
   VoiceConnectionStatus,
   getVoiceConnection,
+  entersState,
 } = require("@discordjs/voice");
 const {
   EmbedBuilder,
@@ -30,6 +31,26 @@ const { advanceLog } = require("../../utils/logger");
 const colors = require("../../utils/embed-colors");
 const CACHE_DIR = path.join(getTempDir(), "cache");
 if (!fs.existsSync(CACHE_DIR)) fs.mkdirSync(CACHE_DIR, { recursive: true });
+
+setInterval(
+  () => {
+    fs.readdir(CACHE_DIR, (err, files) => {
+      if (err) return;
+      const now = Date.now();
+      files.forEach((file) => {
+        if (!file.endsWith(".s16le") && !file.endsWith(".tmp")) return;
+        const filePath = path.join(CACHE_DIR, file);
+        fs.stat(filePath, (err, stats) => {
+          if (err) return;
+          if (now - stats.mtimeMs > 2 * 60 * 60 * 1000) {
+            fs.unlink(filePath, () => {});
+          }
+        });
+      });
+    });
+  },
+  60 * 60 * 1000,
+);
 
 class MusicPlayer {
   constructor() {
@@ -90,16 +111,36 @@ class MusicPlayer {
           ...getVpsArgs(),
           url,
         ]);
-        let out = "";
+        const timeout = setTimeout(() => {
+          try {
+            ytProcess.kill();
+          } catch (e) {}
+        }, 15000);
+
         ytProcess.stdout.on("data", (d) => (out += d));
-        await new Promise((r) => ytProcess.on("close", r));
+        await new Promise((r) => {
+          ytProcess.on("close", () => {
+            clearTimeout(timeout);
+            r();
+          });
+          ytProcess.on("error", () => {
+            clearTimeout(timeout);
+            r();
+          });
+        });
         if (out.trim()) realTitle = out.trim();
       } catch (e) {
         console.error("[MUSIC-PLAY] Title fetch error:", e.message);
       }
     }
 
-    state.queue.push({ url, title: realTitle, requestedBy: author.id });
+    const newTrack = { url, title: realTitle, requestedBy: author.id };
+    if (state.shuffle && state.queue.length > 0) {
+      const insertIndex = Math.floor(Math.random() * (state.queue.length + 1));
+      state.queue.splice(insertIndex, 0, newTrack);
+    } else {
+      state.queue.push(newTrack);
+    }
 
     if (!state.connection) {
       state.connection = joinVoiceChannel({
@@ -110,8 +151,23 @@ class MusicPlayer {
 
       state.connection.subscribe(state.player);
 
-      state.connection.on(VoiceConnectionStatus.Disconnected, () => {
-        this.stop(guildId);
+      state.connection.on(VoiceConnectionStatus.Disconnected, async () => {
+        try {
+          await Promise.race([
+            entersState(
+              state.connection,
+              VoiceConnectionStatus.Signalling,
+              5000,
+            ),
+            entersState(
+              state.connection,
+              VoiceConnectionStatus.Connecting,
+              5000,
+            ),
+          ]);
+        } catch (error) {
+          this.stop(guildId);
+        }
       });
 
       state.player.on(AudioPlayerStatus.Idle, () => {
@@ -157,11 +213,19 @@ class MusicPlayer {
     state.channel = target.channel;
 
     for (const t of tracks) {
-      state.queue.push({
+      const newTrack = {
         url: t.url,
         title: t.title || "Track",
         requestedBy: author.id,
-      });
+      };
+      if (state.shuffle && state.queue.length > 0) {
+        const insertIndex = Math.floor(
+          Math.random() * (state.queue.length + 1),
+        );
+        state.queue.splice(insertIndex, 0, newTrack);
+      } else {
+        state.queue.push(newTrack);
+      }
     }
 
     if (!state.connection) {
@@ -171,9 +235,24 @@ class MusicPlayer {
         adapterCreator: target.guild.voiceAdapterCreator,
       });
       state.connection.subscribe(state.player);
-      state.connection.on(VoiceConnectionStatus.Disconnected, () =>
-        this.stop(guildId),
-      );
+      state.connection.on(VoiceConnectionStatus.Disconnected, async () => {
+        try {
+          await Promise.race([
+            entersState(
+              state.connection,
+              VoiceConnectionStatus.Signalling,
+              5000,
+            ),
+            entersState(
+              state.connection,
+              VoiceConnectionStatus.Connecting,
+              5000,
+            ),
+          ]);
+        } catch (error) {
+          this.stop(guildId);
+        }
+      });
       state.player.on(AudioPlayerStatus.Idle, () => this.playNext(guildId));
     }
 
@@ -214,12 +293,13 @@ class MusicPlayer {
     }
 
     if (state.current) {
-      if (state.repeatMode === "one") {
+      if (state.repeatMode === "one" && !state.skipRequested) {
         state.queue.unshift(state.current);
       } else if (state.repeatMode === "all") {
         state.queue.push(state.current);
       }
     }
+    state.skipRequested = false;
 
     if (state.queue.length === 0) {
       state.current = null;
@@ -259,10 +339,7 @@ class MusicPlayer {
       state.pauseTimer = null;
     }
 
-    const trackIndex = state.shuffle
-      ? Math.floor(Math.random() * state.queue.length)
-      : 0;
-    const track = state.queue.splice(trackIndex, 1)[0];
+    const track = state.queue.shift();
     state.current = track;
 
     try {
@@ -279,6 +356,7 @@ class MusicPlayer {
         track.url,
       ];
       const ytProcess = spawn(getYtDlp(), ytArgs, { env: getDlpEnv() });
+      state.activeProcesses.push(ytProcess);
 
       let out = "";
       let err = "";
@@ -301,14 +379,18 @@ class MusicPlayer {
         throw new Error("No metadata JSON found in yt-dlp output");
       }
       const info = JSON.parse(jsonLine);
-      
+
       const isLive = info.is_live || info.live_status === "is_live";
       const duration = info.duration || 0;
       if (isLive || duration > 3600) {
         if (state.channel) {
           const { resolveEmoji } = require("../../utils/emoji-helper");
           const E_WARN = resolveEmoji(state.channel.guild, "ping_red", "🔴");
-          state.channel.send(`${E_WARN} **[BLOCKED]** **${info.title || "Track"}** is ${isLive ? "a Live Stream" : "longer than 1 hour"}.`).catch(() => {});
+          state.channel
+            .send(
+              `${E_WARN} **[BLOCKED]** **${info.title || "Track"}** is ${isLive ? "a Live Stream" : "longer than 1 hour"}.`,
+            )
+            .catch(() => {});
         }
         return this.playNext(guildId);
       }
@@ -507,7 +589,7 @@ class MusicPlayer {
       }
     } catch (e) {
       console.error("[MUSIC-PLAY-NEXT] Error:", e.message);
-      this.playNext(guildId);
+      setTimeout(() => this.playNext(guildId), 2000);
     }
   }
 
@@ -520,14 +602,15 @@ class MusicPlayer {
     const guild = state.channel.guild;
 
     const FIRE = this.getEmoji(guild, "purple_fire", "🔥");
-    const LEA = this.getEmoji(guild, "ping_green", "✅");
+    const CHECK = this.getEmoji(guild, "ping_green", "✅");
     const ARROW = this.getEmoji(guild, "arrow", "»");
 
     const source =
-      track.webpage_url?.includes("bandcamp.com") ||
+      track.extractor_key ||
+      (track.webpage_url?.includes("bandcamp.com") ||
       track.url?.includes("bandcamp.com")
         ? "Bandcamp"
-        : "YouTube";
+        : "YouTube");
 
     let currentStatus = statusOverride;
     if (!currentStatus) {
@@ -536,6 +619,15 @@ class MusicPlayer {
           ? "Streaming Paused"
           : "Now Playing";
     }
+
+    const isStopped =
+      currentStatus.includes("Paused") ||
+      currentStatus.includes("Ended") ||
+      currentStatus.includes("Stopped");
+    const STATUS_EMOJI = isStopped
+      ? this.getEmoji(guild, "ping_red", "🔴")
+      : this.getEmoji(guild, "ping_green", "🟢");
+
     const repeatMode = (state.repeatMode || "OFF").toUpperCase();
     const shuffleMode = state.shuffle ? "ON" : "OFF";
 
@@ -557,7 +649,7 @@ class MusicPlayer {
           `${ARROW} **Length:** *${track.duration_string || "---"}*\n` +
           `${ARROW} **Repeat:** *${repeatMode}*\n` +
           `${ARROW} **Shuffle:** *${shuffleMode}*\n\n` +
-          `${LEA} **Status:** *${currentStatus}*\n` +
+          `${STATUS_EMOJI} **Status:** *${currentStatus}*\n` +
           `\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800\u2800`,
       )
       .setThumbnail(track.thumbnail)
@@ -650,6 +742,7 @@ class MusicPlayer {
   skip(guildId) {
     const state = this.queues.get(guildId);
     if (state) {
+      state.skipRequested = true;
       state.player.stop();
     }
   }
@@ -663,7 +756,26 @@ class MusicPlayer {
       if (state.touchTimer) clearInterval(state.touchTimer);
       if (state.channel) {
         if (state.channel.client.clearTempStatus) {
-          state.channel.client.clearTempStatus();
+          if (this.queues.size <= 1) {
+            state.channel.client.clearTempStatus();
+          } else {
+            const otherId = Array.from(this.queues.keys()).find(
+              (id) => id !== guildId,
+            );
+            const o = this.queues.get(otherId);
+            if (o && o.current) {
+              const art = o.current.uploader || o.current.artist || "";
+              const cln = this.clean(o.current.title, art);
+              const prs = art && art !== "---" ? `${art} - ${cln}` : cln;
+              state.channel.client.setTempStatus(
+                prs,
+                ActivityType.Listening,
+                null,
+              );
+            } else {
+              state.channel.client.clearTempStatus();
+            }
+          }
         } else {
           state.channel.client.user.setActivity("/help | MaveL", {
             type: ActivityType.Watching,
@@ -700,10 +812,21 @@ class MusicPlayer {
       if (success && !state.pauseTimer) {
         state.pauseTimer = setTimeout(() => {
           const checkState = this.queues.get(guildId);
-          if (checkState && checkState.player.state.status === AudioPlayerStatus.Paused) {
+          if (
+            checkState &&
+            checkState.player.state.status === AudioPlayerStatus.Paused
+          ) {
             if (checkState.channel) {
-              const E_WARN = this.getEmoji(checkState.channel.guild, "ping_red", "🔴");
-              checkState.channel.send(`${E_WARN} **Disconnected:** Music was paused for more than 5 minutes.`).catch(() => {});
+              const E_WARN = this.getEmoji(
+                checkState.channel.guild,
+                "ping_red",
+                "🔴",
+              );
+              checkState.channel
+                .send(
+                  `${E_WARN} **Disconnected:** Music was paused for more than 5 minutes.`,
+                )
+                .catch(() => {});
             }
             this.stop(guildId);
           }
@@ -735,6 +858,12 @@ class MusicPlayer {
   toggleShuffle(guildId, mode) {
     const state = this.getQueue(guildId);
     state.shuffle = mode === "on";
+    if (state.shuffle && state.queue.length > 1) {
+      for (let i = state.queue.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [state.queue[i], state.queue[j]] = [state.queue[j], state.queue[i]];
+      }
+    }
     return state.shuffle;
   }
 
@@ -762,6 +891,7 @@ class MusicPlayer {
     const state = this.queues.get(guildId);
     if (state && state.queue[index - 1]) {
       state.queue.splice(0, index - 1);
+      state.skipRequested = true;
       state.player.stop();
       return true;
     }

@@ -30,7 +30,7 @@ module.exports = {
     const FIRE = getEmoji("purple_fire", "🔥");
     const ARROW = getEmoji("arrow", "»");
     const NOTIF = getEmoji("notif", "🔔");
-    const LEA = getEmoji("ping_green", "✅");
+    const CHECK = getEmoji("ping_green", "✅");
     const E_SUCCESS = getEmoji("ping_green", "✅");
     const E_ERROR = getEmoji("ping_red", "❌");
 
@@ -84,7 +84,7 @@ module.exports = {
 
         const introEmbed = new EmbedBuilder()
           .setColor("#6c5ce7")
-          .setTitle(`${LEA} **Private Download Room**`)
+          .setTitle(`${CHECK} **Private Download Room**`)
           .setDescription(
             `### ${FIRE} **Welcome, ${user.username}!**\n` +
             `${ARROW} This is your private space for downloads.\n` +

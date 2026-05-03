@@ -33,6 +33,7 @@ module.exports = {
   gatewayChannelId:
     savedSettings.gatewayChannelId || process.env.GATEWAY_CHANNEL_ID || "",
   autoRoleId: savedSettings.autoRoleId || process.env.AUTO_ROLE_ID || "",
+  reportsChannelId: savedSettings.reportsChannelId || process.env.REPORTS_CHANNEL_ID || "",
 
   prefix: ".",
   timeouts: {
