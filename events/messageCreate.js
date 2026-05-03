@@ -5,7 +5,6 @@ const helpHandler = require("../handlers/tools/help");
 const diagnosticsHandler = require("../handlers/tools/diagnostics");
 const cookiesHandler = require("../handlers/tools/cookies");
 const setupHandler = require("../handlers/tools/setup");
-const infoHandler = require("../handlers/info");
 
 const cooldowns = new Map();
 const COOLDOWN_TIME = 60000;
@@ -143,11 +142,8 @@ module.exports = {
       return await cookiesHandler(message);
     }
 
-    if (["info", "icon", "banner", "server", "setup"].includes(commandName)) {
+    if (commandName === "setup") {
       if (!(await checkRateLimit())) return;
-      const target = message.mentions.users.first() || message.author;
-      const subcommand = args[0] || "info";
-
       const mockInteraction = {
         guild: message.guild,
         user: message.author,
@@ -155,8 +151,8 @@ module.exports = {
         client: message.client,
         commandName: commandName,
         options: {
-          getUser: () => target,
-          getSubcommand: () => subcommand,
+          getUser: () => message.mentions.users.first() || message.author,
+          getSubcommand: () => args[0] || "info",
         },
         reply: async (payload) => {
           const { withResponse, ...cleanPayload } = payload;
@@ -167,8 +163,7 @@ module.exports = {
           return await message.reply(payload);
         },
       };
-      if (commandName === "setup") return await setupHandler(mockInteraction);
-      return await infoHandler(mockInteraction);
+      return await setupHandler(mockInteraction);
     }
   },
 };

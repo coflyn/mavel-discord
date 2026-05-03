@@ -23,7 +23,6 @@ const downloaderHandler = require("../handlers/downloader");
 const converterHandler = require("../handlers/tools/converter");
 const { syncMissingEmojis } = require("../handlers/tools/emoji");
 const { resolveEmoji } = require("../utils/emoji-helper");
-const modalHandler = require("../handlers/tools/modal-handler");
 
 const settingsPath = path.join(__dirname, "../database/settings.json");
 let settingsCache = null;
@@ -89,9 +88,6 @@ module.exports = {
     } catch (e) {}
 
     try {
-      if (interaction.isModalSubmit()) {
-        return await modalHandler(interaction);
-      }
 
       if (interaction.isAutocomplete()) {
         const { commandName } = interaction;
@@ -118,13 +114,10 @@ module.exports = {
         if (commandName === "Inspect Media") commandName = "inspect";
         if (commandName === "Translate Text") commandName = "app_translate";
         if (commandName === "Extract Text (OCR)") commandName = "app_ocr";
-        if (commandName === "Vote Delete") commandName = "app_delete";
-        if (commandName === "Report to Admin") commandName = "app_report";
         if (commandName === "Format as Code") commandName = "app_format";
         if (commandName === "Mock Message") commandName = "app_mock";
         if (commandName === "Trace Anime") commandName = "trace";
         if (commandName === "Trace Movie") commandName = "trace";
-        if (commandName === "Add Checkpoint") commandName = "app_checkpoint";
 
         const cmd = client.commands.get(commandName);
         if (cmd) return await cmd.execute(interaction, client);

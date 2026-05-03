@@ -7,60 +7,6 @@ module.exports = {
     const guild = oldState.guild;
     const member = newState.member || oldState.member;
     if (!member) return;
-    const user = member.user;
-
-    if (!user.bot) {
-      if (!oldState.channelId && newState.channelId) {
-        advanceLog(client, {
-          type: "voice",
-          title: "Voice Joined",
-          activity: "User Connected",
-          message: `${user} joined voice channel: **${newState.channel.name}**`,
-          user: `${user.tag}`,
-          guild: guild.name,
-        });
-      } else if (oldState.channelId && !newState.channelId) {
-        advanceLog(client, {
-          type: "voice",
-          title: "Voice Left",
-          activity: "User Disconnected",
-          message: `${user} left voice channel: **${oldState.channel.name}**`,
-          user: `${user.tag}`,
-          guild: guild.name,
-        });
-      } else if (
-        oldState.channelId &&
-        newState.channelId &&
-        oldState.channelId !== newState.channelId
-      ) {
-        advanceLog(client, {
-          type: "voice",
-          title: "Voice Moved",
-          activity: "Switching Channels",
-          message: `${user} moved from **${oldState.channel.name}** to **${newState.channel.name}**`,
-          user: `${user.tag}`,
-          guild: guild.name,
-        });
-      } else if (oldState.selfMute !== newState.selfMute) {
-        advanceLog(client, {
-          type: "info",
-          title: "Voice Activity",
-          activity: "VC Monitoring",
-          message: `${user.tag} ${newState.selfMute ? "muted" : "unmuted"} themselves`,
-          user: `${user.tag} (${user.id})`,
-          guild: guild.name,
-        });
-      } else if (oldState.selfDeaf !== newState.selfDeaf) {
-        advanceLog(client, {
-          type: "info",
-          title: "Voice Activity",
-          activity: "VC Monitoring",
-          message: `${user.tag} ${newState.selfDeaf ? "deafened" : "undeafened"} themselves`,
-          user: `${user.tag} (${user.id})`,
-          guild: guild.name,
-        });
-      }
-    }
 
     const guildId = guild.id;
     const state = player.queues.get(guildId);

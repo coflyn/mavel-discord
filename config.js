@@ -30,10 +30,6 @@ module.exports = {
     savedSettings.musicChannelId || process.env.MUSIC_CHANNEL_ID || "",
   adminChannelId:
     savedSettings.adminChannelId || process.env.ADMIN_CHANNEL_ID || "",
-  gatewayChannelId:
-    savedSettings.gatewayChannelId || process.env.GATEWAY_CHANNEL_ID || "",
-  autoRoleId: savedSettings.autoRoleId || process.env.AUTO_ROLE_ID || "",
-  reportsChannelId: savedSettings.reportsChannelId || process.env.REPORTS_CHANNEL_ID || "",
 
   prefix: ".",
   timeouts: {

@@ -12,14 +12,6 @@ MaveL is a sophisticated, multi-purpose Discord bot built for high-performance m
 
 ## Key Features
 
-### Automated Gateway and Welcome System
-
-MaveL streamlines member onboarding with a dynamic gateway system. It can automatically generate custom welcome cards for new members, providing a professional first impression for your community while keeping track of total member growth.
-
-### Smart Role Management
-
-To reduce administrative overhead, MaveL includes an automated role assignment feature. New members can be assigned specific roles instantly upon joining, ensuring they have immediate access to the appropriate server channels and permissions.
-
 ### Advanced Server Auditing
 
 Beyond utility and music, MaveL acts as a robust security monitor for your server. It tracks and logs critical events such as message deletions and edits. By interfacing with Discord's audit logs, the bot can often identify the specific user responsible for an action, providing administrators with a clear and transparent activity trail.
@@ -118,27 +110,7 @@ For optimal performance when self-hosting, MaveL requires a Linux-based environm
 
 ## Context Menu Tools
 
-MaveL integrates directly into the Discord "Apps" menu, which is accessible by right-clicking any message or media file. This allows for rapid interaction without the need to type manual slash commands.
-
-### Quick Media Processing
-
-By right-clicking a video or image and selecting **Convert Media**, you can instantly trigger the conversion engine. This is particularly useful for quickly changing file formats or optimizing file sizes for sharing. Similarly, the **Inspect Media** tool allows you to view hidden metadata and technical details of any shared file.
-
-### Text and Utility Tools
-
-MaveL provides several text-based utilities within the Apps menu:
-
-- **Translate Text**: Instantly translate any message to a different language.
-- **Format as Code**: Automatically wrap text in a clean code block for better readability.
-- **Extract Text (OCR)**: Use optical character recognition to read and copy text from images.
-
-### Community and Moderation
-
-The Apps menu also includes tools for server integrity and fun:
-
-- **Vote Delete**: Start a democratic vote to remove a specific message.
-- **Report to Admin**: Discreetly flag suspicious or rule-breaking content for administrator review.
-- **Mock Message**: Generate a humorous or "mocking" variation of the selected text message.
+MaveL integrates directly into the Discord "Apps" menu, accessible by right-clicking any message or media file. This allows for rapid interaction without the need to type manual slash commands. Common tools include **Media Conversion**, **OCR Extraction**, and **Translation**.
 
 ## Practical Usage Scenarios
 
@@ -162,10 +134,11 @@ Sometimes social media platforms update their security, causing links to fail. I
 
 For those interested in self-hosting or contributing to the project, the following environment variables are required in your `.env` file:
 
-- `TOKEN`: Your Discord Bot Token.
+- `DISCORD_TOKEN`: Your Discord Bot Token.
 - `CLIENT_ID`: The application ID from the Discord Developer Portal.
-- `LOGS_CHANNEL_ID`: A dedicated channel for the MaveL Security System to report activities.
-- `ADMIN_ID`: Your Discord User ID to grant access to system-level commands.
+- `GUILD_ID`: Your primary server ID.
+- `YT_PO_TOKEN`: (Optional) YouTube Proof of Origin token for bypass.
+- `TUNNEL_PORT`: (Default: 3033) Port for the media tunnel server.
 
 ## Troubleshooting and Maintenance
 
@@ -200,83 +173,91 @@ To operate efficiently on standard VPS environments, MaveL implements several ad
 
 ## Command Reference
 
-## Media Downloader
+### Media Downloader
 
 The downloader supports various platforms including TikTok, Instagram, YouTube, Twitter (X), Facebook, and more.
 
-- /dl: Download media from a provided URL. You can specify the format (MP4, MP3, or Gallery) and resolution.
-- /convert: Convert attached files to different formats (Video, Audio, Image, or Document).
-- /ss: Capture a high-quality screenshot of any website.
-- /inspect: View detailed information and metadata (EXIF) of a file.
+| Command    | Description                                       |
+| :--------- | :------------------------------------------------ |
+| `/dl`      | Universal media downloader (TikTok, IG, YT, etc.) |
+| `/convert` | Media Converter (Video/Audio/Image/Document)      |
+| `/ss`      | Capture a high-quality screenshot of any website  |
+| `/inspect` | Expose detailed info and EXIF data of a file      |
 
-## Music System
+### Music System
 
 High-quality audio streaming from YouTube and Bandcamp.
 
-- /play: Play music using a song title or direct link.
-- /nowplaying: Show the track currently being played.
-- /queue: View the list of upcoming songs.
-- /skip: Move to the next song in the queue.
-- /skipto: Jump to a specific song number in the queue.
-- /stop: Stop playback and disconnect the bot from the voice channel.
-- /pause: Pause the current music.
-- /resume: Continue playing paused music.
-- /shuffle: Randomize the order of the current queue.
-- /repeat: Set the queue or track to repeat.
-- /clear: Remove all tracks from the queue.
-- /remove: Delete a specific song from the queue.
-- /playlist: Manage personal playlists (Save, Play, List, View, or Delete).
-- /lyrics: Find the lyrics for the current or specified song.
+| Command       | Description                                |
+| :------------ | :----------------------------------------- |
+| `/play`       | Play music from YouTube/Bandcamp           |
+| `/nowplaying` | Show the currently playing song            |
+| `/queue`      | Show the song queue                        |
+| `/skip`       | Skip the current song                      |
+| `/skipto`     | Skip to a specific song in queue           |
+| `/stop`       | Stop music and disconnect from VC          |
+| `/pause`      | Pause the music                            |
+| `/resume`     | Resume the music                           |
+| `/shuffle`    | Toggle shuffle mode                        |
+| `/repeat`     | Set repeat mode (Off, One, All)            |
+| `/clear`      | Clear the music queue                      |
+| `/remove`     | Remove a song from the queue               |
+| `/playlist`   | Manage your personal playlists             |
+| `/lyrics`     | Find lyrics for the currently playing song |
 
-## Room Management
+### Room Management
 
 A private channel system to organize and manage download activities.
 
-- /room create: Generate a private download room for yourself.
-- /room list: View all active rooms and request access to join.
+| Command | Description                                 |
+| :------ | :------------------------------------------ |
+| `/room` | Manage private download rooms (Create/List) |
 
-## Tools and Information
+### Tools and Search
 
 General utility commands for users and server information.
 
-- /search: Find music or videos across platforms. _(Supports: YouTube, YouTube Music, Spotify, Bandcamp)_
-- /harvest: Utilize the OSINT engine to scan and extract public profile footprints. _(Supports: TikTok, Instagram, YouTube, Reddit, GitHub, and Global Social Scans)_
-- /ping: Check the bot's connection speed and response time.
-- /help: View the full command guide and bot information.
-- /server: Display detailed information about the current server.
-- /user: Check profile details for a specific user.
-- /icon: Download high-resolution server or user icons.
-- /banner: Download high-resolution server or user banners.
+| Command    | Description                                                |
+| :--------- | :--------------------------------------------------------- |
+| `/search`  | Search for music and videos across platforms               |
+| `/trace`   | Identify an anime or movie from an image frame             |
+| `/harvest` | OSINT engine to scan and extract public profile footprints |
+| `/ping`    | Check bot speed and connection                             |
+| `/help`    | View MaveL help guide                                      |
 
-## Administrative and System
+### Administrative and System
 
 Commands restricted to administrators for bot and server maintenance.
 
-- /setup: Configure the bot's primary channels.
-- /delete: Purge a specified number of messages in the channel (Up to 1000 messages, including old messages).
-- /emoji: Advanced emoji management (Add, Delete, Rename, or List).
-- /diagnostics: View detailed system health and resource usage.
-- /logs: Access the most recent system activity logs.
-- /backup: Create a backup of the bot settings and database.
-- /purge: Clean up temporary files or system logs.
-- /hibernate: Put the bot into sleep mode to restrict usage.
-- /wakeup: Deactivate sleep mode.
-- /reset: Restore system connections or tunnels.
-- /cookies: Update or refresh authentication cookies for restricted downloads.
-- /move: Invitation system to add the bot to other servers.
+| Command        | Description                                  |
+| :------------- | :------------------------------------------- |
+| `/setup`       | Configure server channels for the bot        |
+| `/delete`      | Purge messages (DMs or Server channels)      |
+| `/emoji needs` | Check and add missing system emojis          |
+| `/diagnostics` | Check bot system health and resource usage   |
+| `/logs`        | View the last 15 system logs                 |
+| `/backup`      | Backup the current bot settings and database |
+| `/purge`       | Clean up temporary files or system logs      |
+| `/hibernate`   | Put the bot into sleep mode (Admin Only)     |
+| `/wakeup`      | Wake up the bot from sleep mode              |
+| `/reset`       | Fix connection or system issues              |
+| `/cookies`     | Update or refresh authentication cookies     |
+| `/move`        | Add the bot to a different server            |
 
-## Context Menu Commands
+### Context Menu Commands
 
 Accessible by right-clicking a message or file in Discord.
 
-- Convert Media: Quickly convert an attached file.
-- Inspect Media: Expose metadata of a shared file.
-- Translate Text: Translate a message to a different language.
-- Extract Text (OCR): Read and extract text from an image.
-- Vote Delete: Start a community vote to remove a message.
-- Report to Admin: Flag a message for administrator review.
-- Format as Code: Wrap message content in a code block.
-- Mock Message: Generate a humorous variation of a text message.
+| Command              | Action                                          |
+| :------------------- | :---------------------------------------------- |
+| `Convert Media`      | Quickly convert an attached file                |
+| `Inspect Media`      | Expose metadata of a shared file                |
+| `Translate Text`     | Translate a message to a different language     |
+| `Extract Text (OCR)` | Read and extract text from an image             |
+| `Format as Code`     | Wrap message content in a code block            |
+| `Mock Message`       | Generate a humorous variation of a text message |
+| `Trace Anime`        | Search anime source from a frame                |
+| `Trace Movie`        | Search movie source from a frame                |
 
 ---
 

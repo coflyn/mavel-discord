@@ -45,13 +45,9 @@ module.exports = async function setupHandler(interaction) {
       download: "Downloader",
       logs: "General Logs",
       music: "Music Control",
-      gateway: "Gateway (Welcome/Goodbye)",
-      reports: "User Reports/Bugs",
       private: "Private Admin",
-      autorole: "Auto Role (New Members)",
     };
 
-    const roleName = config.autoRoleId ? (interaction.guild.roles.cache.get(config.autoRoleId)?.name || "Unknown Role") : "Not Set";
 
     return new EmbedBuilder()
       .setColor(colors.CORE)
@@ -63,10 +59,7 @@ module.exports = async function setupHandler(interaction) {
           `${ARROW} **Download:** <#${config.allowedChannelId || "Not Set"}>\n` +
           `${ARROW} **Logs:** <#${config.logsChannelId || "Not Set"}>\n` +
           `${ARROW} **Music:** <#${config.musicChannelId || "Not Set"}>\n` +
-          `${ARROW} **Gateway:** <#${config.gatewayChannelId || "Not Set"}>\n` +
-          `${ARROW} **Private Admin:** <#${config.adminChannelId || "Not Set"}>\n` +
-          `${ARROW} **User Reports:** <#${config.reportsChannelId || "Not Set"}>\n` +
-          `${ARROW} **Auto Role:** \`${roleName}\``,
+          `${ARROW} **Private Admin:** <#${config.adminChannelId || "Not Set"}>`,
       })
       .setFooter({ text: "1. Pick Category -> 2. Select Channel/Role -> 3. Finish" });
   };
@@ -81,35 +74,19 @@ module.exports = async function setupHandler(interaction) {
             { label: "Downloader Channel", value: "download", emoji: CHANNEL, default: currentCategory === "download" },
             { label: "General Logs Channel", value: "logs", emoji: LOGS, default: currentCategory === "logs" },
             { label: "Music Control Channel", value: "music", emoji: MUSIC, default: currentCategory === "music" },
-            { label: "Gateway (Welcome/Env)", value: "gateway", emoji: TEMPLE, default: currentCategory === "gateway" },
-            { label: "User Reports/Bugs", value: "reports", emoji: NOTIF, default: currentCategory === "reports" },
             { label: "Private Admin Channel", value: "private", emoji: ADMIN, default: currentCategory === "private" },
-            { label: "Auto Role Member", value: "autorole", emoji: LEA, default: currentCategory === "autorole" },
           ])
       )
     ];
 
-    if (currentCategory === "autorole") {
-      const { RoleSelectMenuBuilder } = require("discord.js");
-      rows.push(
-        new ActionRowBuilder().addComponents(
-          new RoleSelectMenuBuilder()
-            .setCustomId("setup_role")
-            .setPlaceholder("Step 2: Select Auto-Role for New Members...")
-            .setMinValues(1)
-            .setMaxValues(1)
-        )
-      );
-    } else {
-      rows.push(
-        new ActionRowBuilder().addComponents(
-          new ChannelSelectMenuBuilder()
-            .setCustomId("setup_channel")
-            .setPlaceholder(`Step 2: Select Channel...`)
-            .addChannelTypes(ChannelType.GuildText)
-        )
-      );
-    }
+    rows.push(
+      new ActionRowBuilder().addComponents(
+        new ChannelSelectMenuBuilder()
+          .setCustomId("setup_channel")
+          .setPlaceholder(`Step 2: Select Channel...`)
+          .addChannelTypes(ChannelType.GuildText)
+      )
+    );
 
     rows.push(
       new ActionRowBuilder().addComponents(
@@ -179,32 +156,15 @@ module.exports = async function setupHandler(interaction) {
         } else if (currentCategory === "music") {
           settings.musicChannelId = channelId;
           config.musicChannelId = channelId;
-        } else if (currentCategory === "gateway") {
-          settings.gatewayChannelId = channelId;
-          config.gatewayChannelId = channelId;
         } else if (currentCategory === "private") {
           settings.adminChannelId = channelId;
           config.adminChannelId = channelId;
-        } else if (currentCategory === "reports") {
-          settings.reportsChannelId = channelId;
-          config.reportsChannelId = channelId;
         }
 
         fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
         await i.update({ embeds: [generateEmbed()], components: generateRows() }).catch(() => {});
       }
 
-      else if (i.customId === "setup_role") {
-        const roleId = i.values[0];
-        settings.autoRoleId = roleId;
-        config.autoRoleId = roleId;
-
-        fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
-        await i.update({
-          embeds: [generateEmbed()],
-          components: generateRows(),
-        }).catch(() => {});
-      }
     } catch (err) {
       console.error("[SETUP-ERROR]", err.message);
     }
