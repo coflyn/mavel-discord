@@ -32,7 +32,7 @@ module.exports = async function ssHandler(interaction) {
     const outputName = `screenshot_${Date.now()}.png`;
     const outputPath = path.join(rootTempDir, outputName);
 
-    const getEmoji = (name, fallback) => resolveEmoji(interaction.guild, name, fallback);
+    const getEmoji = (name, fallback) => resolveEmoji(interaction, name, fallback);
 
     const E_TIME = getEmoji("time", "⏳");
     const E_PC = getEmoji("pc", "💻");
@@ -114,7 +114,7 @@ module.exports = async function ssHandler(interaction) {
     if (errorDetail.includes("ERR_CONNECTION_REFUSED")) errorDetail = "Website refused to connect.";
     
     console.error("[SS-FATAL]", err.message);
-    const E_PING_RED = resolveEmoji(interaction.guild, "ping_red", "🔴");
+    const E_PING_RED = resolveEmoji(interaction, "ping_red", "🔴");
     
     await interaction.editReply({
       content: `### ${E_PING_RED} **Render Failed**\n> *Details: ${errorDetail}*\n> *Make sure the URL is accessible without a VPN/Proxy.*`,

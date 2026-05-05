@@ -16,7 +16,9 @@ module.exports = {
 
     const { message, emoji } = reaction;
     const isCheck =
-      ["check", "verified", "blue_check", "ping_green"].includes(emoji.name?.toLowerCase()) ||
+      ["check", "verified", "blue_check", "ping_green"].includes(
+        emoji.name?.toLowerCase(),
+      ) ||
       emoji.name === "✅" ||
       emoji.name === "☑️";
     if (!isCheck) return;
@@ -54,7 +56,8 @@ module.exports = {
     }
 
     try {
-      const getEmoji = (n, fallback) => resolveEmoji(message.guild, n, fallback);
+      const getEmoji = (n, fallback) =>
+        resolveEmoji(message.guild, n, fallback);
 
       const E_ANNO = getEmoji("anno", "📑");
       const E_ARROW = getEmoji("arrow", "»");
@@ -67,11 +70,21 @@ module.exports = {
         })
         .setTitle(`${E_ANNO} **Content Bookmarked**`);
 
-      const thumbnailCandidate =
-        embed.thumbnail?.url ||
-        embed.image?.url ||
-        embed.author?.iconURL ||
-        message.client.user.displayAvatarURL();
+      const botAvatar = reaction.client.user.displayAvatarURL();
+      let thumbnailCandidate = null;
+
+      const rawThumbnail = embed.thumbnail?.url;
+      const rawImage = embed.image?.url;
+
+      if (rawThumbnail && !rawThumbnail.includes("/banners/")) {
+        thumbnailCandidate = rawThumbnail;
+      } else if (rawImage && !rawImage.includes("/banners/")) {
+        thumbnailCandidate = rawImage;
+      }
+
+      if (!thumbnailCandidate) {
+        thumbnailCandidate = embed.author?.iconURL || botAvatar;
+      }
 
       dmEmbed.setThumbnail(thumbnailCandidate);
 

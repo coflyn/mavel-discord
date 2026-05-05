@@ -24,8 +24,8 @@ module.exports = {
         return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
       }
       await interaction.deferReply({ flags: [MessageFlags.Ephemeral] });
-      const E_SUCCESS = resolveEmoji(interaction.guild, "ping_green", "✅");
-      const E_ERROR = resolveEmoji(interaction.guild, "ping_red", "🔴");
+      const E_SUCCESS = resolveEmoji(interaction, "ping_green", "✅");
+      const E_ERROR = resolveEmoji(interaction, "ping_red", "🔴");
 
       try {
         await resetTunnel(config.tunnelPort);

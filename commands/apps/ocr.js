@@ -32,7 +32,7 @@ module.exports = {
     }
 
     try {
-      const PC = resolveEmoji(interaction.guild, "pc", "💻");
+      const PC = resolveEmoji(interaction, "pc", "💻");
       await interaction.editReply({
         content: `${PC} *Extracting text from image, please wait...*`,
       });

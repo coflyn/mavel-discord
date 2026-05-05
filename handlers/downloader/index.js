@@ -48,7 +48,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
 
   if (!url) {
     const getEmoji = (name, fallback) =>
-      resolveEmoji(target.guild, name, fallback);
+      resolveEmoji(target, name, fallback);
 
     const ARROW = getEmoji("arrow", "•");
     const ANNO = getEmoji("anno", "🚀");
@@ -165,7 +165,7 @@ module.exports = async function downloaderHandler(target, manualOptions = {}) {
   const isNsfwUrl = nsfwKeywords.some((kw) => url.toLowerCase().includes(kw));
 
   if (isNsfwUrl && !target.channel.nsfw) {
-    const E_WARN = resolveEmoji(target.guild, "ping_red", "🔴");
+    const E_WARN = resolveEmoji(target, "ping_red", "🔴");
     const msg = `${E_WARN} **[AUTO-BLOCKED]** Download restricted: **NSFW Content** detected in a non-age-restricted channel.\n\n> *Please use an Age-Restricted channel or use \`/setup\` to reconfigure your downloader channel.*`;
 
     if (

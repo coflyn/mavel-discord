@@ -226,7 +226,7 @@ module.exports = {
           const notifyControl = async (action) => {
             const state = player.queues.get(guildId);
             if (state?.current && state.current.requestedBy === user.id) return;
-            const E_WARN = resolveEmoji(interaction.guild, "ping_red", "🔴");
+            const E_WARN = resolveEmoji(interaction, "ping_red", "🔴");
             const msg = await interaction.channel
               .send({
                 content: `${E_WARN} **[STREAM CONTROL]** ${user} has modified the playback: **[${action.toUpperCase()}]**`,
@@ -239,7 +239,7 @@ module.exports = {
             await interaction
               .update({ components: [player.getPlaybackComponents(guildId)] })
               .catch(() => {});
-            const E_PC = resolveEmoji(interaction.guild, "pc", "📡");
+            const E_PC = resolveEmoji(interaction, "pc", "📡");
             const statusMsg = await interaction.followUp({
               content: `${E_PC} *Searching for song lyrics...*`,
               flags: [MessageFlags.Ephemeral],
@@ -251,7 +251,7 @@ module.exports = {
                 content: "*No active stream found.*",
               });
             const lyrics = await findLyrics(state.current.title);
-            const E_BOOK = resolveEmoji(interaction.guild, "book", "📋");
+            const E_BOOK = resolveEmoji(interaction, "book", "📋");
             if (!lyrics || lyrics.includes("Could not find lyrics"))
               return await interaction.webhook.editMessage(statusMsg.id, {
                 content: `### ${E_BOOK} **Lyrics Search: Failed**`,
@@ -280,7 +280,7 @@ module.exports = {
           if (value === "shuffle") {
             const state = player.queues.get(guildId);
             if (!state) return;
-            const E_DIAMOND = resolveEmoji(interaction.guild, "diamond", "🔀");
+            const E_DIAMOND = resolveEmoji(interaction, "diamond", "🔀");
             if (state.queue.length === 0)
               return interaction
                 .reply({
@@ -321,7 +321,7 @@ module.exports = {
 
           if (value === "queue") {
             const list = player.getQueueList(guildId);
-            const E_ANNO = resolveEmoji(interaction.guild, "anno", "📜");
+            const E_ANNO = resolveEmoji(interaction, "anno", "📜");
             await interaction.reply({
               content: `### ${E_ANNO} **Upcoming Songs**\n${list.join("\n").substring(0, 1900) || "*The list is currently empty.*"}`,
               flags: [64],
@@ -335,7 +335,7 @@ module.exports = {
           if (value === "clear") {
             await notifyControl("Clear");
             player.clear(guildId);
-            const E_LEA = resolveEmoji(interaction.guild, "lea", "🗑️");
+            const E_LEA = resolveEmoji(interaction, "lea", "🗑️");
             await interaction.reply({
               content: `${E_LEA} **List cleared.**`,
               flags: [64],
@@ -348,7 +348,7 @@ module.exports = {
 
           if (value === "playlist") {
             const names = Object.keys(getPlaylists(user.id));
-            const E_THREE = resolveEmoji(interaction.guild, "three_dots", "📂");
+            const E_THREE = resolveEmoji(interaction, "three_dots", "📂");
             if (names.length === 0) {
               await interaction.reply({
                 content: `### ${E_THREE} **No Saved Playlists Found**`,
@@ -443,9 +443,9 @@ module.exports = {
               console.error("[DM-INVITE-GEN] Error:", e.message);
             }
 
-            const LEA = resolveEmoji(null, "lea", "🛰️");
-            const ARROW = resolveEmoji(null, "arrow", "»");
-            const ANNO = resolveEmoji(null, "anno", "📢");
+            const LEA = resolveEmoji(interaction, "lea", "🛰️");
+            const ARROW = resolveEmoji(interaction, "arrow", "»");
+            const ANNO = resolveEmoji(interaction, "anno", "📢");
 
             const embed = new EmbedBuilder()
               .setColor("#d63031")
@@ -504,9 +504,9 @@ module.exports = {
           const isAdminChannel =
             config.adminChannelId &&
             interaction.channel.id === config.adminChannelId;
-          const PING_RED = resolveEmoji(interaction.guild, "ping_red", "🔴");
-          const NOTIF = resolveEmoji(interaction.guild, "notif", "🔔");
-          const TIME = resolveEmoji(interaction.guild, "time", "⌛");
+          const PING_RED = resolveEmoji(interaction, "ping_red", "🔴");
+          const NOTIF = resolveEmoji(interaction, "notif", "🔔");
+          const TIME = resolveEmoji(interaction, "time", "⌛");
 
           if (command.category === "music") {
             if (!isMusicChannel && !isAdminChannel) {
@@ -543,70 +543,75 @@ module.exports = {
             }
           }
 
-          const now = Date.now();
-          const globalKey = `${interaction.user.id}_global`;
-          const globalData = cooldowns.get(globalKey) || {
-            count: 0,
-            start: now,
-          };
+          const isAdmin = interaction.member?.permissions.has(PermissionFlagsBits.Administrator);
 
-          if (now - globalData.start > COOLDOWN_TIME) {
-            globalData.count = 0;
-            globalData.start = now;
-          }
+          if (!isAdmin) {
+            const now = Date.now();
+            const globalKey = `${interaction.user.id}_global`;
+            const globalData = cooldowns.get(globalKey) || {
+              count: 0,
+              start: now,
+            };
 
-          if (globalData.count >= MAX_COMMANDS_PER_WINDOW) {
-            const waitTime = Math.ceil(
-              (COOLDOWN_TIME - (now - globalData.start)) / 1000,
-            );
-            return interaction
-              .reply({
-                content: `### ${PING_RED} **Rate Limit Reached**\n*MaveL only allows **${MAX_COMMANDS_PER_WINDOW} commands per minute** to maintain stability. Try again in **${waitTime}s**.*`,
-                flags: [MessageFlags.Ephemeral],
-              })
-              .then(() =>
-                setTimeout(
-                  () => interaction.deleteReply().catch(() => {}),
-                  10000,
-                ),
+            if (now - globalData.start > COOLDOWN_TIME) {
+              globalData.count = 0;
+              globalData.start = now;
+            }
+
+            if (globalData.count >= MAX_COMMANDS_PER_WINDOW) {
+              const waitTime = Math.ceil(
+                (COOLDOWN_TIME - (now - globalData.start)) / 1000,
               );
+              return interaction
+                .reply({
+                  content: `### ${PING_RED} **Rate Limit Reached**\n*MaveL only allows **${MAX_COMMANDS_PER_WINDOW} commands per minute** to maintain stability. Try again in **${waitTime}s**.*`,
+                  flags: [MessageFlags.Ephemeral],
+                })
+                .then(() =>
+                  setTimeout(
+                    () => interaction.deleteReply().catch(() => {}),
+                    10000,
+                  ),
+                );
+            }
+
+            globalData.count++;
+            cooldowns.set(globalKey, globalData);
+
+            const categoryCooldowns = {
+              downloader: 15000,
+              search: 10000,
+              music: 5000,
+              tools: command.name === "ss" ? 30000 : 3000,
+            };
+
+            const cooldownAmount =
+              command.cooldown || categoryCooldowns[command.category] || 3000;
+            const userCooldowns = cooldowns.get(interaction.user.id) || {};
+            const lastUsed = userCooldowns[command.name] || 0;
+
+            if (now - lastUsed < cooldownAmount) {
+              const timeLeft = (
+                (cooldownAmount - (now - lastUsed)) /
+                1000
+              ).toFixed(1);
+              return interaction
+                .reply({
+                  content: `### ${TIME} **Cooldown Active**\n*Please wait **${timeLeft}s** before using \`/${command.name}\` again to keep MaveL stable.*`,
+                  flags: [MessageFlags.Ephemeral],
+                })
+                .then(() =>
+                  setTimeout(
+                    () => interaction.deleteReply().catch(() => {}),
+                    10000,
+                  ),
+                );
+            }
+
+            userCooldowns[command.name] = now;
+            cooldowns.set(interaction.user.id, userCooldowns);
           }
 
-          globalData.count++;
-          cooldowns.set(globalKey, globalData);
-
-          const categoryCooldowns = {
-            downloader: 15000,
-            search: 10000,
-            music: 5000,
-            tools: command.name === "ss" ? 30000 : 3000,
-          };
-
-          const cooldownAmount =
-            command.cooldown || categoryCooldowns[command.category] || 3000;
-          const userCooldowns = cooldowns.get(interaction.user.id) || {};
-          const lastUsed = userCooldowns[command.name] || 0;
-
-          if (now - lastUsed < cooldownAmount) {
-            const timeLeft = (
-              (cooldownAmount - (now - lastUsed)) /
-              1000
-            ).toFixed(1);
-            return interaction
-              .reply({
-                content: `### ${TIME} **Cooldown Active**\n*Please wait **${timeLeft}s** before using \`/${command.name}\` again to keep MaveL stable.*`,
-                flags: [MessageFlags.Ephemeral],
-              })
-              .then(() =>
-                setTimeout(
-                  () => interaction.deleteReply().catch(() => {}),
-                  5000,
-                ),
-              );
-          }
-
-          userCooldowns[command.name] = now;
-          cooldowns.set(interaction.user.id, userCooldowns);
 
           await command.execute(interaction, client);
         }

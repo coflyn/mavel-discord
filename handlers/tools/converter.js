@@ -99,7 +99,12 @@ module.exports = async function converterHandler(interaction) {
     targetFormat = interaction.values[0];
     targetMsgId = interaction.customId.replace("conv_pick_", "");
     await interaction.editReply({
-      content: "### ⏳ **Processing...**",
+      content: null,
+      embeds: [
+        new EmbedBuilder()
+          .setColor(colors.CORE)
+          .setDescription(`### ${E_TIME} **Processing...**`),
+      ],
       components: [],
     });
   }
@@ -197,18 +202,20 @@ module.exports = async function converterHandler(interaction) {
     )
       throw new Error("Cannot convert document to media format.");
 
+    const taskLabel = targetFormat === "pdf" ? "Preparing PDF..." : "Downloading Source...";
     await interaction.editReply({
+      content: null,
       embeds: [
         new EmbedBuilder()
           .setColor(colors.CORE)
           .setDescription(
-            `### ${E_TIME} **Getting Media...**\n${E_ARROW} **Source:** *${sourceLabel}*\n${E_ARROW} **Task:** *Downloading...*`,
+            `### ${E_TIME} **Getting Media...**\n${E_ARROW} **Source:** *${sourceLabel}*\n${E_ARROW} **Task:** *${taskLabel}*`,
           ),
       ],
     });
     if (interaction.client.setTempStatus)
       interaction.client.setTempStatus(
-        "Converting Media...",
+        targetFormat === "pdf" ? "Bundling PDF..." : "Converting Media...",
         ActivityType.Watching,
         60000,
       );
@@ -229,12 +236,21 @@ module.exports = async function converterHandler(interaction) {
       localPaths.push(p);
     }
 
+    const processLabel =
+      targetFormat === "pdf"
+        ? "Bundling into PDF document..."
+        : ["mp3", "ogg", "wav"].includes(targetFormat)
+          ? "Extracting audio stream..."
+          : targetFormat.includes("mp4")
+            ? "Compressing video stream..."
+            : `Encoding to ${targetFormat.toUpperCase()}...`;
+
     await interaction.editReply({
       embeds: [
         new EmbedBuilder()
           .setColor(colors.CORE)
           .setDescription(
-            `### ${E_SYNC} **Processing Media**\n${E_ARROW} **Process:** *Encoding to ${targetFormat.toUpperCase()}...*`,
+            `### ${E_SYNC} **Processing Media**\n${E_ARROW} **Process:** *${processLabel}*`,
           ),
       ],
     });
@@ -404,9 +420,16 @@ module.exports = async function converterHandler(interaction) {
       );
     } else {
       await interaction.editReply({
-        content: `### ${E_ROCKET} **Conversion Success!**\n${E_ARROW} **Target:** \`${targetFormat.toUpperCase()}\`\n${E_ARROW} **Size:** \`${sizeMB} MB\``,
+        content: null,
+        embeds: [
+          new EmbedBuilder()
+            .setColor(colors.CORE)
+            .setTitle(`${E_ROCKET} **Conversion Success!**`)
+            .setDescription(
+              `${E_ARROW} **Target:** \`${targetFormat.toUpperCase()}\`\n${E_ARROW} **Size:** \`${sizeMB} MB\``,
+            ),
+        ],
         files: [new AttachmentBuilder(outputPath, { name: outputName })],
-        embeds: [],
       });
       if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
     }
@@ -416,8 +439,14 @@ module.exports = async function converterHandler(interaction) {
       interaction.client.clearTempStatus();
     console.error("[CONVERTER] Error:", err.message);
     await interaction.editReply({
-      content: `### ${E_PING_RED} **Conversion Error**\n${E_ARROW} *Details: ${err.message}*`,
-      embeds: [],
+      content: null,
+      embeds: [
+        new EmbedBuilder()
+          .setColor(colors.CORE)
+          .setDescription(
+            `### ${E_PING_RED} **Conversion Error**\n${E_ARROW} *Details: ${err.message}*`,
+          ),
+      ],
       components: [],
     });
     setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);

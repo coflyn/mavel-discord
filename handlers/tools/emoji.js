@@ -25,7 +25,7 @@ async function handleNeeds(interaction) {
   );
 
   const getEmoji = (name, fallback) =>
-    resolveEmoji(interaction.guild, name, fallback);
+    resolveEmoji(interaction, name, fallback);
 
   const ARROW = getEmoji("arrow", "•");
   const AMOGUS = getEmoji("lea", "🛰️");

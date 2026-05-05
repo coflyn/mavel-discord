@@ -71,12 +71,12 @@ async function toggleHibernate(interaction, status) {
     guild: interaction.guild.name,
   });
 
-  const LOCK = resolveEmoji(interaction.guild, "cash", "🔒") !== "🔒"
-    ? resolveEmoji(interaction.guild, "cash", "🔒")
-    : resolveEmoji(interaction.guild, "crowncyan", "🔒");
-  const POWER = resolveEmoji(interaction.guild, "ping_green", "🟢") !== "🟢"
-    ? resolveEmoji(interaction.guild, "ping_green", "🟢")
-    : resolveEmoji(interaction.guild, "online", "🟢");
+  const LOCK = resolveEmoji(interaction, "cash", "🔒") !== "🔒"
+    ? resolveEmoji(interaction, "cash", "🔒")
+    : resolveEmoji(interaction, "crowncyan", "🔒");
+  const POWER = resolveEmoji(interaction, "ping_green", "🟢") !== "🟢"
+    ? resolveEmoji(interaction, "ping_green", "🟢")
+    : resolveEmoji(interaction, "online", "🟢");
 
   await (interaction.deferred
     ? interaction.editReply({
@@ -91,7 +91,7 @@ async function toggleHibernate(interaction, status) {
 
 async function handlePurge(interaction) {
   const target = interaction.options.getString("target");
-  const FIRE = resolveEmoji(interaction.guild, "purple_fire", "🔥");
+  const FIRE = resolveEmoji(interaction, "purple_fire", "🔥");
 
   if (target === "logs") {
     const logPath = path.join(__dirname, "../../bot.log");
@@ -185,8 +185,8 @@ async function handleBackup(interaction) {
   const zipName = `backup-${timestamp}.zip`;
   const zipPath = path.join(tempDir, zipName);
 
-  const CHECK = resolveEmoji(interaction.guild, "ping_green", "✅");
-  const TIME = resolveEmoji(interaction.guild, "time", "⌛");
+  const CHECK = resolveEmoji(interaction, "ping_green", "✅");
+  const TIME = resolveEmoji(interaction, "time", "⌛");
 
   await (interaction.deferred
     ? interaction.editReply({
@@ -243,7 +243,7 @@ async function handleLogs(interaction) {
     .split("\n")
     .slice(-15)
     .join("\n");
-  const PC = resolveEmoji(interaction.guild, "pc", "💻");
+  const PC = resolveEmoji(interaction, "pc", "💻");
 
   await (interaction.deferred
     ? interaction.editReply({

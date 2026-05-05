@@ -100,7 +100,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
   if (jobId) {
     job = db.jobs[jobId];
     if (!job) {
-      const E_ERROR = resolveEmoji(interaction.guild, "ping_red", "❌");
+      const E_ERROR = resolveEmoji(interaction, "ping_red", "❌");
       const errorMsg = `${E_ERROR} *Error: Request expired.*`;
       const editResponse = async (data) => {
         try {
@@ -126,9 +126,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           const msg =
             statusMsg.resource?.message || statusMsg.message || statusMsg;
           if (msg && typeof msg.delete === "function") {
-            if (msg.channel && msg.guild) {
-              await msg.delete().catch(() => {});
-            }
+            await msg.delete().catch(() => {});
           }
         }
 
@@ -138,7 +136,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
       } catch (e) {
         // Silent
       }
-    }, 4000);
+    }, 1000);
   };
 
   const editLocal = async (data) => {
@@ -301,12 +299,13 @@ async function startDownload(interaction, jobId, format, options = {}) {
         }
 
         const doneEmbed = new EmbedBuilder()
-          .setColor(platformColor)
+          .setColor(getPlatformColor(platformName))
           .setAuthor({
             name: "MaveL Downloads",
             iconURL: interaction.client.user.displayAvatarURL(),
           })
           .setTitle(`${NOTIF} **Media Ready!**`)
+          .setThumbnail(job?.thumbnail || "")
           .setImage(botBanner);
 
         if (
@@ -349,10 +348,15 @@ async function startDownload(interaction, jobId, format, options = {}) {
             : sizeGall
           : sizeGall;
 
-        const limitMB = 8;
+        const limitMB = 25;
 
         if (totalSize > limitMB * 1024 * 1024) {
-          const mainFile = pdfPath || photoPaths[0];
+          if (!pdfPath) {
+            const rawPdf = await bundleImagesToPdf(photoPaths);
+            pdfPath = path.join(tempDir, `${sanitizedTitle}_${jobId || Date.now()}.pdf`);
+            if (fs.existsSync(rawPdf)) fs.renameSync(rawPdf, pdfPath);
+          }
+          const mainFile = pdfPath;
           const publicUrl = getAssetUrl(path.basename(mainFile));
           if (publicUrl) {
             const DIAMOND =
@@ -363,7 +367,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
               interaction.guild?.emojis.cache
                 .find((e) => e.name === "check")
                 ?.toString() || "🟢";
-            const embedTitle = shouldBundle
+            const embedTitle = (shouldBundle || totalSize > limitMB * 1024 * 1024)
               ? "Gallery PDF Archive"
               : "Media Gallery Link";
             doneEmbed.setDescription(
@@ -383,10 +387,16 @@ async function startDownload(interaction, jobId, format, options = {}) {
             await cleanupStatus();
             if (interaction.deleteReply)
               await interaction.deleteReply().catch(() => {});
-
             setTimeout(() => {
-              if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+              if (pdfPath && fs.existsSync(pdfPath)) {
+                try { fs.unlinkSync(pdfPath); } catch (e) {}
+              }
             }, 600000);
+            photoPaths.forEach((p) => {
+              if (p && fs.existsSync(p)) {
+                try { fs.unlinkSync(p); } catch (e) {}
+              }
+            });
             return;
           }
         }
@@ -398,11 +408,14 @@ async function startDownload(interaction, jobId, format, options = {}) {
         await finalMsg.react(CHECK).catch(() => {});
 
         await cleanupStatus();
-        if (interaction.client.clearTempStatus)
-          interaction.client.clearTempStatus();
-
-        photoPaths.forEach((p) => fs.existsSync(p) && fs.unlinkSync(p));
-        if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+        photoPaths.forEach((p) => {
+          if (p && fs.existsSync(p)) {
+            try { fs.unlinkSync(p); } catch (e) {}
+          }
+        });
+        if (pdfPath && fs.existsSync(pdfPath)) {
+          try { fs.unlinkSync(pdfPath); } catch (e) {}
+        }
         if (interaction.deleteReply)
           await interaction.deleteReply().catch(() => {});
 
@@ -483,7 +496,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
         }
 
         const doneEmbed = new EmbedBuilder()
-          .setColor(platformColor)
+          .setColor(colors.SOCIAL)
           .setAuthor({
             name: "MaveL Downloads",
             iconURL: interaction.client.user.displayAvatarURL(),
@@ -522,10 +535,14 @@ async function startDownload(interaction, jobId, format, options = {}) {
             : sizeGallTK
           : sizeGallTK;
 
-        const limitMB = 8;
-
+        const limitMB = 25;
         if (totalSize > limitMB * 1024 * 1024) {
-          const mainFile = pdfPath || photoPaths[0];
+          if (!pdfPath) {
+            const rawPdf = await bundleImagesToPdf(photoPaths);
+            pdfPath = path.join(tempDir, `${sanitizedTitle}_${jobId || Date.now()}.pdf`);
+            if (fs.existsSync(rawPdf)) fs.renameSync(rawPdf, pdfPath);
+          }
+          const mainFile = pdfPath;
           const publicUrl = getAssetUrl(path.basename(mainFile));
           if (publicUrl) {
             const DIAMOND =
@@ -536,7 +553,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
               interaction.guild?.emojis.cache
                 .find((e) => e.name === "check")
                 ?.toString() || "🟢";
-            const embedTitle = shouldBundle
+            const embedTitle = (shouldBundle || totalSize > limitMB * 1024 * 1024)
               ? "Gallery PDF Archive"
               : "Media Gallery Link";
             doneEmbed.setDescription(
@@ -553,13 +570,16 @@ async function startDownload(interaction, jobId, format, options = {}) {
               embeds: [doneEmbed],
             });
             await finalMsg.react(CHECK).catch(() => {});
-            await cleanupStatus();
-            if (interaction.deleteReply)
-              await interaction.deleteReply().catch(() => {});
-
             setTimeout(() => {
-              if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+              if (pdfPath && fs.existsSync(pdfPath)) {
+                try { fs.unlinkSync(pdfPath); } catch (e) {}
+              }
             }, 600000);
+            photoPaths.forEach((p) => {
+              if (p && fs.existsSync(p)) {
+                try { fs.unlinkSync(p); } catch (e) {}
+              }
+            });
             return;
           }
         }
@@ -572,8 +592,14 @@ async function startDownload(interaction, jobId, format, options = {}) {
 
         await cleanupStatus();
 
-        photoPaths.forEach((p) => p && fs.existsSync(p) && fs.unlinkSync(p));
-        if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+        photoPaths.forEach((p) => {
+          if (p && fs.existsSync(p)) {
+            try { fs.unlinkSync(p); } catch (e) {}
+          }
+        });
+        if (pdfPath && fs.existsSync(pdfPath)) {
+          try { fs.unlinkSync(pdfPath); } catch (e) {}
+        }
         if (interaction.deleteReply)
           await interaction.deleteReply().catch(() => {});
 
@@ -1069,10 +1095,15 @@ async function startDownload(interaction, jobId, format, options = {}) {
             ? fs.statSync(pdfPath).size
             : totalSizeSize;
 
-        const limitMB = 8;
+        const limitMB = 25;
 
         if (totalSize > limitMB * 1024 * 1024) {
-          const mainFile = pdfPath || photoPaths[0];
+          if (!pdfPath) {
+            const rawPdf = await bundleImagesToPdf(photoPaths);
+            pdfPath = path.join(tempDir, `${sanitizedTitle}_${jobId || Date.now()}.pdf`);
+            if (fs.existsSync(rawPdf)) fs.renameSync(rawPdf, pdfPath);
+          }
+          const mainFile = pdfPath;
           const publicUrl = getAssetUrl(path.basename(mainFile));
 
           if (publicUrl) {
@@ -1084,9 +1115,12 @@ async function startDownload(interaction, jobId, format, options = {}) {
               interaction.guild?.emojis.cache
                 .find((e) => e.name === "check")
                 ?.toString() || "🟢";
+            const embedTitle = (shouldBundle || totalSize > limitMB * 1024 * 1024)
+              ? "Pixiv PDF Archive"
+              : "Pixiv Gallery Link";
             doneEmbed.setDescription(
               (userMention ? `${userMention}\n\n` : "") +
-                `### ${DIAMOND} **Pixiv Gallery Too Large**\n` +
+                `### ${DIAMOND} **${embedTitle}**\n` +
                 `${ARROW} **Title:** *${formatTitleForDisplay(title || job?.title)}*\n` +
                 `${ARROW} **Size:** *${formatSize(totalSize)}*\n` +
                 `${ARROW} **Link:** [Original Link](<${url}>)\n\n` +
@@ -1099,13 +1133,16 @@ async function startDownload(interaction, jobId, format, options = {}) {
               embeds: [doneEmbed],
             });
             await finalMsg.react(CHECK).catch(() => {});
-            await cleanupStatus();
-            if (interaction.deleteReply)
-              await interaction.deleteReply().catch(() => {});
-
             setTimeout(() => {
-              if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+              if (pdfPath && fs.existsSync(pdfPath)) {
+                try { fs.unlinkSync(pdfPath); } catch (e) {}
+              }
             }, 600000);
+            photoPaths.forEach((p) => {
+              if (p && fs.existsSync(p)) {
+                try { fs.unlinkSync(p); } catch (e) {}
+              }
+            });
             return;
           }
         }
@@ -1117,8 +1154,14 @@ async function startDownload(interaction, jobId, format, options = {}) {
         await finalMsg.react(CHECK).catch(() => {});
 
         await cleanupStatus();
-        photoPaths.forEach((p) => p && fs.existsSync(p) && fs.unlinkSync(p));
-        if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+        photoPaths.forEach((p) => {
+          if (p && fs.existsSync(p)) {
+            try { fs.unlinkSync(p); } catch (e) {}
+          }
+        });
+        if (pdfPath && fs.existsSync(pdfPath)) {
+          try { fs.unlinkSync(pdfPath); } catch (e) {}
+        }
         if (interaction.deleteReply)
           await interaction.deleteReply().catch(() => {});
         return;
@@ -1149,6 +1192,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             iconURL: interaction.client.user.displayAvatarURL(),
           })
           .setTitle(`${NOTIF} **Media Ready!**`)
+          .setThumbnail(job?.thumbnail || "")
           .setImage(botBanner)
           .setDescription(
             `${LEA} **Your media is ready**\n` +
@@ -1156,7 +1200,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
               `${ARROW} **Platform:** *Pixiv Animation*\n` +
               `${ARROW} **Source:** *Pixiv (Ugoira)*\n` +
               `${ARROW} **Length:** *Animated*\n` +
-              `${ARROW} **Link:** [View Pixiv](<${url}>)`,
+              `${ARROW} **Link:** [Original Link](<${url}>)`,
           )
           .setFooter({
             text: `MaveL Downloader (${formatSize(fs.statSync(outputFile).size)}) • Today at ${new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }).replace(":", ".")}`,
@@ -1202,6 +1246,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
           files: [attachment],
         });
         await finalMsg.react(CHECK).catch(() => {});
+        await cleanupStatus();
         if (fs.existsSync(outputFile)) fs.unlinkSync(outputFile);
         if (interaction.deleteReply)
           await interaction.deleteReply().catch(() => {});
@@ -1389,13 +1434,9 @@ async function startDownload(interaction, jobId, format, options = {}) {
           files: attachments,
         });
         await finalMsg.react(CHECK).catch(() => {});
-
+        await cleanupStatus();
         photoPaths.forEach((p) => fs.unlinkSync(p));
         if (fs.existsSync(audioPath)) fs.unlinkSync(audioPath);
-        if (interaction.deleteReply)
-          await interaction.deleteReply().catch(() => {});
-        else if (statusMsg && statusMsg.delete)
-          await statusMsg.delete().catch(() => {});
         return;
       }
 
@@ -1762,12 +1803,7 @@ async function startDownload(interaction, jobId, format, options = {}) {
             embeds: [linkEmbed],
           });
           await finalMsg.react(CHECK).catch(() => {});
-
-          try {
-            if (interaction.deleteReply) await interaction.deleteReply();
-            if (statusMsg && statusMsg.delete) await statusMsg.delete();
-          } catch (e) {}
-
+          await cleanupStatus();
           return;
         }
         throw new Error(`File is too large (over ${limitMB}MB).`);

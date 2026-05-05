@@ -23,7 +23,7 @@ module.exports = async function cookiesHandler(interaction) {
     return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
   }
 
-  const getEmoji = (name, fallback) => resolveEmoji(interaction.guild, name, fallback);
+  const getEmoji = (name, fallback) => resolveEmoji(interaction, name, fallback);
 
   const NOTIF = getEmoji("notif", "🔔");
   const ARROW = getEmoji("arrow", "•");

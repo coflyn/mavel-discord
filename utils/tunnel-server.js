@@ -35,7 +35,7 @@ function launchCloudflared(port, resolve) {
     `http://localhost:${port}`,
     "--no-autoupdate",
     "--protocol",
-    "http2"
+    "http2",
   ]);
 
   cfProcess.stderr.on("data", (data) => {
@@ -46,7 +46,15 @@ function launchCloudflared(port, resolve) {
       output.includes("ERR") ||
       output.includes("failed")
     ) {
-      console.log(`[CLOUDFLARED-LOG] ${output.trim()}`);
+      const cleanMsg = output
+        .replace(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z/g, "")
+        .replace(/connIndex=\d+/g, "")
+        .replace(/event=\d+/g, "")
+        .replace(/ip=\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/g, "")
+        .replace(/error="(.+?)"/g, "$1")
+        .trim();
+
+      if (cleanMsg) console.log(`[TUNNEL] ${cleanMsg}`);
     }
 
     const match = output.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);

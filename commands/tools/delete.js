@@ -19,8 +19,8 @@ module.exports = {
   name: "delete",
   async execute(interaction, client) {
     const guild = interaction.guild;
-    const FIRE = resolveEmoji(guild, "purple_fire", "🔥");
-    const RED_DOT = resolveEmoji(guild, "ping_red", "🔴");
+    const FIRE = resolveEmoji(interaction, "purple_fire", "🔥");
+    const RED_DOT = resolveEmoji(interaction, "ping_red", "🔴");
 
     await interaction.deferReply({ flags: [64] });
     const count = interaction.options.getInteger("count") || 5;

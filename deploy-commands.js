@@ -41,12 +41,6 @@ const contextMenus = [
     .setName("Extract Text (OCR)")
     .setType(ApplicationCommandType.Message),
   new ContextMenuCommandBuilder()
-    .setName("Vote Delete")
-    .setType(ApplicationCommandType.Message),
-  new ContextMenuCommandBuilder()
-    .setName("Report to Admin")
-    .setType(ApplicationCommandType.Message),
-  new ContextMenuCommandBuilder()
     .setName("Format as Code")
     .setType(ApplicationCommandType.Message),
   new ContextMenuCommandBuilder()
@@ -57,9 +51,6 @@ const contextMenus = [
     .setType(ApplicationCommandType.Message),
   new ContextMenuCommandBuilder()
     .setName("Trace Movie")
-    .setType(ApplicationCommandType.Message),
-  new ContextMenuCommandBuilder()
-    .setName("Add Checkpoint")
     .setType(ApplicationCommandType.Message),
 ];
 

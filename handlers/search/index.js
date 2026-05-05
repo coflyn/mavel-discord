@@ -55,7 +55,7 @@ module.exports = async function searchHandler(interaction) {
     }
   }
 
-  const getEmoji = (name, fallback) => resolveEmoji(interaction.guild, name, fallback);
+  const getEmoji = (name, fallback) => resolveEmoji(interaction, name, fallback);
 
   const ARROW = getEmoji("arrow", "•");
   const FIRE = getEmoji("purple_fire", "🔥");

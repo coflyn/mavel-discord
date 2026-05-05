@@ -51,8 +51,8 @@ async function musicHandler(target, manualData = null) {
   const source = (manualData && manualData.source) || "yt";
 
   if (!url && query) {
-    const E_PC = resolveEmoji(target.guild, "pc", "📡");
-    const E_ROCKET = resolveEmoji(target.guild, "rocket", "🚀");
+    const E_PC = resolveEmoji(target, "pc", "📡");
+    const E_ROCKET = resolveEmoji(target, "rocket", "🚀");
 
     const searchingMsg =
       source === "bc"
@@ -100,48 +100,92 @@ async function musicHandler(target, manualData = null) {
     if (source === "bc") {
       const tryBcSearchLocal = async (q) => {
         const res = [];
-        const searchUrl = `https://bandcamp.com/search?q=${encodeURIComponent(q)}&item_type=t`;
         try {
-          const { data } = await http.get(searchUrl);
+          const homeRes = await http.get("https://bandcamp.com/", {
+            headers: {
+              Accept: "text/html",
+              Referer: "https://bandcamp.com/",
+            },
+          });
 
-          const $ = cheerio.load(data);
-          $(".search-result-item, .searchresult, .data-search").each(
-            (i, el) => {
-              const hrefVal = $(el).find(".heading a").attr("href");
-              if (!hrefVal) return;
-              const href = hrefVal.split("?")[0];
-              const title = $(el).find(".heading a").text().trim();
-              const artist =
-                $(el).find(".subhead a").last().text().trim() ||
-                $(el).find(".subhead").text().trim();
+          const $home = cheerio.load(homeRes.data);
+          const crumbsData = $home("#js-crumbs-data").attr("data-crumbs");
+          let crumb = null;
 
-              if (
-                href &&
-                (href.includes("/track/") || href.includes("/album/"))
-              ) {
-                if (!res.some((r) => r.webpage_url === href)) {
-                  res.push({
-                    title,
-                    webpage_url: href,
-                    uploader: artist || "Bandcamp Artist",
-                  });
-                }
-              }
+          if (crumbsData) {
+            try {
+              const crumbs = JSON.parse(crumbsData);
+              crumb =
+                crumbs["BcSearch/1/autosuggest"] || Object.values(crumbs)[0];
+            } catch (e) {}
+          }
+
+          if (!crumb) {
+            console.warn(
+              "[BC-SEARCH] Failed to extract security crumb. Falling back...",
+            );
+            return [];
+          }
+
+          const apiRes = await http.post(
+            "https://bandcamp.com/api/bcsearch/1/autosuggest",
+            {
+              search_text: q,
+              search_filter: "t",
+              full_page: false,
+              size: 15,
+            },
+            {
+              headers: {
+                "Content-Type": "application/json; charset=UTF-8",
+                "X-BC-Crumb": crumb,
+                Referer: "https://bandcamp.com/",
+              },
             },
           );
+
+          if (apiRes.data && apiRes.data.auto && apiRes.data.auto.results) {
+            apiRes.data.auto.results.forEach((item) => {
+              if (
+                item.item_type_letter === "t" ||
+                item.item_type_letter === "a"
+              ) {
+                res.push({
+                  title: item.name,
+                  webpage_url: item.url,
+                  uploader: item.band_name || "Bandcamp Artist",
+                  thumbnail: item.img || null,
+                });
+              }
+            });
+          }
         } catch (e) {
-          console.error("[BC-SEARCH] Error:", e.message);
+          console.error("[BC-SEARCH] API Error:", e.message);
         }
         return res;
       };
 
       results = await tryBcSearchLocal(refinedQuery);
+
+      if (results.length === 0) {
+        console.log(
+          "[BC-SEARCH] No results or blocked. Falling back to YouTube...",
+        );
+        let fallbackResults = await tryYtSearch(
+          "ytsearch10",
+          `${refinedQuery} bandcamp`,
+        );
+        results = fallbackResults.map((r) => ({
+          ...r,
+          title: `[BC-Fallback] ${r.title}`,
+        }));
+      }
     } else {
       let rawResults = await tryYtSearch("ytmsearch10", refinedQuery);
       if (rawResults.length === 0) {
         rawResults = await tryYtSearch("ytsearch10", refinedQuery);
       }
-      results = rawResults.filter(r => {
+      results = rawResults.filter((r) => {
         const isLive = r.is_live || r.live_status === "is_live";
         const duration = r.duration || 0;
         return !isLive && duration <= 3600;

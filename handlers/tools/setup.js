@@ -27,16 +27,16 @@ module.exports = async function setupHandler(interaction) {
     return setTimeout(() => interaction.deleteReply().catch(() => {}), 10000);
   }
 
-  const NOTIF = resolveEmoji(interaction.guild, "notif", "🔔");
-  const ARROW = resolveEmoji(interaction.guild, "arrow", "•");
-  const FIRE = resolveEmoji(interaction.guild, "purple_fire", "🔥");
-  const CHANNEL = resolveEmoji(interaction.guild, "pc", "💾");
-  const LOGS = resolveEmoji(interaction.guild, "book", "📜");
-  const MUSIC = resolveEmoji(interaction.guild, "notif", "🎵");
-  const TEMPLE = resolveEmoji(interaction.guild, "megaphone", "🏛️");
-  const ADMIN = resolveEmoji(interaction.guild, "diamond", "🛡️");
-  const CHECK = resolveEmoji(interaction.guild, "ping_green", "✅");
-  const LEA = resolveEmoji(interaction.guild, "lea", "👤");
+  const NOTIF = resolveEmoji(interaction, "notif", "🔔");
+  const ARROW = resolveEmoji(interaction, "arrow", "•");
+  const FIRE = resolveEmoji(interaction, "purple_fire", "🔥");
+  const CHANNEL = resolveEmoji(interaction, "pc", "💾");
+  const LOGS = resolveEmoji(interaction, "book", "📜");
+  const MUSIC = resolveEmoji(interaction, "notif", "🎵");
+  const TEMPLE = resolveEmoji(interaction, "megaphone", "🏛️");
+  const ADMIN = resolveEmoji(interaction, "diamond", "🛡️");
+  const CHECK = resolveEmoji(interaction, "ping_green", "✅");
+  const LEA = resolveEmoji(interaction, "lea", "👤");
 
   let currentCategory = "download";
 

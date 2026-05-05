@@ -77,7 +77,7 @@ module.exports = async function inspectorHandler(interaction) {
       throw new Error("No media file detected to inspect.");
 
     const getEmoji = (name, fallback) =>
-      resolveEmoji(interaction.guild, name, fallback);
+      resolveEmoji(interaction, name, fallback);
 
     const E_TIME = getEmoji("time", "⌛");
     const E_INFO = getEmoji("anno", "ℹ️");
@@ -228,7 +228,7 @@ module.exports = async function inspectorHandler(interaction) {
     if (fs.existsSync(inputPath)) fs.unlinkSync(inputPath);
   } catch (err) {
     console.error("[INSPECT] Error:", err.message);
-    const E_ERROR = resolveEmoji(interaction.guild, "ping_red", "🔴");
+    const E_ERROR = resolveEmoji(interaction, "ping_red", "🔴");
     await interaction.editReply({
       content: `### ${E_ERROR} **Something went wrong**\n> *Error: ${err.message}*`,
       embeds: [],

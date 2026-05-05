@@ -30,7 +30,7 @@ module.exports = {
       });
     }
 
-    const GLOBE = resolveEmoji(interaction.guild, "globe", "🌍");
+    const GLOBE = resolveEmoji(interaction, "globe", "🌍");
 
     const row = new ActionRowBuilder().addComponents(
       new StringSelectMenuBuilder()

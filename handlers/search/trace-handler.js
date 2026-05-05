@@ -47,7 +47,7 @@ module.exports = async function traceHandler(interaction) {
   }
 
   const getEmoji = (name, fallback) =>
-    resolveEmoji(interaction.guild, name, fallback);
+    resolveEmoji(interaction, name, fallback);
   const E_TIME = getEmoji("time", "⏳");
   const E_SEARCH = getEmoji("lea", "🔎");
   const E_PING_RED = getEmoji("ping_red", "🔴");
